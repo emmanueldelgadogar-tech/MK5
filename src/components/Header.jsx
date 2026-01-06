@@ -1,51 +1,29 @@
-import promo from "../assets/DICIEMBRE.jpeg";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
+import miniLogo from "../assets/mini-logo.png";
 
-export default function Home() {
+export default function Header() {
   return (
-    <main className="container main">
-      <section className="hero">
-        <div className="hero__text">
-          <h1>MK5 Llantas</h1>
-          <p>Cotiza por medida, marca o modelo en segundos.</p>
+    <header className="header">
+      <div className="container header__inner">
+        <NavLink to="/" className="header__brand">
+          <img src={miniLogo} alt="MK5" />
+        </NavLink>
 
-          <form className="search" onSubmit={(e) => e.preventDefault()}>
-            <input className="search__input" placeholder="Ej: 205/55R16 o Tornel" />
-            <button className="btn btn--dark" type="submit">Buscar</button>
-          </form>
+        <nav className="nav">
+          <NavLink to="/" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`}>
+            Inicio
+          </NavLink>
 
-          <div className="quick">
-            <Link className="chip" to="/catalogo">Ver catálogo</Link>
-            <Link className="chip" to="/checkout">Agendar cita</Link>
-          </div>
-        </div>
+          <NavLink to="/catalogo" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`}>
+            Catálogo
+          </NavLink>
 
-        <div className="promo-wrap">
-          <img src={promo} className="Promo-Diciembre" alt="Promo del mes" />
-        </div>
-      </section>
-
-      <section className="grid">
-        <article className="card">
-          <h3>Catálogo</h3>
-          <p>Explora marcas, medidas y disponibilidad.</p>
-          <Link className="link" to="/catalogo">Abrir →</Link>
-        </article>
-
-        <article className="card">
-          <h3>Cotizar</h3>
-          <p>Te ayudamos por WhatsApp en minutos.</p>
-          <a className="link" href="https://wa.me/521XXXXXXXXXX" target="_blank" rel="noreferrer">
-            Ir a WhatsApp →
-          </a>
-        </article>
-
-        <article className="card">
-          <h3>Agendar cita</h3>
-          <p>Selecciona sucursal, fecha y hora.</p>
-          <Link className="link" to="/checkout">Continuar →</Link>
-        </article>
-      </section>
-    </main>
+          <NavLink to="/checkout" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`}>
+            Cita
+          </NavLink>
+        </nav>
+      </div>
+    </header>
   );
 }
+
