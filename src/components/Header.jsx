@@ -1,24 +1,48 @@
-import { NavLink } from "react-router-dom";
-import miniLogo from "../assets/mini-logo.png";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
+
+import logoImg from "../assets/mini-logo.png"; // usa tu logo real
 
 export default function Header() {
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+
+  const onSearch = (e) => {
+    e.preventDefault();
+    const query = q.trim();
+    if (!query) return;
+    navigate(`/catalogo?q=${encodeURIComponent(query)}`);
+    setQ("");
+  };
+
   return (
     <header className="header">
       <div className="container header__inner">
-        <NavLink to="/" className="header__brand">
-          <img src={miniLogo} alt="MK5" />
+        <NavLink to="/" className="header__brand" aria-label="Inicio">
+          <img src={logoImg} alt="MK5" />
         </NavLink>
 
+        {/* 🔥 BUSCADOR EN MEDIO */}
+        <form className="header__search" onSubmit={onSearch}>
+          <input
+            className="header__searchInput"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar medida, marca o modelo…"
+          />
+          <button className="header__searchBtn" type="submit">
+            Buscar
+          </button>
+        </form>
+
         <nav className="nav">
-          <NavLink to="/" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`}>
+          <NavLink to="/" className="nav__link">
             Inicio
           </NavLink>
-
-          <NavLink to="/catalogo" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`}>
+          <NavLink to="/catalogo" className="nav__link">
             Catálogo
           </NavLink>
-
-          <NavLink to="/checkout" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`}>
+          <NavLink to="/cita" className="nav__link">
             Cita
           </NavLink>
         </nav>
@@ -26,4 +50,3 @@ export default function Header() {
     </header>
   );
 }
-
