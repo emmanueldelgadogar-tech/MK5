@@ -1,10 +1,63 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 import guideImg from "../assets/nuevafiltro.png";
 
 import promoEnero from "../assets/ENERO.png";
 import promo1 from "../assets/ENERO.png";
+
+
+import pirelliLogo from "../assets/pirelli.png";
+import firestoneLogo from "../assets/firestone.png";
+import euzkadiLogo from "../assets/euzkadi.png";
+import antareslogo from "../assets/antares.png";
+import bridgestonelogo from "../assets/bridgestone.png";
+import continentalLogo from "../assets/continental.png";
+import hankookLogo from "../assets/hankook.png";
+import cooperlogo from "../assets/cooper.png";
+import eudemonlogo from "../assets/eudemon.jpg";     
+import generallogo from "../assets/general.png";
+import goodrichlogo from "../assets/goodrich.jpg";   
+import jktyrelogo from "../assets/jktyre.png";
+import laufennlogo from "../assets/laufenn.png";
+import michelinlogo from "../assets/michelin.png";
+import miragelogo from "../assets/mirage.png";
+import ovationlogo from "../assets/ovation.jpg";     
+import tornellogo from "../assets/tornel.png";
+import wanlilogo from "../assets/wanli.jpg";  
+import goodyearlogo from "../assets/goodyear.png";       
+import minelllogo from "../assets/minell.jpg";
+import doublekinglogo from "../assets/doubleking.jpg";
+import saferichlogo from "../assets/saferich.png";
+import pegasuslogo from "../assets/pegasus.jpg";
+import blackhawklogo from "../assets/blackhawk.png";
+// ✅ Lista de marcas (key en minúsculas para URL /catalogo/:marca)
+const MARCAS_DESTACADAS = [
+  { key: "pirelli", name: "Pirelli", img: pirelliLogo },
+  { key: "bridgestone", name: "Bridgestone", img: bridgestonelogo },
+  { key: "continental", name: "Continental", img: continentalLogo },
+  { key: "michelin", name: "Michelin", img: michelinlogo },
+  { key: "goodyear", name: "Goodyear", img: goodyearlogo },
+  { key: "hankook", name: "Hankook", img: hankookLogo },
+  { key: "firestone", name: "Firestone", img: firestoneLogo },
+  { key: "euzkadi", name: "Euzkadi", img: euzkadiLogo },
+  { key: "antares", name: "Antares", img: antareslogo },
+  { key: "cooper", name: "Cooper", img: cooperlogo },
+  { key: "blackhawk", name: "Blackhawk", img: blackhawklogo },
+  { key: "laufenn", name: "Laufenn", img: laufennlogo },
+  { key: "general", name: "General", img: generallogo },
+  { key: "goodrich", name: "Goodrich", img: goodrichlogo },
+  { key: "jktyre", name: "JK Tyre", img: jktyrelogo },
+  { key: "eudemon", name: "Eudemon", img: eudemonlogo },
+  { key: "mirage", name: "Mirage", img: miragelogo },
+  { key: "ovation", name: "Ovation", img: ovationlogo },
+  { key: "tornel", name: "Tornel", img: tornellogo },
+  { key: "wanli", name: "Wanli", img: wanlilogo },
+  { key: "minell", name: "Minell", img: minelllogo },
+  { key: "doubleking", name: "Double King", img: doublekinglogo },
+  { key: "saferich", name: "Saferich", img: saferichlogo },
+  { key: "pegasus", name: "Pegasus", img: pegasuslogo },
+];
 
 export default function Home() {
   const navigate = useNavigate();
@@ -188,6 +241,18 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="brandIndex container">
+        <h2 className="brandIndex__title">Marcas más buscadas</h2>
+
+        <div className="brandIndex__grid">
+          {MARCAS_DESTACADAS.map((m) => (
+            <Link key={m.key} to={`/catalogo/${m.key}`} className="brandCard">
+              <img className="brandCard__img" src={m.img} alt={m.name} />
+            </Link>
+          ))}
         </div>
       </section>
     </main>

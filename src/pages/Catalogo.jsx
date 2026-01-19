@@ -1,16 +1,11 @@
+// src/pages/Catalogo.jsx
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 
 function parseMedidaParts(medida) {
-  // soporta: 205/55/16, 205/55R16, 205-55-16, "205 55 16"
   if (!medida) return null;
   const s = String(medida).toUpperCase().trim();
-
-  // normaliza separadores a "/"
-  const norm = s
-    .replace(/\s+/g, "/")
-    .replace(/-/g, "/")
-    .replace(/R/g, "/"); // 205/55R16 -> 205/55/16
-
+  const norm = s.replace(/\s+/g, "/").replace(/-/g, "/").replace(/R/g, "/");
   const parts = norm.split("/").filter(Boolean);
   if (parts.length < 3) return null;
 
@@ -50,20 +45,30 @@ function Accordion({ title, children, defaultOpen = true }) {
 }
 
 export default function Catalogo() {
+  // ✅ marca fija por ruta: /catalogo/:marca  (ej: /catalogo/pirelli)
+  const { marca: marcaParam } = useParams();
+  const marcaFixed = (marcaParam || "").trim();
+  const marcaFixedUpper = marcaFixed ? marcaFixed.toUpperCase() : "";
+
   const [marcas, setMarcas] = useState([]);
   const [medidas, setMedidas] = useState([]);
 
-  // ✅ multi-select
+  // ✅ multi-select (Sets)
   const [marcasSel, setMarcasSel] = useState(new Set());
   const [anchosSel, setAnchosSel] = useState(new Set());
   const [altosSel, setAltosSel] = useState(new Set());
   const [rinesSel, setRinesSel] = useState(new Set());
 
+  // ✅ paginado
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 1) Cargar filtros
+  // 1) Cargar filtros base (marcas + medidas) (lo dejamos para derivar anchos/altos/rines)
   useEffect(() => {
     fetch("/api/catalogo/filtros")
       .then((res) => res.json())
@@ -82,6 +87,7 @@ export default function Catalogo() {
     const A = new Set();
     const H = new Set();
     const R = new Set();
+
     for (const m of medidas || []) {
       const p = parseMedidaParts(m);
       if (!p) continue;
@@ -89,6 +95,7 @@ export default function Catalogo() {
       H.add(p.alto);
       R.add(p.rin);
     }
+
     const sortNum = (x, y) => x - y;
     return {
       anchos: Array.from(A).sort(sortNum),
@@ -97,50 +104,86 @@ export default function Catalogo() {
     };
   }, [medidas]);
 
-  // 3) Traer catálogo con filtros
-  const aplicarFiltros = async () => {
+  // 3) Traer items con filtros + paginado (API nueva)
+  const aplicarFiltros = async ({ append = false, pageOverride } = {}) => {
     try {
       setLoading(true);
       setError("");
 
       const params = new URLSearchParams();
 
-      if (marcasSel.size) params.set("marcas", Array.from(marcasSel).join(","));
+      // ✅ marcas finales: si viene marcaFixed, fuerza esa marca (y no uses el multiselect)
+      const marcasFinal = new Set(marcasSel);
+      if (marcaFixedUpper) {
+        marcasFinal.clear();
+        marcasFinal.add(marcaFixedUpper);
+      }
+
+      if (marcasFinal.size) params.set("marcas", Array.from(marcasFinal).join(","));
       if (anchosSel.size) params.set("anchos", Array.from(anchosSel).join(","));
       if (altosSel.size) params.set("altos", Array.from(altosSel).join(","));
       if (rinesSel.size) params.set("rines", Array.from(rinesSel).join(","));
 
-      const qs = params.toString();
-      const res = await fetch(`/api/catalogo${qs ? `?${qs}` : ""}`);
+      params.set("sort", "price_asc");
+
+      const p = pageOverride ?? (append ? page + 1 : 1);
+      params.set("page", String(p));
+      params.set("limit", "24"); // 👈 quieres más de 12 (si tu server lo permite)
+
+      const res = await fetch(`/api/catalogo/items?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
-      const list = Array.isArray(data) ? data : data.items || data.rows || [];
-      setItems(list);
+
+      setTotal(data.total || 0);
+      setPages(data.pages || 1);
+      setPage(data.page || p);
+
+      if (append) setItems((prev) => [...prev, ...(data.items || [])]);
+      else setItems(data.items || []);
     } catch (e) {
       console.error(e);
       setError("No se pudo cargar el catálogo. Reintenta.");
       setItems([]);
+      setTotal(0);
+      setPages(1);
+      setPage(1);
     } finally {
       setLoading(false);
     }
   };
 
-  // 4) Cargar al entrar
+  // 4) Cargar al entrar y cuando cambie la marca en la URL
   useEffect(() => {
-    aplicarFiltros();
+    // reset de paginado + items cuando cambias de /catalogo a /catalogo/:marca
+    setItems([]);
+    setPage(1);
+    setPages(1);
+    setTotal(0);
+
+    // si hay marca fija, limpia selección de marcas para evitar confusiones
+    if (marcaFixedUpper) setMarcasSel(new Set());
+
+    aplicarFiltros({ append: false, pageOverride: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [marcaFixedUpper]);
 
   const limpiar = () => {
-    setMarcasSel(new Set());
+    // si hay marca fija, no limpies esa (porque viene de la ruta)
+    if (!marcaFixedUpper) setMarcasSel(new Set());
     setAnchosSel(new Set());
     setAltosSel(new Set());
     setRinesSel(new Set());
+
+    // refrescar desde página 1
+    setTimeout(() => aplicarFiltros({ append: false, pageOverride: 1 }), 0);
   };
 
   const totalSel =
-    marcasSel.size + anchosSel.size + altosSel.size + rinesSel.size;
+    (marcaFixedUpper ? 0 : marcasSel.size) +
+    anchosSel.size +
+    altosSel.size +
+    rinesSel.size;
 
   return (
     <main className="container main catalogo">
@@ -152,18 +195,22 @@ export default function Catalogo() {
               <span>{marcas.length} marcas</span>
               <span className="sep">•</span>
               <span>{medidas.length} medidas</span>
+              {marcaFixedUpper && (
+                <>
+                  <span className="sep">•</span>
+                  <span>
+                    Marca fija: <b>{marcaFixedUpper}</b>
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
           <button
             type="button"
             className="filters-ecom__clear"
-            onClick={() => {
-              limpiar();
-              // si quieres que recargue al limpiar:
-              // setTimeout(aplicarFiltros, 0);
-            }}
-            disabled={loading || totalSel === 0}
+            onClick={limpiar}
+            disabled={loading && items.length === 0}
           >
             Limpiar
           </button>
@@ -172,23 +219,26 @@ export default function Catalogo() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            aplicarFiltros();
+            aplicarFiltros({ append: false, pageOverride: 1 });
           }}
         >
-          <Accordion title="Marca">
-            <div className="fchk__list">
-              {marcas.map((m) => (
-                <label key={m} className="fchk">
-                  <input
-                    type="checkbox"
-                    checked={marcasSel.has(m)}
-                    onChange={() => toggleSetValue(setMarcasSel, m)}
-                  />
-                  <span>{m}</span>
-                </label>
-              ))}
-            </div>
-          </Accordion>
+          {/* ✅ Marca (solo si NO hay marca fija por URL) */}
+          {!marcaFixedUpper && (
+            <Accordion title="Marca">
+              <div className="fchk__list">
+                {marcas.map((m) => (
+                  <label key={m} className="fchk">
+                    <input
+                      type="checkbox"
+                      checked={marcasSel.has(m)}
+                      onChange={() => toggleSetValue(setMarcasSel, m)}
+                    />
+                    <span>{m}</span>
+                  </label>
+                ))}
+              </div>
+            </Accordion>
+          )}
 
           <Accordion title="Ancho">
             <div className="fchk__list">
@@ -243,21 +293,22 @@ export default function Catalogo() {
 
       <section className="results">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <h2>Resultados</h2>
-          <small>{items.length} encontrados</small>
+          <h2>{marcaFixedUpper ? `Catálogo ${marcaFixedUpper}` : "Resultados"}</h2>
+          <small>{total} encontrados</small>
         </div>
 
         {error && <p style={{ color: "crimson" }}>{error}</p>}
 
-        {!error && items.length === 0 && !loading && (
-          <p>Selecciona filtros y presiona “Aplicar”.</p>
-        )}
+        {!error && items.length === 0 && !loading && <p>No hay resultados con esos filtros.</p>}
 
         <div className="grid catalog-grid">
           {items.map((it, idx) => (
             <article className="catalog-card" key={it.sku || idx}>
               <div className="card-image">
-                <img src="/llanta.png" alt={`${it.marca || ""} ${it.modelo || ""}`.trim()} />
+                <img
+                  src="/llanta.png"
+                  alt={`${it.marca || ""} ${it.modelo || ""}`.trim()}
+                />
               </div>
 
               <div className="card-body">
@@ -284,6 +335,21 @@ export default function Catalogo() {
               </div>
             </article>
           ))}
+        </div>
+
+        {/* ✅ Cargar más */}
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
+          {page < pages && (
+            <button
+              className="filters-ecom__apply"
+              type="button"
+              disabled={loading}
+              onClick={() => aplicarFiltros({ append: true })}
+              style={{ maxWidth: 320 }}
+            >
+              {loading ? "Cargando..." : "Cargar más"}
+            </button>
+          )}
         </div>
       </section>
     </main>
