@@ -1,0 +1,463 @@
+/* HOME */
+.main--home { background: transparent; }
+
+.home-shell{
+  width: min(1100px, 92%);
+  margin: 0 auto;
+  padding: 18px 0 40px;
+}
+
+.home-layout{
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+.home-grid2{
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
+/* Cards */
+.card{
+  background:#fff;
+  border-radius:16px;
+  padding:18px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+
+.card__head{ margin-bottom: 12px; }
+.card__head--row{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+.card__title{
+  margin:0;
+  font-size:18px;
+  font-weight:900;
+  color:#111;
+}
+.card__sub{
+  margin:6px 0 0;
+  color:#555;
+  font-size:13px;
+  
+}
+.card--ai .aiInputRow{
+  background: #fafafa;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+/* IA */
+.aiBadge{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#0a0a0a;
+  color:#fff;
+  font-size:12px;
+  font-weight:900;
+  margin-bottom:10px;
+}
+
+
+/* Botón buscar IA */
+.aiBtn{
+  height: 56px;
+  padding: 0 22px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 15px;
+  background: #e05858;
+  border: none;
+  cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+
+.aiBtn:hover{
+  background: #e9e9e9;
+}
+
+.aiBtn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.aiChips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:14px;
+}
+
+.chip{
+  border:1px solid #e6e6e6;
+  background:#fff;
+  border-radius:999px;
+  padding:8px 12px;
+  font-weight:800;
+  font-size:12px;
+  cursor:pointer;
+}
+.chip:hover{ background:#f8f8f8; }
+
+.aiPreview{ margin-top:14px; }
+
+.aiMsg{
+  background:#0a0a0a;
+  color:#fff;
+  border-radius:12px;
+  padding:14px;
+  font-size:12px;
+  line-height:1.4;
+}
+
+.aiMsg__role{
+  font-weight:900;
+  margin-bottom:6px;
+}
+
+/* Promo */
+.promo-card{
+  background:#fff;
+  border-radius:16px;
+  padding:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+
+.promo-viewport{
+  width:100%;
+  border:0;
+  padding:0;
+  background:transparent;
+  cursor:pointer;
+  border-radius:14px;
+  overflow:hidden;
+  display:block;
+}
+
+.promo-main{
+  width:100%;
+  height:360px;
+  object-fit:cover;
+  display:block;
+}
+
+.promo-dots{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin-top:10px;
+}
+
+.dot{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  border:0;
+  cursor:pointer;
+  background:#ddd;
+}
+
+.dot.is-active{ background:#111; }
+
+.promo-thumbs{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+  overflow-x:auto;
+  padding-bottom:2px;
+}
+
+.thumb{
+  border:2px solid transparent;
+  border-radius:12px;
+  padding:0;
+  background:transparent;
+  cursor:pointer;
+  overflow:hidden;
+  flex:0 0 auto;
+}
+
+.thumb img{
+  width:74px;
+  height:46px;
+  object-fit:cover;
+  display:block;
+}
+
+.thumb.is-active{
+  border-color:#111;
+}
+
+/* Brands */
+.ghostLink{
+  color:#111;
+  text-decoration:none;
+  font-weight:900;
+  font-size:13px;
+  white-space:nowrap;
+}
+.ghostLink:hover{ text-decoration:underline; }
+
+.brandGrid{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:12px;
+}
+
+.brandCard{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid #efefef;
+  background:#fff;
+  border-radius:12px;
+  padding:12px;
+  min-height:64px;
+}
+
+.brandCard__img{
+  max-width:100%;
+  max-height:34px;
+  object-fit:contain;
+}
+
+/* Manual measure */
+.measure-form{
+  display:grid;
+  gap:12px;
+  margin-top:10px;
+}
+
+.measure-field label{
+  display:block;
+  font-weight:900;
+  font-size:12px;
+  margin-bottom:8px;
+  color:#111;
+}
+
+.measure-field select{
+  width:100%;
+  height:40px;
+  border-radius:10px;
+  border:1px solid #e6e6e6;
+  padding:0 12px;
+  outline:none;
+}
+
+.measure-btn{
+  height:40px;
+  border:0;
+  border-radius:999px;
+  padding:0 16px;
+  font-weight:900;
+  cursor:pointer;
+  background:#e21b1b;
+  color:#fff;
+}
+
+/* Responsive */
+@media (max-width: 980px){
+  .home-layout{ grid-template-columns: 1fr; }
+  .home-grid2{ grid-template-columns: 1fr; }
+  .promo-main{ height: 240px; }
+  .brandGrid{ grid-template-columns: repeat(3, 1fr); }
+}
+/* ===== BRANDS GRID (Home) ===== */
+.brandGrid{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 12px;
+}
+
+/* Tarjeta flotante */
+.brandCard{
+  position: relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  background:#fff;
+  border-radius:14px;
+  padding:14px;
+  min-height:72px;
+
+  /* “fuera” / elevación */
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 10px 24px rgba(0,0,0,.10);
+
+  transform: translateY(0);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  outline: none;
+}
+
+/* Hover flotante */
+.brandCard:hover{
+  transform: translateY(-4px);
+  box-shadow: 0 16px 34px rgba(0,0,0,.16);
+  border-color: rgba(0,0,0,.10);
+}
+
+/* Cuando lo seleccionas (click/tap) */
+.brandCard:active{
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(0,0,0,.14);
+}
+
+/* Accesibilidad: si navegas con teclado */
+.brandCard:focus-visible{
+  box-shadow: 0 0 0 3px rgba(244,200,74,.65), 0 16px 34px rgba(0,0,0,.16);
+}
+
+/* Imagen dentro */
+.brandCard__img{
+  max-width: 100%;
+  max-height: 34px;
+  object-fit: contain;
+  display:block;
+}
+@media (max-width: 980px){
+  .brandGrid{ grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 560px){
+  .brandGrid{ grid-template-columns: repeat(2, 1fr); }
+  .brandCard{ min-height: 64px; padding: 12px; }
+  .brandCard__img{ max-height: 30px; }
+}
+/* El card de marcas sin fondo, solo header */
+.card--brands{
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* Header (título) en un mini-card */
+.card--brands .card__head{
+  background:#fff;
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  margin-bottom: 14px;
+}
+
+/* Grid en otro bloque flotante */
+.card--brands .brandGrid{
+  background: transparent;
+}
+/* ===== MANUAL MEASURE (como antes con imagen) ===== */
+.card--manual .measure-form{
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+/* 3 columnas arriba */
+.card--manual .measure-row{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+/* Etiquetas negras tipo “chip” */
+.card--manual .measure-field label{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0a;
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  height: 34px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+  letter-spacing: .4px;
+}
+
+/* Select */
+.card--manual .measure-field select{
+  width: 100%;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+  padding: 0 12px;
+  outline: none;
+}
+
+/* Botón rojo ancho */
+.card--manual .measure-btn{
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 900;
+  cursor: pointer;
+  background: #e21b1b;
+  color: #fff;
+  width: 100%;
+}
+
+/* Imagen guía */
+.measure-guide{
+  margin-top: 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+}
+
+.measure-guide img{
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Responsive: en móvil 1 columna */
+@media (max-width: 560px){
+  .card--manual .measure-row{
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 520px){
+  .aiInputRow{
+    flex-direction: column;
+  }         
+    .aiBtn{
+        height: 48px;
+    }
+
+}
+
+.aiTextarea{
+  width: 100%;
+  min-height: 308px;    
+  padding: 16px 18px;
+  font-size: 16px;
+  line-height: 1.45;
+  border-radius: 8px;
+  border: 1px solid #000000;
+  outline: none;
+  resize: none;        
+}
+
+.aiTextarea:focus{
+  border-color: #f37135;
+  box-shadow: 0 0 0 3px rgba(253, 80, 0, 0.18);
+}
+
+.aiBtn{
+  width: 100%;
+  height: 48px;
+  border-radius: 14px;
+  font-weight: 800;
+}
