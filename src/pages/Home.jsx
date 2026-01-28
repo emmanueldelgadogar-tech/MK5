@@ -21,6 +21,7 @@ import goodrichlogo from "../assets/goodrich.jpg";
 import tornellogo from "../assets/tornel.png"; 
 import pegasuslogo from "../assets/pegasus.jpg";
 import vinmaxlogo from "../assets/vinmax.png";
+import bannermsi from "../assets/bannermsi.png";
 
 const MARCAS_DESTACADAS = [
   { key: "pirelli", name: "Pirelli", img: pirelliLogo },
@@ -230,97 +231,100 @@ export default function Home() {
   if (q) navigate(`/catalogo?q=${encodeURIComponent(q)}`);
   else navigate("/catalogo");
 };
-
-
-  return (
-    <main className="main main--home">
-      <section className="home-shell">
-        {/* FILA 1 */}
-        <div className="home-layout">
-          <div className="home-left">
-            <AiAssistantBox onGoCatalog={goCatalogFromIA} />
-          </div>
-
-          <div className="home-right">
-            <div className="promo-card">
-              <button
-                className="promo-viewport"
-                type="button"
-                onClick={() => promoActiva?.to && navigate(promoActiva.to)}
-                aria-label="Abrir promo"
-              >
-                <img
-                  src={promoActiva.src}
-                  className="promo-main"
-                  alt={promoActiva.alt}
-                />
-              </button>
-
-              <div className="promo-dots">
-                {promos.map((p, idx) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={`dot ${idx === promoIndex ? "is-active" : ""}`}
-                    onClick={() => setPromoIndex(idx)}
-                    aria-label={`Ver ${p.alt}`}
-                  />
-                ))}
-              </div>
-
-              <div className="promo-thumbs">
-                {promos.map((p, idx) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={`thumb ${idx === promoIndex ? "is-active" : ""}`}
-                    onClick={() => setPromoIndex(idx)}
-                    aria-label={`Seleccionar ${p.alt}`}
-                  >
-                    <img src={p.src} alt={p.alt} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+return (
+  <main className="main main--home">
+    <section className="home-shell">
+      {/* FILA 1 */}
+      <div className="home-layout">
+        <div className="home-left">
+          <AiAssistantBox onGoCatalog={goCatalogFromIA} />
         </div>
 
-        {/* FILA 2 */}
-        <div className="home-grid2">
-          <div className="card card--brands">
-            <div className="card__head card__head--row">
-              <div>
-                <h3 className="card__title">Marcas más buscadas</h3>
-                <p className="card__sub">Entra por marca en un click.</p>
-              </div>
-              <Link className="ghostLink" to="/catalogo">
-                Ver catálogo →
-              </Link>
+        <div className="home-right">
+          <div className="promo-card">
+            <button
+              className="promo-viewport"
+              type="button"
+              onClick={() => promoActiva?.to && navigate(promoActiva.to)}
+              aria-label="Abrir promo"
+            >
+              <img
+                src={promoActiva.src}
+                className="promo-main"
+                alt={promoActiva.alt}
+              />
+            </button>
+
+            <div className="promo-dots">
+              {promos.map((p, idx) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`dot ${idx === promoIndex ? "is-active" : ""}`}
+                  onClick={() => setPromoIndex(idx)}
+                  aria-label={`Ver ${p.alt}`}
+                />
+              ))}
             </div>
 
-            <div className="brandGrid brandGrid--compact">
-              {MARCAS_DESTACADAS.map((m) => (
-                <Link key={m.key} to={`/catalogo/${m.key}`} className="brandCard">
-                  <img className="brandCard__img" src={m.img} alt={m.name} />
-                </Link>
+            <div className="promo-thumbs">
+              {promos.map((p, idx) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`thumb ${idx === promoIndex ? "is-active" : ""}`}
+                  onClick={() => setPromoIndex(idx)}
+                  aria-label={`Seleccionar ${p.alt}`}
+                >
+                  <img src={p.src} alt={p.alt} />
+                </button>
               ))}
             </div>
           </div>
-
-          <ManualMeasureBox
-            anchos={anchos}
-            alturas={alturas}
-            rines={rines}
-            anchoSel={anchoSel}
-            alturaSel={alturaSel}
-            rinSel={rinSel}
-            setAnchoSel={setAnchoSel}
-            setAlturaSel={setAlturaSel}
-            setRinSel={setRinSel}
-            onSubmit={buscarMedida}
-          />
         </div>
-      </section>
-    </main>
-  );
+      </div>
+{/* FILA 2 */}
+<div className="home-grid2">
+  <div className="card card--brands">
+    <div className="card__head card__head--row">
+      <div>
+        <h3 className="card__title">Marcas más buscadas</h3>
+        <p className="card__sub">Entra por marca en un click.</p>
+      </div>
+
+      <Link className="ghostLink" to="/catalogo">
+        Ver catálogo →
+      </Link>
+    </div>
+
+    <div className="brandGrid brandGrid--compact">
+      {MARCAS_DESTACADAS.map((m) => (
+        <Link key={m.key} to={`/catalogo/${m.key}`} className="brandCard">
+          <img className="brandCard__img" src={m.img} alt={m.name} />
+        </Link>
+      ))}
+    </div>
+  </div>
+
+  <ManualMeasureBox
+    anchos={anchos}
+    alturas={alturas}
+    rines={rines}
+    anchoSel={anchoSel}
+    alturaSel={alturaSel}
+    rinSel={rinSel}
+    setAnchoSel={setAnchoSel}
+    setAlturaSel={setAlturaSel}
+    setRinSel={setRinSel}
+    onSubmit={buscarMedida}
+  />
+
+  {/* ✅ BANNER MSI: abajo y full width */}
+  <div className="home-banner home-banner--full" aria-label="Promoción MSI">
+    <img src={bannermsi} alt="Promoción MSI MK5" />
+  </div>
+</div>
+    </section>
+  </main>
+)
 }

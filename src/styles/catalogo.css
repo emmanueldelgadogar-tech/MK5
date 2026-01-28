@@ -1,5 +1,3 @@
-
-
 /* ================== CATALOGO (NO TOCAR) ================== */
 .catalogo{
   display: grid;
@@ -395,7 +393,7 @@
   border-radius: 999px;
 }
 
-/* ================== BRANDS (unificado) ================== */
+/* ================== BRANDS INDEX (ENCAPSULADO, NO TOCA HOME) ================== */
 .brandIndex { padding: 30px 0; }
 .brandIndex__title { text-align: center; font-weight: 900; letter-spacing: .5px; margin-bottom: 18px; }
 
@@ -405,7 +403,8 @@
   gap: 14px;
 }
 
-.brandCard{
+/* ✅ OJO: ahora SOLO afecta a brandIndex, no al Home */
+.brandIndex__grid .brandCard{
   display:flex;
   align-items:center;
   justify-content:center;
@@ -417,11 +416,11 @@
   box-shadow: 0 6px 16px rgba(0,0,0,.08);
   transition: transform .15s ease, box-shadow .15s ease;
 }
-.brandCard:hover{
+.brandIndex__grid .brandCard:hover{
   transform: translateY(-3px);
   box-shadow: 0 10px 22px rgba(0,0,0,.12);
 }
-.brandCard__img{
+.brandIndex__grid .brandCard__img{
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -436,3 +435,81 @@
   .brandIndex__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* ================= BRANDS PEGADAS (tipo ProDynamics) ================= */
+/* ✅ Aplica solo al Home porque ahí usas: <div className="brandGrid brandGrid--compact"> */
+
+.brandGrid.brandGrid--compact{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;                      /* ✅ sin espacios */
+  background: #fff;            /* ✅ bloque único */
+  border-radius: 16px;
+  overflow: hidden;            /* ✅ recorta bordes */
+  border: 1px solid rgba(0,0,0,.08);
+}
+
+/* cada logo se vuelve “tile” pegado */
+.brandGrid.brandGrid--compact .brandCard{
+  border-radius: 0;
+  box-shadow: none;            /* ✅ mata sombras globales si existieran */
+  border: 0;
+  min-height: 74px;
+  padding: 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  transform: none;             /* ✅ mata transform hover global */
+  transition: background .12s ease;
+}
+
+/* líneas internas */
+.brandGrid.brandGrid--compact .brandCard{
+  border-right: 1px solid rgba(0,0,0,.08);
+  border-bottom: 1px solid rgba(0,0,0,.08);
+}
+
+/* última columna */
+.brandGrid.brandGrid--compact .brandCard:nth-child(4n){
+  border-right: 0;
+}
+
+/* última fila */
+.brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 4){
+  border-bottom: 0;
+}
+
+/* hover sin mover */
+.brandGrid.brandGrid--compact .brandCard:hover{
+  background: #fafafa;
+}
+
+/* imagen */
+.brandGrid.brandGrid--compact .brandCard__img{
+  max-height: 34px;
+  max-width: 100%;
+  object-fit: contain;
+  padding: 0;
+  display:block;
+}
+
+/* Responsive */
+@media (max-width: 980px){
+  .brandGrid.brandGrid--compact{ grid-template-columns: repeat(3, 1fr); }
+
+  .brandGrid.brandGrid--compact .brandCard:nth-child(4n){ border-right: 1px solid rgba(0,0,0,.08); } /* reset */
+  .brandGrid.brandGrid--compact .brandCard:nth-child(3n){ border-right: 0; }
+
+  .brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 4){ border-bottom: 1px solid rgba(0,0,0,.08); } /* reset */
+  .brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 3){ border-bottom: 0; }
+}
+
+@media (max-width: 560px){
+  .brandGrid.brandGrid--compact{ grid-template-columns: repeat(2, 1fr); }
+
+  .brandGrid.brandGrid--compact .brandCard:nth-child(3n){ border-right: 1px solid rgba(0,0,0,.08); } /* reset */
+  .brandGrid.brandGrid--compact .brandCard:nth-child(2n){ border-right: 0; }
+
+  .brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 3){ border-bottom: 1px solid rgba(0,0,0,.08); } /* reset */
+  .brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 2){ border-bottom: 0; }
+}
