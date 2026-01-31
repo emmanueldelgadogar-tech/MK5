@@ -1,11 +1,16 @@
 // src/pages/Catalogo.jsx
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { API_BASE } from "../config";
 
 function parseMedidaParts(medida) {
   if (!medida) return null;
   const s = String(medida).toUpperCase().trim();
-  const norm = s.replace(/\s+/g, "/").replace(/-/g, "/").replace(/R/g, "/");
+  // acepta: 155/50/16, 155/50R16, 155 50 16, 155-50-16
+  const norm = s
+    .replace(/\s+/g, "/")
+    .replace(/-/g, "/")
+    .replace(/R/g, "/");
   const parts = norm.split("/").filter(Boolean);
   if (parts.length < 3) return null;
 
@@ -45,6 +50,9 @@ function Accordion({ title, children, defaultOpen = true }) {
 }
 
 export default function Catalogo() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // ✅ marca fija por ruta: /catalogo/:marca  (ej: /catalogo/pirelli)
   const { marca: marcaParam } = useParams();
   const marcaFixed = (marcaParam || "").trim();
@@ -59,6 +67,10 @@ export default function Catalogo() {
   const [altosSel, setAltosSel] = useState(new Set());
   const [rinesSel, setRinesSel] = useState(new Set());
 
+  // ✅ query / medida (desde URL)
+  const [qUrl, setQUrl] = useState("");
+  const [medidaUrl, setMedidaUrl] = useState("");
+
   // ✅ paginado
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -68,9 +80,23 @@ export default function Catalogo() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 1) Cargar filtros base (marcas + medidas) (lo dejamos para derivar anchos/altos/rines)
+  // 0) Leer URL (?q=... y ?medida=...)
   useEffect(() => {
-    fetch("/api/catalogo/filtros")
+    const params = new URLSearchParams(location.search);
+    const q = (params.get("q") || "").trim();
+    const medida = (params.get("medida") || "").trim();
+
+    setQUrl(q);
+    setMedidaUrl(medida);
+  }, [location.search]);
+
+  // 1) Cargar filtros base (marcas + medidas)
+  //    ✅ Si hay marca fija, pedir filtros recortados por esa marca
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (marcaFixedUpper) params.set("marca", marcaFixedUpper);
+
+    fetch(`${API_BASE}/api/catalogo/filtros?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         setMarcas(data.marcas || []);
@@ -80,7 +106,7 @@ export default function Catalogo() {
         setMarcas([]);
         setMedidas([]);
       });
-  }, []);
+  }, [marcaFixedUpper]);
 
   // 2) Derivar opciones (ancho/alto/rin) desde medidas
   const { anchos, altos, rines } = useMemo(() => {
@@ -104,7 +130,22 @@ export default function Catalogo() {
     };
   }, [medidas]);
 
-  // 3) Traer items con filtros + paginado (API nueva)
+  // 3) Si viene ?medida=155/50/16, aplicar selección automática a Sets
+  useEffect(() => {
+    if (!medidaUrl) return;
+
+    const p = parseMedidaParts(medidaUrl);
+    if (!p) return;
+
+    setAnchosSel(new Set([p.ancho]));
+    setAltosSel(new Set([p.alto]));
+    setRinesSel(new Set([p.rin]));
+
+    // si hay marca fija, no tocamos marcasSel; si no, dejamos marcasSel como está.
+    // (si quisieras limpiar marcasSel aquí, me dices)
+  }, [medidaUrl]);
+
+  // 4) Traer items con filtros + paginado
   const aplicarFiltros = async ({ append = false, pageOverride } = {}) => {
     try {
       setLoading(true);
@@ -112,12 +153,16 @@ export default function Catalogo() {
 
       const params = new URLSearchParams();
 
-      // ✅ marcas finales: si viene marcaFixed, fuerza esa marca (y no uses el multiselect)
+      // ✅ marca fija por ruta tiene prioridad
       const marcasFinal = new Set(marcasSel);
       if (marcaFixedUpper) {
         marcasFinal.clear();
         marcasFinal.add(marcaFixedUpper);
       }
+
+      // ✅ q desde URL (si existe) se manda como q
+      const qFinal = (qUrl || "").trim();
+      if (qFinal) params.set("q", qFinal);
 
       if (marcasFinal.size) params.set("marcas", Array.from(marcasFinal).join(","));
       if (anchosSel.size) params.set("anchos", Array.from(anchosSel).join(","));
@@ -128,9 +173,9 @@ export default function Catalogo() {
 
       const p = pageOverride ?? (append ? page + 1 : 1);
       params.set("page", String(p));
-      params.set("limit", "24"); // 👈 quieres más de 12 (si tu server lo permite)
+      params.set("limit", "24");
 
-      const res = await fetch(`/api/catalogo/items?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/catalogo/items?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
@@ -153,29 +198,38 @@ export default function Catalogo() {
     }
   };
 
-  // 4) Cargar al entrar y cuando cambie la marca en la URL
+  // 5) Ejecutar aplicarFiltros cuando cambien filtros/URL/marca fija
   useEffect(() => {
-    // reset de paginado + items cuando cambias de /catalogo a /catalogo/:marca
+    // reset paginado al cambiar filtros
     setItems([]);
     setPage(1);
     setPages(1);
     setTotal(0);
 
-    // si hay marca fija, limpia selección de marcas para evitar confusiones
     if (marcaFixedUpper) setMarcasSel(new Set());
 
     aplicarFiltros({ append: false, pageOverride: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marcaFixedUpper]);
+  }, [
+    marcaFixedUpper,
+    qUrl,
+    medidaUrl,
+    marcasSel,
+    anchosSel,
+    altosSel,
+    rinesSel,
+  ]);
 
   const limpiar = () => {
-    // si hay marca fija, no limpies esa (porque viene de la ruta)
+    // si hay marca fija, no limpies esa
     if (!marcaFixedUpper) setMarcasSel(new Set());
     setAnchosSel(new Set());
     setAltosSel(new Set());
     setRinesSel(new Set());
 
-    // refrescar desde página 1
+    // limpia también query params en la URL (q y medida)
+    navigate("/catalogo", { replace: true });
+
     setTimeout(() => aplicarFiltros({ append: false, pageOverride: 1 }), 0);
   };
 
@@ -200,6 +254,22 @@ export default function Catalogo() {
                   <span className="sep">•</span>
                   <span>
                     Marca fija: <b>{marcaFixedUpper}</b>
+                  </span>
+                </>
+              )}
+              {medidaUrl && (
+                <>
+                  <span className="sep">•</span>
+                  <span>
+                    Medida: <b>{medidaUrl}</b>
+                  </span>
+                </>
+              )}
+              {qUrl && (
+                <>
+                  <span className="sep">•</span>
+                  <span>
+                    Búsqueda: <b>{qUrl}</b>
                   </span>
                 </>
               )}

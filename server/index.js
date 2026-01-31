@@ -18,6 +18,16 @@ const asNull = (v) => {
   const s = (v ?? "").toString().trim();
   return s ? s : null;
 };
+const toArr = (v) =>
+  String(v ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+const toIntArr = (v) =>
+  toArr(v)
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n));
 
 // ===================== HEALTH =====================
 app.get("/api/health", async (req, res) => {
@@ -26,7 +36,7 @@ app.get("/api/health", async (req, res) => {
 });
 
 // ===================== FILTROS (marca + medida) =====================
-// ✅ ahora acepta ?marca= (para /catalogo/:marca)
+// ✅ acepta ?marca= (para /catalogo/:marca)
 app.get("/api/catalogo/filtros", async (req, res) => {
   try {
     const marca = up(req.query.marca);
@@ -51,10 +61,10 @@ app.get("/api/catalogo/filtros", async (req, res) => {
 });
 
 // ===================== FILTROS MEDIDA (HOME: ancho/alto/rin dependientes) =====================
-// ✅ opcional: acepta ?marca= para recortar al entrar por marca
+// ✅ robusto: soporta medida con R o sin R
 app.get("/api/catalogo/filtros-medida", async (req, res) => {
   try {
-    const marca = up(req.query.marca); // nuevo
+    const marca = up(req.query.marca);
     const ancho = asNull(req.query.ancho);
     const altura = asNull(req.query.altura);
     const rin = asNull(req.query.rin);
@@ -62,23 +72,24 @@ app.get("/api/catalogo/filtros-medida", async (req, res) => {
     const sql = `
       WITH base AS (
         SELECT
-          substring(medida from '^([0-9]{3})') as ancho,
-          substring(medida from '^[0-9]{3}/([0-9]{2})') as altura,
-          substring(medida from 'R([0-9]{2})$') as rin
+          NULLIF(substring(medida from '^([0-9]{3})'), '') as ancho,
+          NULLIF(substring(medida from '^[0-9]{3}/([0-9]{2})'), '') as altura,
+          NULLIF(substring(medida from '(?:R|/)([0-9]{2})$'), '') as rin
         FROM catalogo
         WHERE stock > 0
           AND ($4 = '' OR UPPER(marca) = $4)
-          AND medida ~ '^[0-9]{3}/[0-9]{2}R[0-9]{2}$'
+          AND medida ~ '^[0-9]{3}/[0-9]{2}(R|/)[0-9]{2}$'
       )
       SELECT
         (SELECT json_agg(x ORDER BY x)
-         FROM (SELECT DISTINCT ancho AS x FROM base) s) AS anchos,
+         FROM (SELECT DISTINCT ancho AS x FROM base WHERE ancho IS NOT NULL) s) AS anchos,
 
         (SELECT json_agg(x ORDER BY x)
          FROM (
            SELECT DISTINCT altura AS x
            FROM base
-           WHERE ($1::text IS NULL OR ancho = $1::text)
+           WHERE altura IS NOT NULL
+             AND ($1::text IS NULL OR ancho = $1::text)
              AND ($3::text IS NULL OR rin = $3::text)
          ) s) AS alturas,
 
@@ -86,7 +97,8 @@ app.get("/api/catalogo/filtros-medida", async (req, res) => {
          FROM (
            SELECT DISTINCT rin AS x
            FROM base
-           WHERE ($1::text IS NULL OR ancho = $1::text)
+           WHERE rin IS NOT NULL
+             AND ($1::text IS NULL OR ancho = $1::text)
              AND ($2::text IS NULL OR altura = $2::text)
          ) s) AS rines
       ;
@@ -100,79 +112,14 @@ app.get("/api/catalogo/filtros-medida", async (req, res) => {
   }
 });
 
-// ===================== FILTROS CATALOGO (marca/ancho/alto/rin, dependientes) =====================
-app.get("/api/catalogo/filtros-catalogo", async (req, res) => {
-  try {
-    const marca = asNull(up(req.query.marca)); // la tuya ya era buena, solo robusta
-    const ancho = asNull(req.query.ancho);
-    const altura = asNull(req.query.altura);
-    const rin = asNull(req.query.rin);
-
-    const sql = `
-      WITH base AS (
-        SELECT
-          UPPER(marca) AS marca,
-          substring(medida from '^([0-9]{3})') as ancho,
-          substring(medida from '^[0-9]{3}/([0-9]{2})') as altura,
-          substring(medida from 'R([0-9]{2})$') as rin
-        FROM catalogo
-        WHERE stock > 0
-          AND medida ~ '^[0-9]{3}/[0-9]{2}R[0-9]{2}$'
-      )
-      SELECT
-        (SELECT json_agg(x ORDER BY x)
-         FROM (
-           SELECT DISTINCT marca AS x
-           FROM base
-           WHERE ($2::text IS NULL OR ancho = $2::text)
-             AND ($3::text IS NULL OR altura = $3::text)
-             AND ($4::text IS NULL OR rin = $4::text)
-         ) s) AS marcas,
-
-        (SELECT json_agg(x ORDER BY x)
-         FROM (
-           SELECT DISTINCT ancho AS x
-           FROM base
-           WHERE ($1::text IS NULL OR marca = $1::text)
-             AND ($3::text IS NULL OR altura = $3::text)
-             AND ($4::text IS NULL OR rin = $4::text)
-         ) s) AS anchos,
-
-        (SELECT json_agg(x ORDER BY x)
-         FROM (
-           SELECT DISTINCT altura AS x
-           FROM base
-           WHERE ($1::text IS NULL OR marca = $1::text)
-             AND ($2::text IS NULL OR ancho = $2::text)
-             AND ($4::text IS NULL OR rin = $4::text)
-         ) s) AS alturas,
-
-        (SELECT json_agg(x ORDER BY x)
-         FROM (
-           SELECT DISTINCT rin AS x
-           FROM base
-           WHERE ($1::text IS NULL OR marca = $1::text)
-             AND ($2::text IS NULL OR ancho = $2::text)
-             AND ($3::text IS NULL OR altura = $3::text)
-         ) s) AS rines
-    `;
-
-    const r = await pool.query(sql, [marca, ancho, altura, rin]);
-    res.json(r.rows[0] || { marcas: [], anchos: [], alturas: [], rines: [] });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "filtros_catalogo_error" });
-  }
-});
-
-// ===================== CATALOGO ITEMS (filtros + sort + paginado max 12) =====================
-// ✅ agrega soporte: ?marca=PIRELLI (una sola) además de ?marcas=PIRELLI,MICHELIN
+// ===================== CATALOGO ITEMS (filtros + sort + paginado) =====================
+// ✅ FIX PRO: filtra por ancho/alto/rin NUMÉRICOS (sirve con 155/50R16 y 155/50/16)
 app.get("/api/catalogo/items", async (req, res) => {
   try {
     const {
       q = "",
-      marca = "",  // ✅ NUEVO: una sola marca
-      marcas = "", // lista
+      marca = "",
+      marcas = "",
       anchos = "",
       altos = "",
       rines = "",
@@ -183,27 +130,21 @@ app.get("/api/catalogo/items", async (req, res) => {
 
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitParsed = parseInt(limit, 10) || 12;
-    const limitNum = Math.min(Math.max(limitParsed, 1), 100); 
+    const limitNum = Math.min(Math.max(limitParsed, 1), 100);
     const offset = (pageNum - 1) * limitNum;
-    const toArr = (v) =>
-      String(v)
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean);
 
     const marcasArr = [
       ...toArr(marcas).map((m) => up(m)),
       ...(marca ? [up(marca)] : []),
     ].filter(Boolean);
-
-    // dedup
     const marcasUniq = Array.from(new Set(marcasArr));
 
-    const anchosArr = toArr(anchos);
-    const altosArr = toArr(altos);
-    const rinesArr = toArr(rines);
+    const anchosArr = toIntArr(anchos);
+    const altosArr = toIntArr(altos);
+    const rinesArr = toIntArr(rines);
 
-    const where = ["stock > 0"];
+    // Base + parsing de medida en SQL (soporta R o /)
+    const where = [`stock > 0`];
     const params = [];
 
     const qTrim = q.trim();
@@ -222,29 +163,45 @@ app.get("/api/catalogo/items", async (req, res) => {
       where.push(`UPPER(marca) = ANY($${params.length})`);
     }
 
+    // ✅ Comparación por partes numéricas extraídas
+    // ancho_i: primeros 3 dígitos
+    // alto_i: después de '/'
+    // rin_i: al final, después de 'R' o '/'
     if (anchosArr.length) {
-      params.push(`^(${anchosArr.join("|")})/`);
-      where.push(`medida ~ $${params.length}`);
+      params.push(anchosArr);
+      where.push(`ancho_i = ANY($${params.length}::int[])`);
     }
-
     if (altosArr.length) {
-      params.push(`/(${altosArr.join("|")})R`);
-      where.push(`medida ~ $${params.length}`);
+      params.push(altosArr);
+      where.push(`alto_i = ANY($${params.length}::int[])`);
     }
-
     if (rinesArr.length) {
-      params.push(`R(${rinesArr.join("|")})$`);
-      where.push(`medida ~ $${params.length}`);
+      params.push(rinesArr);
+      where.push(`rin_i = ANY($${params.length}::int[])`);
     }
 
     const orderBy =
-      sort === "price_desc" ? "precio DESC NULLS LAST" : "precio ASC NULLS LAST";
+      sort === "price_desc"
+        ? "precio DESC NULLS LAST"
+        : "precio ASC NULLS LAST";
 
     const whereSql = `WHERE ${where.join(" AND ")}`;
 
+    const baseCTE = `
+      WITH base AS (
+        SELECT
+          sku, marca, modelo, medida, precio, stock,
+          NULLIF(substring(medida from '^([0-9]{3})'), '')::int AS ancho_i,
+          NULLIF(substring(medida from '^[0-9]{3}/([0-9]{2})'), '')::int AS alto_i,
+          NULLIF(substring(medida from '(?:R|/)([0-9]{2})$'), '')::int AS rin_i
+        FROM catalogo
+      )
+    `;
+
     const totalQ = `
+      ${baseCTE}
       SELECT COUNT(*)::int AS total
-      FROM catalogo
+      FROM base
       ${whereSql}
     `;
     const totalR = await pool.query(totalQ, params);
@@ -253,8 +210,9 @@ app.get("/api/catalogo/items", async (req, res) => {
     const paramsItems = [...params, limitNum, offset];
 
     const itemsQ = `
+      ${baseCTE}
       SELECT sku, marca, modelo, medida, precio, stock
-      FROM catalogo
+      FROM base
       ${whereSql}
       ORDER BY ${orderBy}, marca, modelo
       LIMIT $${paramsItems.length - 1}
@@ -266,7 +224,7 @@ app.get("/api/catalogo/items", async (req, res) => {
       ok: true,
       total,
       page: pageNum,
-      pages: Math.ceil(total / limitNum),
+      pages: Math.max(1, Math.ceil(total / limitNum)), // ✅ evita pages=0
       items: itemsR.rows,
     });
   } catch (err) {
@@ -276,7 +234,6 @@ app.get("/api/catalogo/items", async (req, res) => {
 });
 
 // ===================== CATALOGO (viejo: marca+medida exactos) =====================
-// ✅ lo hago case-insensitive para que no falle con "pirelli"
 app.get("/api/catalogo", async (req, res) => {
   try {
     const marca = up(req.query.marca);
@@ -300,9 +257,50 @@ app.get("/api/catalogo", async (req, res) => {
   }
 });
 
+// ===================== ASSISTANT (V1: sin OpenAI) =====================
+app.post("/api/assistant", async (req, res) => {
+  try {
+    const message = (req.body?.message || "").toString().trim();
+    if (!message) {
+      return res.status(400).json({ ok: false, error: "message_required" });
+    }
+
+    const m = message.toLowerCase();
+
+    // Detecta medida: "155 50 16" | "155/50/16" | "155-50-16" | "155/50R16"
+    const match = m.match(/(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i);
+    if (match) {
+      const medida = `${match[1]}/${match[2]}/${match[3]}`; // formato que tu front parsea
+      return res.json({
+        ok: true,
+        reply: `Listo ✅ Te llevo al catálogo con la medida ${medida}. ¿Buscas económica o premium?`,
+        action: "NAVIGATE",
+        path: "/catalogo",
+        query: { medida },
+      });
+    }
+
+    if (m.includes("recom")) {
+      return res.json({
+        ok: true,
+        reply:
+          "Para recomendarte bien necesito tu medida (ej: 205/55/16) o el auto (ej: March 2020). 🙂",
+        action: "REPLY",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      reply: "¿Me dices tu medida? Ejemplo: 155/50/16 🔎 (o dime el auto y año).",
+      action: "REPLY",
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "assistant_error" });
+  }
+});
+
 // ===================== LISTEN =====================
 app.listen(process.env.PORT || 4000, () => {
-  console.log(
-    "✅ Backend activo en http://localhost:" + (process.env.PORT || 4000)
-  );
+  console.log("✅ Backend activo en http://localhost:" + (process.env.PORT || 4000));
 });

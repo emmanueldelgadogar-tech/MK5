@@ -1,6 +1,7 @@
 import "../styles/home.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { API_BASE } from "../config";
 
 import promoEnero from "../assets/ENERO.png";
 import promo1 from "../assets/ENERO.png";
@@ -18,7 +19,7 @@ import michelinlogo from "../assets/michelin.png";
 import goodyearlogo from "../assets/goodyear.png";
 import nuevafiltro from "../assets/nuevafiltro.png";
 import goodrichlogo from "../assets/goodrich.jpg";
-import tornellogo from "../assets/tornel.png"; 
+import tornellogo from "../assets/tornel.png";
 import pegasuslogo from "../assets/pegasus.jpg";
 import vinmaxlogo from "../assets/vinmax.png";
 import bannermsi from "../assets/bannermsi.png";
@@ -40,10 +41,14 @@ const MARCAS_DESTACADAS = [
   { key: "tornel", name: "Tornel", img: tornellogo },
   { key: "pegasus", name: "Pegasus", img: pegasuslogo },
   { key: "vinmax", name: "Vinmax", img: vinmaxlogo },
-
 ];
 
-function AiAssistantBox({ onGoCatalog }) {
+// ✅ ahora el asistente muestra respuesta y loading
+function AiAssistantBox({
+  onAskAssistant,
+  replyText,
+  loading,
+}) {
   const [q, setQ] = useState("");
 
   return (
@@ -52,22 +57,29 @@ function AiAssistantBox({ onGoCatalog }) {
         <div className="aiBadge">Asistente MK5</div>
       </div>
 
-<div className="aiInputRow">
-  <textarea
-    className="aiTextarea"
-    value={q}
-    onChange={(e) => setQ(e.target.value)}
-    placeholder="Escribe tu auto, medida o lo que estas buscando.."
-  />
-  <button
-    className="aiBtn"
-    type="button"
-    onClick={() => onGoCatalog(q)}
-    disabled={!q.trim()}
-  >
-    Buscar
-  </button>
-</div>
+      <div className="aiInputRow">
+        <textarea
+          className="aiTextarea"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Escribe tu auto, medida o lo que estas buscando.."
+        />
+        <button
+          className="aiBtn"
+          type="button"
+          onClick={() => onAskAssistant(q)}
+          disabled={!q.trim() || loading}
+        >
+          {loading ? "Buscando..." : "Buscar"}
+        </button>
+      </div>
+
+      {/* ✅ respuesta del asistente */}
+      {replyText ? (
+        <div className="aiReply" style={{ marginTop: 10, fontSize: 14 }}>
+          {replyText}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -92,7 +104,6 @@ function ManualMeasureBox({
       </div>
 
       <form className="measure-form measure-form--compact" onSubmit={onSubmit}>
-        {/* 👇 FILA DE 3 COLUMNAS */}
         <div className="measure-row">
           <div className="measure-field">
             <label>ANCHO</label>
@@ -161,7 +172,6 @@ function ManualMeasureBox({
   );
 }
 
-
 export default function Home() {
   const navigate = useNavigate();
 
@@ -172,6 +182,10 @@ export default function Home() {
   const [anchoSel, setAnchoSel] = useState("");
   const [alturaSel, setAlturaSel] = useState("");
   const [rinSel, setRinSel] = useState("");
+
+  // ✅ estado del asistente
+  const [assistantReply, setAssistantReply] = useState("");
+  const [assistantLoading, setAssistantLoading] = useState(false);
 
   const promos = useMemo(
     () => [
@@ -192,8 +206,9 @@ export default function Home() {
     return () => clearInterval(t);
   }, [promos]);
 
+  // ✅ cargar filtros iniciales desde el BACKEND (API_BASE)
   useEffect(() => {
-    fetch("/api/catalogo/filtros-medida")
+    fetch(`${API_BASE}/api/catalogo/filtros-medida`)
       .then((r) => r.json())
       .then((data) => {
         setAnchos(data.anchos || []);
@@ -203,13 +218,14 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
+  // ✅ filtros dependientes (API_BASE)
   useEffect(() => {
     const params = new URLSearchParams();
     if (anchoSel) params.set("ancho", anchoSel);
     if (alturaSel) params.set("altura", alturaSel);
     if (rinSel) params.set("rin", rinSel);
 
-    fetch(`/api/catalogo/filtros-medida?${params.toString()}`)
+    fetch(`${API_BASE}/api/catalogo/filtros-medida?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => {
         setAnchos(data.anchos || []);
@@ -226,105 +242,142 @@ export default function Home() {
     navigate(`/catalogo?medida=${encodeURIComponent(medida)}`);
   };
 
- const goCatalogFromIA = (text) => {
-  const q = (text || "").trim();
-  if (q) navigate(`/catalogo?q=${encodeURIComponent(q)}`);
-  else navigate("/catalogo");
-};
-return (
-  <main className="main main--home">
-    <section className="home-shell">
-      {/* FILA 1 */}
-      <div className="home-layout">
-        <div className="home-left">
-          <AiAssistantBox onGoCatalog={goCatalogFromIA} />
-        </div>
+  // ✅ NUEVO: esto ya llama a tu backend /api/assistant
+  const askAssistant = async (text) => {
+    const message = (text || "").trim();
+    if (!message) return;
 
-        <div className="home-right">
-          <div className="promo-card">
-            <button
-              className="promo-viewport"
-              type="button"
-              onClick={() => promoActiva?.to && navigate(promoActiva.to)}
-              aria-label="Abrir promo"
-            >
-              <img
-                src={promoActiva.src}
-                className="promo-main"
-                alt={promoActiva.alt}
-              />
-            </button>
+    setAssistantLoading(true);
+    setAssistantReply("");
 
-            <div className="promo-dots">
-              {promos.map((p, idx) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`dot ${idx === promoIndex ? "is-active" : ""}`}
-                  onClick={() => setPromoIndex(idx)}
-                  aria-label={`Ver ${p.alt}`}
+    try {
+      const r = await fetch(`${API_BASE}/api/assistant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await r.json();
+
+      if (!data?.ok) {
+        setAssistantReply("Ups… hubo un problema. Intenta de nuevo.");
+        return;
+      }
+
+      if (data.action === "NAVIGATE" && data.path) {
+        const qs = new URLSearchParams(data.query || {}).toString();
+        navigate(`${data.path}${qs ? `?${qs}` : ""}`);
+        return;
+      }
+
+      setAssistantReply(data.reply || "¿Me das tu medida? 🙂");
+    } catch (e) {
+      console.error(e);
+      setAssistantReply("No pude conectar con el servidor 😕");
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
+  return (
+    <main className="main main--home">
+      <section className="home-shell">
+        {/* FILA 1 */}
+        <div className="home-layout">
+          <div className="home-left">
+            <AiAssistantBox
+              onAskAssistant={askAssistant}
+              replyText={assistantReply}
+              loading={assistantLoading}
+            />
+          </div>
+
+          <div className="home-right">
+            <div className="promo-card">
+              <button
+                className="promo-viewport"
+                type="button"
+                onClick={() => promoActiva?.to && navigate(promoActiva.to)}
+                aria-label="Abrir promo"
+              >
+                <img
+                  src={promoActiva.src}
+                  className="promo-main"
+                  alt={promoActiva.alt}
                 />
-              ))}
-            </div>
+              </button>
 
-            <div className="promo-thumbs">
-              {promos.map((p, idx) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`thumb ${idx === promoIndex ? "is-active" : ""}`}
-                  onClick={() => setPromoIndex(idx)}
-                  aria-label={`Seleccionar ${p.alt}`}
-                >
-                  <img src={p.src} alt={p.alt} />
-                </button>
-              ))}
+              <div className="promo-dots">
+                {promos.map((p, idx) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`dot ${idx === promoIndex ? "is-active" : ""}`}
+                    onClick={() => setPromoIndex(idx)}
+                    aria-label={`Ver ${p.alt}`}
+                  />
+                ))}
+              </div>
+
+              <div className="promo-thumbs">
+                {promos.map((p, idx) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`thumb ${idx === promoIndex ? "is-active" : ""}`}
+                    onClick={() => setPromoIndex(idx)}
+                    aria-label={`Seleccionar ${p.alt}`}
+                  >
+                    <img src={p.src} alt={p.alt} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-{/* FILA 2 */}
-<div className="home-grid2">
-  <div className="card card--brands">
-    <div className="card__head card__head--row">
-      <div>
-        <h3 className="card__title">Marcas más buscadas</h3>
-        <p className="card__sub">Entra por marca en un click.</p>
-      </div>
 
-      <Link className="ghostLink" to="/catalogo">
-        Ver catálogo →
-      </Link>
-    </div>
+        {/* FILA 2 */}
+        <div className="home-grid2">
+          <div className="card card--brands">
+            <div className="card__head card__head--row">
+              <div>
+                <h3 className="card__title">Marcas más buscadas</h3>
+                <p className="card__sub">Entra por marca en un click.</p>
+              </div>
 
-    <div className="brandGrid brandGrid--compact">
-      {MARCAS_DESTACADAS.map((m) => (
-        <Link key={m.key} to={`/catalogo/${m.key}`} className="brandCard">
-          <img className="brandCard__img" src={m.img} alt={m.name} />
-        </Link>
-      ))}
-    </div>
-  </div>
+              <Link className="ghostLink" to="/catalogo">
+                Ver catálogo →
+              </Link>
+            </div>
 
-  <ManualMeasureBox
-    anchos={anchos}
-    alturas={alturas}
-    rines={rines}
-    anchoSel={anchoSel}
-    alturaSel={alturaSel}
-    rinSel={rinSel}
-    setAnchoSel={setAnchoSel}
-    setAlturaSel={setAlturaSel}
-    setRinSel={setRinSel}
-    onSubmit={buscarMedida}
-  />
+            <div className="brandGrid brandGrid--compact">
+              {MARCAS_DESTACADAS.map((m) => (
+                <Link key={m.key} to={`/catalogo/${m.key}`} className="brandCard">
+                  <img className="brandCard__img" src={m.img} alt={m.name} />
+                </Link>
+              ))}
+            </div>
+          </div>
 
-  {/* ✅ BANNER MSI: abajo y full width */}
-  <div className="home-banner home-banner--full" aria-label="Promoción MSI">
-    <img src={bannermsi} alt="Promoción MSI MK5" />
-  </div>
-</div>
-    </section>
-  </main>
-)
+          <ManualMeasureBox
+            anchos={anchos}
+            alturas={alturas}
+            rines={rines}
+            anchoSel={anchoSel}
+            alturaSel={alturaSel}
+            rinSel={rinSel}
+            setAnchoSel={setAnchoSel}
+            setAlturaSel={setAlturaSel}
+            setRinSel={setRinSel}
+            onSubmit={buscarMedida}
+          />
+
+          {/* ✅ BANNER MSI: abajo y full width */}
+          <div className="home-banner home-banner--full" aria-label="Promoción MSI">
+            <img src={bannermsi} alt="Promoción MSI MK5" />
+          </div>
+        </div>
+      </section>
+    </main>
+  );
 }

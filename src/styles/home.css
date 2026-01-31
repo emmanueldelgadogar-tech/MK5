@@ -885,3 +885,273 @@
 @media (max-width: 900px){
   .home-banner--full{ grid-column: 1 / -1; }
 }
+.home-banner img{
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* hover sutil (opcional pero se ve pro) */
+.home-banner:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 18px 44px rgba(0,0,0,.18);
+}
+/* Banner MSI debajo de la fila 2 */
+.home-banner{
+  margin-top: 18px;
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 14px 34px rgba(0,0,0,.14);
+}
+
+.home-banner img{
+  width: 100%;
+  height: auto;
+  display: block;
+}
+/* Banner MSI */
+.home-banner{
+  background: #000;              /* ✅ fondo negro */
+  border-radius: 18px;
+  overflow: hidden;              /* ✅ recorta bordes */
+  box-shadow: 0 18px 40px rgba(0,0,0,.25);
+}
+
+.home-banner--full{
+  grid-column: 1 / -1;           /* ✅ ocupa 2 columnas */
+}
+
+.home-banner__img{
+  display: block;                 /* ✅ quita “huecos” */
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+/* En móvil (grid a 1 columna) sigue bien */
+@media (max-width: 900px){
+  .home-banner--full{ grid-column: 1 / -1; }
+}
+/* =========================
+   HOME: TODO UNIDO (SIN HUECOS)
+   ========================= */
+
+/* 1) Quita el espacio entre FILA 1 y FILA 2 */
+.home-layout{
+  margin-bottom: 0 !important;   /* antes era 18px */
+}
+
+/* 2) Convierte FILA 1 en un bloque único */
+.home-layout{
+  gap: 0 !important;
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.10);
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+/* Quita look individual de las cards dentro de FILA 1 */
+.home-layout .card,
+.home-layout .promo-card{
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Línea divisoria entre AI y Promo */
+.home-layout > :nth-child(2){
+  border-left: 1px solid rgba(0,0,0,.10);
+}
+
+/* 3) Convierte FILA 2 en bloque único (Marcas + Manual + Banner MSI) */
+.home-grid2{
+  margin-top: 0 !important;
+  gap: 0 !important;
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.10);
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+/* Quita look individual de las cards dentro de FILA 2 */
+.home-grid2 > .card,
+.home-grid2 > .home-banner{
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Línea divisoria entre Marcas y Manual (FILA 2) */
+.home-grid2 > .card + .card{
+  border-left: 1px solid rgba(0,0,0,.10);
+}
+
+/* Línea horizontal antes del banner MSI (porque está debajo) */
+.home-grid2 > .home-banner{
+  border-top: 1px solid rgba(0,0,0,.10);
+}
+
+/* Asegura que el banner MSI se vea pegado y full width */
+.home-banner--full{
+  grid-column: 1 / -1;
+}
+.home-banner--full img{
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* =========================
+   TEST: FORZAR HOME A FULL ANCHO
+   (si esto NO cambia, el ancho lo limita otro contenedor global)
+   ========================= */
+
+.main--home{
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.home-shell{
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin: 0 !important;
+  padding: 18px 24px 40px !important; /* un poco de aire */
+}
+
+/* Forzamos los bloques a ocupar todo el ancho */
+.home-layout,
+.home-grid2{
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 0 18px 0 !important;
+}
+
+/* En pantallas muy grandes, que no se vea estrecho */
+@media (min-width: 1400px){
+  .home-shell{ padding-left: 48px !important; padding-right: 48px !important; }
+}
+/* ===== FILA 1 SIN BORDES REDONDOS ===== */
+.home-layout{
+  border-radius: 0 !important;
+}
+
+.home-layout .card,
+.home-layout .promo-card,
+.home-layout .promo-viewport,
+.home-layout .promo-main{
+  border-radius: 0 !important;
+}
+/* ===== PEGAR HOME AL HEADER (SIN ESPACIO ARRIBA) ===== */
+.main--home{
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+.home-shell{
+  padding-top: 0 !important;   /* antes: 18px */
+  margin-top: 0 !important;
+}
+/* opcional: que el bloque blanco arranque pegado */
+.home-layout{
+  margin-top: 0 !important;
+}
+/* =========================
+   UNIR BANNER 1 + BANNER 2
+   ========================= */
+
+/* 1) Quitar espacio entre los dos bloques */
+.home-layout{
+  margin-bottom: 0 !important;
+}
+.home-grid2{
+  margin-top: 0 !important;
+}
+
+/* 2) Que parezca un solo bloque: quitar borde arriba del banner 2
+      y dejar solo una línea divisoria */
+.home-grid2{
+  border-top: 1px solid rgba(0,0,0,.10) !important; /* línea de unión */
+}
+
+/* Si tu home-grid2 tenía border completo/sombra, quítalos para que no “doble” */
+.home-grid2{
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* 3) (Opcional recomendado) que el banner 1 también pierda borde abajo
+      para que no se vea doble línea */
+.home-layout{
+  border-bottom: 0 !important;
+}
+
+/* 4) Para que el conjunto completo tenga el mismo “marco”:
+      pon el borde/sombra SOLO en el contenedor (home-shell) */
+.home-shell{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.10);
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  border-radius: 0;          /* si lo quieres cuadrado */
+  overflow: hidden;
+  padding: 0 !important;     /* quita relleno para que queden pegados */
+}
+
+/* Ajuste: deja un poco de aire abajo del bloque completo */
+.main--home{
+  padding-bottom: 28px;
+}
+/* =========================
+   HOME: MARCAS "VOLANDO"
+   (quitar rectángulo y hacer tiles flotantes)
+   ========================= */
+
+.brandGrid.brandGrid--compact{
+  background: transparent !important;
+  border: 0 !important;
+  overflow: visible !important;
+  gap: 14px !important;           /* vuelve a separar */
+  padding: 6px !important;        /* aire interno */
+}
+
+/* cada marca como tarjeta flotante */
+.brandGrid.brandGrid--compact .brandCard{
+  background: #fff !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(0,0,0,.08) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.10) !important;
+  min-height: 78px;
+  padding: 14px !important;
+
+  /* mata las líneas internas que tenías */
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.brandGrid.brandGrid--compact .brandCard:hover{
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgba(0,0,0,.16) !important;
+}
+
+/* logo un poco más grande y centrado */
+.brandGrid.brandGrid--compact .brandCard__img{
+  max-height: 38px;
+  padding: 0 !important;
+}
+
+/* Responsive conserva tu lógica de columnas */
+@media (max-width: 980px){
+  .brandGrid.brandGrid--compact{ gap: 12px !important; }
+}
+@media (max-width: 560px){
+  .brandGrid.brandGrid--compact{ gap: 10px !important; }
+}
