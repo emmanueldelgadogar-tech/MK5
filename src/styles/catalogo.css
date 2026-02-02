@@ -1,0 +1,515 @@
+/* ================== CATALOGO (NO TOCAR) ================== */
+.catalogo{
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.catalogo .filters{
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  height: fit-content;
+}
+
+.catalogo .filters form{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.catalogo .filters label{
+  font-weight: 700;
+  font-size: 13px;
+  color: #111;
+}
+
+.catalogo .filters select{
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  background: #fff;
+}
+
+.catalogo .filters button{
+  background: #000;
+  color: #fff;
+  border: none;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.catalogo .results{
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  min-height: 300px;
+}
+
+.catalogo .grid{
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.catalogo .card{
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+}
+
+.catalogo .card__top{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.catalogo .badge{
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f2f2f2;
+}
+
+.catalogo .price{
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.catalogo .title{
+  margin: 6px 0 4px;
+  font-size: 16px;
+}
+
+.catalogo .meta{
+  margin: 0 0 12px;
+  color: #666;
+  font-size: 13px;
+}
+
+.catalogo .btn{
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #000;
+  background: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .catalogo{ grid-template-columns: 1fr; }
+}
+
+/* ================== NUEVAS CARDS (catalog-grid) ================== */
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 22px;
+}
+
+.catalog-card {
+  background: #fff;
+  border-radius: 18px;
+  border: 2px solid #fd8a07;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.catalog-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 40px rgba(0,0,0,.25);
+}
+
+.card-image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.card-image img {
+  width: 180px;
+  height: auto;
+  object-fit: contain;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.brand {
+  font-size: 12px;
+  font-weight: 800;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.model {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+  min-height: 40px;
+}
+
+.measure {
+  font-size: 13px;
+  color: #444;
+}
+
+/* (typo fix sin cambiar intención) */
+.price {
+  font-size: 22px;
+  font-weight: 900;
+  color: #dc2626;
+  margin: 6px 0;
+}
+
+.btn-primary {
+  background: #f31414;
+  color: #ffffff;
+  border: none;
+  padding: 12px;
+  border-radius: 999px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.btn-primary:hover { background: #ff6600; }
+
+@media (max-width: 900px) {
+  .catalog-grid { grid-template-columns: 1fr; }
+  .card-image img { width: 150px; }
+}
+
+/* ================== PD FORM (si lo usas en algún lado) ================== */
+.pd-form{
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 220px;
+  gap: 14px;
+  align-items: end;
+  margin-top: 10px;
+}
+
+.pd-field{
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.pd-label{
+  background: #dc2626;
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  padding: 10px 12px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.pd-field select{
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: #fff;
+  padding: 14px 12px;
+  font-size: 14px;
+}
+
+.pd-btn{
+  width: 100%;
+  padding: 14px 14px;
+  border-radius: 999px;
+  border: 0;
+  font-weight: 900;
+  cursor: pointer;
+  background: #facc15;
+  color: #111;
+}
+.pd-btn:hover{ filter: brightness(.95); }
+
+@media (max-width: 900px){
+  .pd-form{ grid-template-columns: 1fr; }
+}
+
+/* ============ FILTRO TIPO ECOMMERCE (accordion + checkbox) ============ */
+.filters-ecom{
+  background:#fff;
+  border-radius:14px;
+  padding:14px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.14);
+  height: fit-content;
+  position: sticky;
+  top: 76px;
+}
+
+.filters-ecom h2{
+  font-size: 20px;
+  font-weight: 950;
+  margin: 0;
+}
+
+.filters-ecom__top{
+  display:flex;
+  justify-content: space-between;
+  align-items:flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.filters-ecom__meta{
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.filters-ecom__meta .sep{ opacity:.6; }
+
+.filters-ecom__clear{
+  border:1px solid rgba(0,0,0,.12);
+  background:#f8fafc;
+  color:#111;
+  font-weight: 900;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor:pointer;
+}
+.filters-ecom__clear:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* Accordion */
+.facc{
+  border-top: 1px solid rgba(0,0,0,.08);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.facc__head{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  background: transparent;
+  border:0;
+  padding: 8px 4px;
+  cursor:pointer;
+}
+.facc__title{
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.facc__chev{
+  font-size: 14px;
+  opacity: .7;
+  transform: rotate(0deg);
+  transition: transform .15s ease;
+}
+.facc__chev.is-open{
+  transform: rotate(180deg);
+}
+.facc__body{
+  padding: 6px 2px 2px;
+}
+
+/* Lista con scroll dentro */
+.fchk__list{
+  max-height: 100px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+/* Checkbox item */
+.fchk{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  cursor:pointer;
+  user-select:none;
+}
+.fchk:hover{ background: rgba(0,0,0,.035); }
+.fchk input{
+  width: 16px;
+  height: 16px;
+  accent-color: #111;
+}
+.fchk span{
+  font-size: 13px;
+  color:#111;
+}
+
+/* Botón aplicar */
+.filters-ecom__apply{
+  margin-top: 12px;
+  width:100%;
+  height: 44px;
+  border:0;
+  border-radius: 12px;
+  background: #000;
+  color:#fff;
+  font-weight: 950;
+  cursor:pointer;
+}
+.filters-ecom__apply:disabled{ opacity:.65; cursor:not-allowed; }
+
+/* ✅ Sidebar filtros: que siempre quepa en pantalla y tenga scroll */
+.catalogo .filters.filters-ecom{
+  position: sticky;
+  top: 76px;
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  padding-right: 10px;
+}
+
+/* Scrollbar */
+.catalogo .filters.filters-ecom::-webkit-scrollbar{ width: 10px; }
+.catalogo .filters.filters-ecom::-webkit-scrollbar-thumb{
+  background: rgba(0,0,0,.25);
+  border-radius: 999px;
+}
+.catalogo .filters.filters-ecom::-webkit-scrollbar-track{
+  background: rgba(0,0,0,.06);
+  border-radius: 999px;
+}
+
+/* ================== BRANDS INDEX (ENCAPSULADO, NO TOCA HOME) ================== */
+.brandIndex { padding: 30px 0; }
+.brandIndex__title { text-align: center; font-weight: 900; letter-spacing: .5px; margin-bottom: 18px; }
+
+.brandIndex__grid{
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+
+/* ✅ OJO: ahora SOLO afecta a brandIndex, no al Home */
+.brandIndex__grid .brandCard{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height: 70px;
+  background: #fff;
+  border-radius: 12px;
+  text-decoration: none;
+  color:#111;
+  box-shadow: 0 6px 16px rgba(0,0,0,.08);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.brandIndex__grid .brandCard:hover{
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(0,0,0,.12);
+}
+.brandIndex__grid .brandCard__img{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 10px;
+  display: block;
+}
+
+@media (max-width: 1000px) {
+  .brandIndex__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .brandIndex__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ================= BRANDS PEGADAS (tipo ProDynamics) ================= */
+/* ✅ Aplica solo al Home porque ahí usas: <div className="brandGrid brandGrid--compact"> */
+
+.brandGrid.brandGrid--compact{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;                      /* ✅ sin espacios */
+  background: #fff;            /* ✅ bloque único */
+  border-radius: 16px;
+  overflow: hidden;            /* ✅ recorta bordes */
+  border: 1px solid rgba(0,0,0,.08);
+}
+
+/* cada logo se vuelve “tile” pegado */
+.brandGrid.brandGrid--compact .brandCard{
+  border-radius: 0;
+  box-shadow: none;            /* ✅ mata sombras globales si existieran */
+  border: 0;
+  min-height: 74px;
+  padding: 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  transform: none;             /* ✅ mata transform hover global */
+  transition: background .12s ease;
+}
+
+/* líneas internas */
+.brandGrid.brandGrid--compact .brandCard{
+  border-right: 1px solid rgba(0,0,0,.08);
+  border-bottom: 1px solid rgba(0,0,0,.08);
+}
+
+/* última columna */
+.brandGrid.brandGrid--compact .brandCard:nth-child(4n){
+  border-right: 0;
+}
+
+/* última fila */
+.brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 4){
+  border-bottom: 0;
+}
+
+/* hover sin mover */
+.brandGrid.brandGrid--compact .brandCard:hover{
+  background: #fafafa;
+}
+
+/* imagen */
+.brandGrid.brandGrid--compact .brandCard__img{
+  max-height: 34px;
+  max-width: 100%;
+  object-fit: contain;
+  padding: 0;
+  display:block;
+}
+
+/* Responsive */
+@media (max-width: 980px){
+  .brandGrid.brandGrid--compact{ grid-template-columns: repeat(3, 1fr); }
+
+  .brandGrid.brandGrid--compact .brandCard:nth-child(4n){ border-right: 1px solid rgba(0,0,0,.08); } /* reset */
+  .brandGrid.brandGrid--compact .brandCard:nth-child(3n){ border-right: 0; }
+
+  .brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 4){ border-bottom: 1px solid rgba(0,0,0,.08); } /* reset */
+  .brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 3){ border-bottom: 0; }
+}
+
+@media (max-width: 560px){
+  .brandGrid.brandGrid--compact{ grid-template-columns: repeat(2, 1fr); }
+
+  .brandGrid.brandGrid--compact .brandCard:nth-child(3n){ border-right: 1px solid rgba(0,0,0,.08); } /* reset */
+  .brandGrid.brandGrid--compact .brandCard:nth-child(2n){ border-right: 0; }
+
+  .brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 3){ border-bottom: 1px solid rgba(0,0,0,.08); } /* reset */
+  .brandGrid.brandGrid--compact .brandCard:nth-last-child(-n + 2){ border-bottom: 0; }
+}
