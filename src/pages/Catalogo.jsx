@@ -3,14 +3,34 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../config";
 
+
+import imgContinental from "../assets/CatalogoMarcas/bannercontinental.png";
+
+
+const BRAND_SLUG_TO_DB = {
+  continental: "CONTINENTAL",
+};
+
+function slugToDbMarca(slug) {
+  const s = (slug || "").toString().trim().toLowerCase();
+  if (!s) return "";
+  return (BRAND_SLUG_TO_DB[s] || s.toUpperCase()).trim();
+}
+
+// ✅ Meta para el hero (imagen + descripción)
+const BRAND_META = {
+  CONTINENTAL: {
+    name: "Continental",
+    image: imgContinental,
+    desc: "Tecnología enfocada en seguridad: buen frenado, estabilidad y control en mojado.",
+  },
+
+};
+
 function parseMedidaParts(medida) {
   if (!medida) return null;
   const s = String(medida).toUpperCase().trim();
-  // acepta: 155/50/16, 155/50R16, 155 50 16, 155-50-16
-  const norm = s
-    .replace(/\s+/g, "/")
-    .replace(/-/g, "/")
-    .replace(/R/g, "/");
+  const norm = s.replace(/\s+/g, "/").replace(/-/g, "/").replace(/R/g, "/");
   const parts = norm.split("/").filter(Boolean);
   if (parts.length < 3) return null;
 
@@ -24,15 +44,16 @@ function parseMedidaParts(medida) {
 
 function toggleSetValue(setter, value) {
   setter((prev) => {
-    const n = new Set(prev);
-    if (n.has(value)) n.delete(value);
-    else n.add(value);
-    return n;
+    const next = new Set(prev);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
   });
 }
 
 function Accordion({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
+
   return (
     <div className="facc">
       <button
@@ -44,6 +65,7 @@ function Accordion({ title, children, defaultOpen = true }) {
         <span className="facc__title">{title}</span>
         <span className={`facc__chev ${open ? "is-open" : ""}`}>▾</span>
       </button>
+
       {open && <div className="facc__body">{children}</div>}
     </div>
   );
@@ -53,25 +75,23 @@ export default function Catalogo() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ marca fija por ruta: /catalogo/:marca  (ej: /catalogo/pirelli)
+  // ✅ marca fija por ruta: /catalogo/:marca
   const { marca: marcaParam } = useParams();
-  const marcaFixed = (marcaParam || "").trim();
-  const marcaFixedUpper = marcaFixed ? marcaFixed.toUpperCase() : "";
+  const marcaFixedUpper = slugToDbMarca(marcaParam);
+
+  const brandMeta = marcaFixedUpper ? BRAND_META[marcaFixedUpper] : null;
 
   const [marcas, setMarcas] = useState([]);
   const [medidas, setMedidas] = useState([]);
 
-  // ✅ multi-select (Sets)
   const [marcasSel, setMarcasSel] = useState(new Set());
   const [anchosSel, setAnchosSel] = useState(new Set());
   const [altosSel, setAltosSel] = useState(new Set());
   const [rinesSel, setRinesSel] = useState(new Set());
 
-  // ✅ query / medida (desde URL)
   const [qUrl, setQUrl] = useState("");
   const [medidaUrl, setMedidaUrl] = useState("");
 
-  // ✅ paginado
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -83,15 +103,11 @@ export default function Catalogo() {
   // 0) Leer URL (?q=... y ?medida=...)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const q = (params.get("q") || "").trim();
-    const medida = (params.get("medida") || "").trim();
-
-    setQUrl(q);
-    setMedidaUrl(medida);
+    setQUrl((params.get("q") || "").trim());
+    setMedidaUrl((params.get("medida") || "").trim());
   }, [location.search]);
 
-  // 1) Cargar filtros base (marcas + medidas)
-  //    ✅ Si hay marca fija, pedir filtros recortados por esa marca
+  // 1) Cargar filtros base
   useEffect(() => {
     const params = new URLSearchParams();
     if (marcaFixedUpper) params.set("marca", marcaFixedUpper);
@@ -108,7 +124,7 @@ export default function Catalogo() {
       });
   }, [marcaFixedUpper]);
 
-  // 2) Derivar opciones (ancho/alto/rin) desde medidas
+  // 2) Derivar opciones
   const { anchos, altos, rines } = useMemo(() => {
     const A = new Set();
     const H = new Set();
@@ -130,22 +146,18 @@ export default function Catalogo() {
     };
   }, [medidas]);
 
-  // 3) Si viene ?medida=155/50/16, aplicar selección automática a Sets
+  // 3) Selección automática si viene medida
   useEffect(() => {
     if (!medidaUrl) return;
-
     const p = parseMedidaParts(medidaUrl);
     if (!p) return;
 
     setAnchosSel(new Set([p.ancho]));
     setAltosSel(new Set([p.alto]));
     setRinesSel(new Set([p.rin]));
-
-    // si hay marca fija, no tocamos marcasSel; si no, dejamos marcasSel como está.
-    // (si quisieras limpiar marcasSel aquí, me dices)
   }, [medidaUrl]);
 
-  // 4) Traer items con filtros + paginado
+  // 4) Fetch items
   const aplicarFiltros = async ({ append = false, pageOverride } = {}) => {
     try {
       setLoading(true);
@@ -153,14 +165,12 @@ export default function Catalogo() {
 
       const params = new URLSearchParams();
 
-      // ✅ marca fija por ruta tiene prioridad
       const marcasFinal = new Set(marcasSel);
       if (marcaFixedUpper) {
         marcasFinal.clear();
         marcasFinal.add(marcaFixedUpper);
       }
 
-      // ✅ q desde URL (si existe) se manda como q
       const qFinal = (qUrl || "").trim();
       if (qFinal) params.set("q", qFinal);
 
@@ -171,8 +181,8 @@ export default function Catalogo() {
 
       params.set("sort", "price_asc");
 
-      const p = pageOverride ?? (append ? page + 1 : 1);
-      params.set("page", String(p));
+      const nextPage = pageOverride ?? (append ? page + 1 : 1);
+      params.set("page", String(nextPage));
       params.set("limit", "24");
 
       const res = await fetch(`${API_BASE}/api/catalogo/items?${params.toString()}`);
@@ -182,7 +192,7 @@ export default function Catalogo() {
 
       setTotal(data.total || 0);
       setPages(data.pages || 1);
-      setPage(data.page || p);
+      setPage(data.page || nextPage);
 
       if (append) setItems((prev) => [...prev, ...(data.items || [])]);
       else setItems(data.items || []);
@@ -198,57 +208,43 @@ export default function Catalogo() {
     }
   };
 
-  // 5) Ejecutar aplicarFiltros cuando cambien filtros/URL/marca fija
+  // 5) Re-ejecutar cuando cambien filtros
   useEffect(() => {
-    // reset paginado al cambiar filtros
     setItems([]);
     setPage(1);
     setPages(1);
     setTotal(0);
-
-    if (marcaFixedUpper) setMarcasSel(new Set());
-
     aplicarFiltros({ append: false, pageOverride: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    marcaFixedUpper,
-    qUrl,
-    medidaUrl,
-    marcasSel,
-    anchosSel,
-    altosSel,
-    rinesSel,
-  ]);
+  }, [marcaFixedUpper, qUrl, medidaUrl, marcasSel, anchosSel, altosSel, rinesSel]);
 
   const limpiar = () => {
-    // si hay marca fija, no limpies esa
     if (!marcaFixedUpper) setMarcasSel(new Set());
     setAnchosSel(new Set());
     setAltosSel(new Set());
     setRinesSel(new Set());
 
-    // limpia también query params en la URL (q y medida)
-    navigate("/catalogo", { replace: true });
+    const target = marcaParam ? `/catalogo/${marcaParam}` : "/catalogo";
+    navigate(target, { replace: true });
 
     setTimeout(() => aplicarFiltros({ append: false, pageOverride: 1 }), 0);
   };
 
   const totalSel =
-    (marcaFixedUpper ? 0 : marcasSel.size) +
-    anchosSel.size +
-    altosSel.size +
-    rinesSel.size;
+    (marcaFixedUpper ? 0 : marcasSel.size) + anchosSel.size + altosSel.size + rinesSel.size;
 
   return (
-    <main className="container main catalogo">
+    <main className="main catalogo catalogoWide">
       <aside className="filters filters-ecom">
         <div className="filters-ecom__top">
           <div>
             <h2>Filtros</h2>
+
             <div className="filters-ecom__meta">
               <span>{marcas.length} marcas</span>
               <span className="sep">•</span>
               <span>{medidas.length} medidas</span>
+
               {marcaFixedUpper && (
                 <>
                   <span className="sep">•</span>
@@ -257,6 +253,7 @@ export default function Catalogo() {
                   </span>
                 </>
               )}
+
               {medidaUrl && (
                 <>
                   <span className="sep">•</span>
@@ -265,6 +262,7 @@ export default function Catalogo() {
                   </span>
                 </>
               )}
+
               {qUrl && (
                 <>
                   <span className="sep">•</span>
@@ -292,7 +290,6 @@ export default function Catalogo() {
             aplicarFiltros({ append: false, pageOverride: 1 });
           }}
         >
-          {/* ✅ Marca (solo si NO hay marca fija por URL) */}
           {!marcaFixedUpper && (
             <Accordion title="Marca">
               <div className="fchk__list">
@@ -362,23 +359,39 @@ export default function Catalogo() {
       </aside>
 
       <section className="results">
+        {/* ✅ HERO SOLO CUANDO HAY MARCA FIJA */}
+        {marcaFixedUpper && brandMeta && (
+          <div className="brandHero">
+            <div className="brandHero__media">
+              <img src={brandMeta.image} alt={brandMeta.name} />
+            </div>
+
+            <div className="brandHero__info">
+              <h1>Catálogo {brandMeta.name}</h1>
+              <p>{brandMeta.desc}</p>
+
+              <div className="brandHero__chips">
+                <span>Instalación</span>
+                <span>Garantía</span>
+                <span>Atención WhatsApp</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <h2>{marcaFixedUpper ? `Catálogo ${marcaFixedUpper}` : "Resultados"}</h2>
+          <h2>{marcaFixedUpper ? `Productos ${marcaFixedUpper}` : "Resultados"}</h2>
           <small>{total} encontrados</small>
         </div>
 
         {error && <p style={{ color: "crimson" }}>{error}</p>}
-
         {!error && items.length === 0 && !loading && <p>No hay resultados con esos filtros.</p>}
 
         <div className="grid catalog-grid">
           {items.map((it, idx) => (
             <article className="catalog-card" key={it.sku || idx}>
               <div className="card-image">
-                <img
-                  src="/llanta.png"
-                  alt={`${it.marca || ""} ${it.modelo || ""}`.trim()}
-                />
+                <img src="/llanta.png" alt={`${it.marca || ""} ${it.modelo || ""}`.trim()} />
               </div>
 
               <div className="card-body">
@@ -407,7 +420,6 @@ export default function Catalogo() {
           ))}
         </div>
 
-        {/* ✅ Cargar más */}
         <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
           {page < pages && (
             <button

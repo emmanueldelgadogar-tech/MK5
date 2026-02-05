@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
 
-import logoImg from "../assets/mini-logo.png"; // usa tu logo real
+import logoImg from "../assets/logos/mini-logo.png";
 
 export default function Header() {
   const navigate = useNavigate();
