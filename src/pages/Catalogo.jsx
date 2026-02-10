@@ -3,12 +3,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../config";
 
+// ✅ IMPORTA TU CSS DEL CATALOGO (si no, no se aplicará)
+import "../styles/catalogo.css";
+
+// ✅ placeholder local (ajusta el path si tu llanta está en otro lado)
+import llantaPlaceholder from "../assets/llanta.png";
 
 import imgContinental from "../assets/CatalogoMarcas/bannercontinental.png";
 
-
 const BRAND_SLUG_TO_DB = {
   continental: "CONTINENTAL",
+  // si quieres hero por marca, agrega:
+  // pirelli: "PIRELLI",
 };
 
 function slugToDbMarca(slug) {
@@ -17,14 +23,13 @@ function slugToDbMarca(slug) {
   return (BRAND_SLUG_TO_DB[s] || s.toUpperCase()).trim();
 }
 
-// ✅ Meta para el hero (imagen + descripción)
 const BRAND_META = {
   CONTINENTAL: {
     name: "Continental",
     image: imgContinental,
-    desc: "Tecnología enfocada en seguridad: buen frenado, estabilidad y control en mojado.",
+    desc: "Continental es una marca alemana reconocida por su tecnología enfocada en la seguridad y el control. Sus llantas ofrecen excelente frenado, gran estabilidad en carretera y alto desempeño en piso mojado, brindando una conducción cómoda, silenciosa y confiable En MK5 Llantas trabajamos con Continental porque creemos en la calidad real, el respaldo y la seguridad que se sienten en cada kilómetro.",
   },
-
+  // PIRELLI: { ... }  // opcional
 };
 
 function parseMedidaParts(medida) {
@@ -75,10 +80,8 @@ export default function Catalogo() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ marca fija por ruta: /catalogo/:marca
   const { marca: marcaParam } = useParams();
   const marcaFixedUpper = slugToDbMarca(marcaParam);
-
   const brandMeta = marcaFixedUpper ? BRAND_META[marcaFixedUpper] : null;
 
   const [marcas, setMarcas] = useState([]);
@@ -100,14 +103,12 @@ export default function Catalogo() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 0) Leer URL (?q=... y ?medida=...)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     setQUrl((params.get("q") || "").trim());
     setMedidaUrl((params.get("medida") || "").trim());
   }, [location.search]);
 
-  // 1) Cargar filtros base
   useEffect(() => {
     const params = new URLSearchParams();
     if (marcaFixedUpper) params.set("marca", marcaFixedUpper);
@@ -124,7 +125,6 @@ export default function Catalogo() {
       });
   }, [marcaFixedUpper]);
 
-  // 2) Derivar opciones
   const { anchos, altos, rines } = useMemo(() => {
     const A = new Set();
     const H = new Set();
@@ -146,7 +146,6 @@ export default function Catalogo() {
     };
   }, [medidas]);
 
-  // 3) Selección automática si viene medida
   useEffect(() => {
     if (!medidaUrl) return;
     const p = parseMedidaParts(medidaUrl);
@@ -157,7 +156,6 @@ export default function Catalogo() {
     setRinesSel(new Set([p.rin]));
   }, [medidaUrl]);
 
-  // 4) Fetch items
   const aplicarFiltros = async ({ append = false, pageOverride } = {}) => {
     try {
       setLoading(true);
@@ -208,7 +206,6 @@ export default function Catalogo() {
     }
   };
 
-  // 5) Re-ejecutar cuando cambien filtros
   useEffect(() => {
     setItems([]);
     setPage(1);
@@ -274,12 +271,7 @@ export default function Catalogo() {
             </div>
           </div>
 
-          <button
-            type="button"
-            className="filters-ecom__clear"
-            onClick={limpiar}
-            disabled={loading && items.length === 0}
-          >
+          <button type="button" className="filters-ecom__clear" onClick={limpiar}>
             Limpiar
           </button>
         </div>
@@ -359,7 +351,6 @@ export default function Catalogo() {
       </aside>
 
       <section className="results">
-        {/* ✅ HERO SOLO CUANDO HAY MARCA FIJA */}
         {marcaFixedUpper && brandMeta && (
           <div className="brandHero">
             <div className="brandHero__media">
@@ -379,19 +370,23 @@ export default function Catalogo() {
           </div>
         )}
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="catalogHead">
           <h2>{marcaFixedUpper ? `Productos ${marcaFixedUpper}` : "Resultados"}</h2>
           <small>{total} encontrados</small>
         </div>
 
-        {error && <p style={{ color: "crimson" }}>{error}</p>}
+        {error && <p className="catalogError">{error}</p>}
         {!error && items.length === 0 && !loading && <p>No hay resultados con esos filtros.</p>}
 
-        <div className="grid catalog-grid">
+        <div className="catalog-grid">
           {items.map((it, idx) => (
             <article className="catalog-card" key={it.sku || idx}>
               <div className="card-image">
-                <img src="/llanta.png" alt={`${it.marca || ""} ${it.modelo || ""}`.trim()} />
+                <img
+                  src={it.imagen || llantaPlaceholder}
+                  alt={`${it.marca || ""} ${it.modelo || ""}`.trim()}
+                  loading="lazy"
+                />
               </div>
 
               <div className="card-body">
@@ -399,8 +394,13 @@ export default function Catalogo() {
                 <h3 className="model">{it.modelo || "Modelo"}</h3>
                 <p className="measure">{it.medida || ""}</p>
 
-                <div className="price">
-                  {it.precio ? `$${Number(it.precio).toLocaleString("es-MX")}` : ""}
+                <div className="card-price">
+                  {it.precio
+                    ? `$${Number(it.precio).toLocaleString("es-MX", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}`
+                    : ""}
                 </div>
 
                 <button
@@ -420,14 +420,13 @@ export default function Catalogo() {
           ))}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
+        <div className="catalogMore">
           {page < pages && (
             <button
-              className="filters-ecom__apply"
+              className="filters-ecom__apply catalogMore__btn"
               type="button"
               disabled={loading}
               onClick={() => aplicarFiltros({ append: true })}
-              style={{ maxWidth: 320 }}
             >
               {loading ? "Cargando..." : "Cargar más"}
             </button>

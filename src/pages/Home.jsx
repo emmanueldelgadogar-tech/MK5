@@ -27,6 +27,8 @@ import michelinPodio from "../assets/Marcas/michelin podio.jpg";
 import goodyearPodio from "../assets/Marcas/goodyear podio.jpeg";
 import continentalPodio from "../assets/Marcas/continental podio.jpg";
 import pirelliPodio from "../assets/Marcas/pirelli podio.jpg";
+import hankookPodio from "../assets/Marcas/hankook podio.png";
+import firestonePodio from "../assets/Marcas/firestone podio.png";
 
 // ✅ PROMOS REALES (carpeta /assets/Promos)
 import promoAntares from "../assets/Promos/Antares promo.jpeg";
@@ -64,6 +66,8 @@ const PODIOS_DESTACADOS = [
   { key: "continental", name: "Continental", img: continentalPodio, to: "/catalogo/continental" },
   { key: "michelin", name: "Michelin", img: michelinPodio, to: "/catalogo/michelin" },
   { key: "goodyear", name: "Goodyear", img: goodyearPodio, to: "/catalogo/goodyear" },
+  { key: "hankook", name: "Hankook", img: hankookPodio, to: "/catalogo/hankook" },
+  { key: "firestone", name: "Firestone", img: firestonePodio, to: "/catalogo/firestone" },
 ];
 
 function AiAssistantBox({ onAskAssistant, replyText, loading }) {
