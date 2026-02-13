@@ -43,18 +43,75 @@ const MARCAS_DESTACADAS = [
   { key: "vinmax", name: "Vinmax", img: vinmaxlogo },
 ];
 
-// ✅ ahora el asistente muestra respuesta y loading
-function AiAssistantBox({
-  onAskAssistant,
-  replyText,
-  loading,
-}) {
+// Chat-style AI assistant with OpenAI
+function AiAssistantBox({ chatMessages, onSendMessage, loading }) {
   const [q, setQ] = useState("");
+  const chatEndRef = useState(null);
+
+  const handleSend = () => {
+    const text = q.trim();
+    if (!text || loading) return;
+    setQ("");
+    onSendMessage(text);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   return (
     <div className="card card--ai">
       <div className="card__head">
-        <div className="aiBadge">Asistente MK5</div>
+        <div className="aiBadge">Asistente IA MK5</div>
+        <p className="card__sub">
+          Dime tu auto y año, o tu medida de llanta y te ayudo a encontrar la
+          llanta ideal.
+        </p>
+      </div>
+
+      <div className="aiChatArea">
+        {chatMessages.length === 0 && (
+          <div className="aiWelcome">
+            <p>Hola, soy el asistente de MK5.</p>
+            <p>
+              Preguntame por ejemplo: &quot;¿Qué llantas le quedan a un Aveo
+              2015?&quot;
+            </p>
+          </div>
+        )}
+
+        {chatMessages.map((msg, i) => (
+          <div
+            key={i}
+            className={`aiMsg ${msg.role === "user" ? "aiMsg--user" : "aiMsg--bot"}`}
+          >
+            <div className="aiMsg__bubble">
+              <span>{msg.content}</span>
+              {msg.catalogLinks?.length > 0 && (
+                <div className="aiMsg__links">
+                  {msg.catalogLinks.map((link, j) => (
+                    <Link key={j} to={link.url} className="aiMsg__linkBtn">
+                      Ver {link.medida} en catálogo
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="aiMsg aiMsg--bot">
+            <div className="aiMsg__bubble aiMsg__bubble--typing">
+              <span className="typingDot" />
+              <span className="typingDot" />
+              <span className="typingDot" />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="aiInputRow">
@@ -62,24 +119,19 @@ function AiAssistantBox({
           className="aiTextarea"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Escribe tu auto, medida o lo que estas buscando.."
+          onKeyDown={handleKeyDown}
+          placeholder='Ej: "¿Qué llantas usa un Versa 2020?" o "195/65R15"'
+          rows={2}
         />
         <button
           className="aiBtn"
           type="button"
-          onClick={() => onAskAssistant(q)}
+          onClick={handleSend}
           disabled={!q.trim() || loading}
         >
-          {loading ? "Buscando..." : "Buscar"}
+          {loading ? "Pensando..." : "Enviar"}
         </button>
       </div>
-
-      {/* ✅ respuesta del asistente */}
-      {replyText ? (
-        <div className="aiReply" style={{ marginTop: 10, fontSize: 14 }}>
-          {replyText}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -183,8 +235,8 @@ export default function Home() {
   const [alturaSel, setAlturaSel] = useState("");
   const [rinSel, setRinSel] = useState("");
 
-  // ✅ estado del asistente
-  const [assistantReply, setAssistantReply] = useState("");
+  // Estado del asistente IA (chat)
+  const [chatMessages, setChatMessages] = useState([]);
   const [assistantLoading, setAssistantLoading] = useState(false);
 
   const promos = useMemo(
@@ -242,38 +294,61 @@ export default function Home() {
     navigate(`/catalogo?medida=${encodeURIComponent(medida)}`);
   };
 
-  // ✅ NUEVO: esto ya llama a tu backend /api/assistant
-  const askAssistant = async (text) => {
+  // Enviar mensaje al asistente IA
+  const sendMessage = async (text) => {
     const message = (text || "").trim();
     if (!message) return;
 
+    // Agregar mensaje del usuario al chat
+    const userMsg = { role: "user", content: message };
+    setChatMessages((prev) => [...prev, userMsg]);
     setAssistantLoading(true);
-    setAssistantReply("");
 
     try {
+      // Preparar historial para el backend (sin catalogLinks para ahorrar tokens)
+      const history = chatMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const r = await fetch(`${API_BASE}/api/assistant`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, history }),
       });
 
       const data = await r.json();
 
       if (!data?.ok) {
-        setAssistantReply("Ups… hubo un problema. Intenta de nuevo.");
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data?.reply || "Ups, hubo un problema. Intenta de nuevo.",
+            catalogLinks: [],
+          },
+        ]);
         return;
       }
 
-      if (data.action === "NAVIGATE" && data.path) {
-        const qs = new URLSearchParams(data.query || {}).toString();
-        navigate(`${data.path}${qs ? `?${qs}` : ""}`);
-        return;
-      }
-
-      setAssistantReply(data.reply || "¿Me das tu medida? 🙂");
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.reply,
+          catalogLinks: data.catalogLinks || [],
+        },
+      ]);
     } catch (e) {
       console.error(e);
-      setAssistantReply("No pude conectar con el servidor 😕");
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "No pude conectar con el servidor. Intenta de nuevo.",
+          catalogLinks: [],
+        },
+      ]);
     } finally {
       setAssistantLoading(false);
     }
@@ -286,8 +361,8 @@ export default function Home() {
         <div className="home-layout">
           <div className="home-left">
             <AiAssistantBox
-              onAskAssistant={askAssistant}
-              replyText={assistantReply}
+              chatMessages={chatMessages}
+              onSendMessage={sendMessage}
               loading={assistantLoading}
             />
           </div>

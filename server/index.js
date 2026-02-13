@@ -257,46 +257,128 @@ app.get("/api/catalogo", async (req, res) => {
   }
 });
 
-// ===================== ASSISTANT (V1: sin OpenAI) =====================
+// ===================== ASSISTANT (V2: con OpenAI) =====================
+const OpenAI = require("openai");
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const SYSTEM_PROMPT = `Eres el asistente de llantas de MK5, una tienda en línea de llantas en México.
+Tu trabajo es ayudar a los clientes a encontrar la medida de llanta correcta para su vehículo.
+
+REGLAS:
+1. Cuando el usuario mencione un vehículo (marca, modelo y año), responde con la medida de llanta que usa ese vehículo.
+2. Siempre usa el formato de medida: ANCHO/ALTOR_RIN (ejemplo: 195/65R15).
+3. Si un vehículo puede usar más de una medida, menciona todas las opciones.
+4. Si no estás seguro de la medida exacta, indica las medidas más comunes para ese tipo de vehículo y aclara que el cliente debe verificar en la puerta del conductor o en el manual.
+5. Sé amable, breve y directo. Responde en español.
+6. Si el usuario ya te da una medida directa (ej: "195/65R15"), confírmala y ofrece buscar en el catálogo.
+7. Siempre que menciones una medida, escríbela EXACTAMENTE en formato NNN/NNRNN (ej: 195/65R15) para que el sistema la detecte.
+8. IMPORTANTE: Las medidas disponibles en nuestro catálogo son las siguientes (solo recomienda medidas que tengamos):
+{MEDIDAS_DISPONIBLES}
+
+Si la medida que necesita el vehículo NO está en la lista, dile al cliente que actualmente no la tenemos en stock y sugiérele contactarnos por WhatsApp para pedido especial.
+
+Responde SOLO con texto plano, sin markdown, sin asteriscos, sin negritas.`;
+
+// Cache de medidas (se refresca cada 5 min)
+let medidasCache = [];
+let medidasCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000;
+
+async function getMedidasDisponibles() {
+  const now = Date.now();
+  if (medidasCache.length && now - medidasCacheTime < CACHE_TTL) {
+    return medidasCache;
+  }
+  try {
+    const r = await pool.query(
+      "SELECT DISTINCT medida FROM catalogo WHERE stock > 0 ORDER BY medida"
+    );
+    medidasCache = r.rows.map((row) => row.medida);
+    medidasCacheTime = now;
+  } catch (e) {
+    console.error("Error cargando medidas:", e.message);
+  }
+  return medidasCache;
+}
+
 app.post("/api/assistant", async (req, res) => {
   try {
     const message = (req.body?.message || "").toString().trim();
+    const history = req.body?.history || [];
+
     if (!message) {
       return res.status(400).json({ ok: false, error: "message_required" });
     }
 
-    const m = message.toLowerCase();
+    // Obtener medidas disponibles del catálogo
+    const medidas = await getMedidasDisponibles();
+    const systemPrompt = SYSTEM_PROMPT.replace(
+      "{MEDIDAS_DISPONIBLES}",
+      medidas.join(", ") || "No se pudieron cargar las medidas."
+    );
 
-    // Detecta medida: "155 50 16" | "155/50/16" | "155-50-16" | "155/50R16"
-    const match = m.match(/(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i);
-    if (match) {
-      const medida = `${match[1]}/${match[2]}/${match[3]}`; // formato que tu front parsea
-      return res.json({
-        ok: true,
-        reply: `Listo ✅ Te llevo al catálogo con la medida ${medida}. ¿Buscas económica o premium?`,
-        action: "NAVIGATE",
-        path: "/catalogo",
-        query: { medida },
-      });
+    // Construir mensajes para OpenAI (incluye historial)
+    const messages = [{ role: "system", content: systemPrompt }];
+
+    // Agregar historial de conversación (máximo 10 mensajes previos)
+    const recentHistory = history.slice(-10);
+    for (const msg of recentHistory) {
+      if (msg.role === "user" || msg.role === "assistant") {
+        messages.push({ role: msg.role, content: msg.content });
+      }
     }
 
-    if (m.includes("recom")) {
-      return res.json({
-        ok: true,
-        reply:
-          "Para recomendarte bien necesito tu medida (ej: 205/55/16) o el auto (ej: March 2020). 🙂",
-        action: "REPLY",
-      });
+    // Agregar el mensaje actual
+    messages.push({ role: "user", content: message });
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const reply = completion.choices[0]?.message?.content || "";
+
+    // Extraer medidas mencionadas en la respuesta (formato NNN/NNRNN)
+    const medidasMencionadas = [];
+    const regex = /(\d{3}\/\d{2}R\d{2})/gi;
+    let match;
+    while ((match = regex.exec(reply)) !== null) {
+      medidasMencionadas.push(match[1]);
     }
+
+    // Generar links al catálogo para cada medida mencionada
+    const catalogLinks = medidasMencionadas.map((m) => ({
+      medida: m,
+      url: `/catalogo?medida=${encodeURIComponent(m)}`,
+    }));
 
     return res.json({
       ok: true,
-      reply: "¿Me dices tu medida? Ejemplo: 155/50/16 🔎 (o dime el auto y año).",
-      action: "REPLY",
+      reply,
+      medidas: medidasMencionadas,
+      catalogLinks,
+      action: medidasMencionadas.length ? "REPLY_WITH_LINKS" : "REPLY",
     });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "assistant_error" });
+    console.error("Assistant error:", e);
+
+    // Fallback si OpenAI falla
+    if (e?.status === 401 || e?.code === "invalid_api_key") {
+      return res.status(500).json({
+        ok: false,
+        error: "api_key_invalid",
+        reply: "El asistente no está configurado. Contacta al administrador.",
+      });
+    }
+
+    return res.status(500).json({
+      ok: false,
+      error: "assistant_error",
+      reply: "Hubo un problema con el asistente. Intenta de nuevo en un momento.",
+    });
   }
 });
 
