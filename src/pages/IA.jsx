@@ -2,7 +2,6 @@ import "../styles/ia.css";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { API_BASE } from "../config";
-import AsistenteMK5 from "../components/AsistenteMK5";
 
 export default function IA() {
   const [searchParams] = useSearchParams();
@@ -125,8 +124,16 @@ export default function IA() {
       <div className="ia-container">
         {/* Header */}
         <div className="ia-header">
-          <div className="ia-header__robot">
-            <AsistenteMK5 />
+          <div className="ia-header__icon">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="23" stroke="#ff5202" strokeWidth="2" fill="#1a1a1a"/>
+              <circle cx="24" cy="24" r="14" stroke="#ff5202" strokeWidth="2.5" fill="none"/>
+              <circle cx="24" cy="24" r="5" fill="#ff5202"/>
+              <line x1="24" y1="10" x2="24" y2="15" stroke="#ff5202" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="24" y1="33" x2="24" y2="38" stroke="#ff5202" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="10" y1="24" x2="15" y2="24" stroke="#ff5202" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="33" y1="24" x2="38" y2="24" stroke="#ff5202" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
           </div>
           <div className="ia-header__info">
             <h1 className="ia-header__title">Asistente MK5</h1>
