@@ -184,6 +184,29 @@
   word-break: break-word;
 }
 
+/* Link de medida clickeable dentro del chat */
+.ia-medida-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #ff5202;
+  font-weight: 700;
+  text-decoration: none;
+  background: rgba(255, 82, 2, .1);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 82, 2, .25);
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+
+.ia-medida-link:hover {
+  background: rgba(255, 82, 2, .2);
+  border-color: rgba(255, 82, 2, .5);
+  color: #ff6a2a;
+  text-decoration: none;
+}
+
 /* ================== TYPING INDICATOR ================== */
 .ia-typing {
   display: flex;

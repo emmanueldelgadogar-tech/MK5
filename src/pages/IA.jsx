@@ -1,6 +1,6 @@
 import "../styles/ia.css";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { API_BASE } from "../config";
 import AsistenteMK5 from "../components/AsistenteMK5";
 
@@ -85,6 +85,24 @@ export default function IA() {
     sendMessage(text, messages);
   };
 
+  // Detecta medidas (ej: 195/50/15, 205/55R16) y las convierte en links al catálogo
+  function renderMessageContent(text) {
+    const parts = text.split(/(\d{3}\/\d{2}(?:R|\/)\d{2})/gi);
+    if (parts.length === 1) return text;
+
+    return parts.map((part, idx) => {
+      if (/^\d{3}\/\d{2}(?:R|\/)\d{2}$/i.test(part)) {
+        const medida = part.replace(/R/gi, "/");
+        return (
+          <Link key={idx} to={"/catalogo?medida=" + encodeURIComponent(medida)} className="ia-medida-link">
+            {part}
+          </Link>
+        );
+      }
+      return part;
+    });
+  }
+
   return (
     <main className="ia-page">
       <div className="ia-container">
@@ -135,7 +153,9 @@ export default function IA() {
                     </div>
                   )}
                   <div className="ia-msg__bubble">
-                    <div className="ia-msg__text">{m.content}</div>
+                    <div className="ia-msg__text">
+                      {m.role === "assistant" ? renderMessageContent(m.content) : m.content}
+                    </div>
                   </div>
                 </div>
               ))}
