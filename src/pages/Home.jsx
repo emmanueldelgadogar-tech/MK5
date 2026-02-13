@@ -70,10 +70,9 @@ const PODIOS_DESTACADOS = [
   { key: "firestone", name: "Firestone", img: firestonePodio, to: "/catalogo/firestone" },
 ];
 
-function AiAssistantBox({ onAskAssistant, replyText, loading }) {
+function AiAssistantBox({ onAskAssistant }) {
   const [q, setQ] = useState("");
 
-  
   const examples = useMemo(
     () => [
       "Busco llanta 215/55/16…",
@@ -81,7 +80,6 @@ function AiAssistantBox({ onAskAssistant, replyText, loading }) {
       "Busco llantas para Ford Fiesta 2015…",
       "Quiero llantas económicas para un Aveo 2015",
       "¿Qué llantas me recomiendas para un Honda Civic?",
-
     ],
     []
   );
@@ -91,9 +89,8 @@ function AiAssistantBox({ onAskAssistant, replyText, loading }) {
   const [pos, setPos] = useState(0);
   const [deleting, setDeleting] = useState(false);
 
-  // ✅ typewriter (solo si q está vacío y no está cargando)
   useEffect(() => {
-    if (q.trim() || loading) return;
+    if (q.trim()) return;
 
     const current = examples[exIdx] || "";
     const speed = deleting ? 28 : 40;
@@ -120,17 +117,16 @@ function AiAssistantBox({ onAskAssistant, replyText, loading }) {
     }, speed);
 
     return () => clearTimeout(t);
-  }, [q, loading, examples, exIdx, pos, deleting]);
+  }, [q, examples, exIdx, pos, deleting]);
 
   const submit = () => {
     const msg = (q || "").trim();
-    if (!msg || loading) return;
+    if (!msg) return;
     onAskAssistant(msg);
   };
 
   return (
     <div className="card card--ai">
-      {/* TOP: robot + nubecitas + badge */}
       <div className="aiTop">
         <div className="aiRobotZone" aria-hidden="true">
           <div className="aiRobotWrap">
@@ -148,7 +144,7 @@ function AiAssistantBox({ onAskAssistant, replyText, loading }) {
 
       <div className="aiInputRow">
         <div className="aiTextareaWrap">
-          {!q.trim() && !loading ? (
+          {!q.trim() ? (
             <div className="aiFakePlaceholder" aria-hidden="true">
               {typed}
               <span className="aiCaret">|</span>
@@ -159,7 +155,7 @@ function AiAssistantBox({ onAskAssistant, replyText, loading }) {
             className="aiTextarea"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="" // usamos placeholder falso
+            placeholder=""
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -169,16 +165,10 @@ function AiAssistantBox({ onAskAssistant, replyText, loading }) {
           />
         </div>
 
-        <button className="aiBtn" type="button" onClick={submit} disabled={!q.trim() || loading}>
-          {loading ? "Buscando..." : "Buscar"}
+        <button className="aiBtn" type="button" onClick={submit} disabled={!q.trim()}>
+          Buscar
         </button>
       </div>
-
-      {replyText ? (
-        <div className="aiReply" style={{ marginTop: 10, fontSize: 14 }}>
-          {replyText}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -278,8 +268,6 @@ export default function Home() {
   const [alturaSel, setAlturaSel] = useState("");
   const [rinSel, setRinSel] = useState("");
 
-  const [assistantReply, setAssistantReply] = useState("");
-  const [assistantLoading, setAssistantLoading] = useState(false);
 
   const DURATION = 5000;
   const [promoIndex, setPromoIndex] = useState(0);
@@ -352,40 +340,10 @@ export default function Home() {
     const medida = `${anchoSel}/${alturaSel}R${rinSel}`;
     navigate(`/catalogo?medida=${encodeURIComponent(medida)}`);
   };
-  const askAssistant = async (text) => {
+  const askAssistant = (text) => {
     const message = (text || "").trim();
     if (!message) return;
-
-    setAssistantLoading(true);
-    setAssistantReply("");
-
-    try {
-      const r = await fetch(`${API_BASE}/api/assistant`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-
-      const data = await r.json();
-
-      if (!data?.ok) {
-        setAssistantReply("Ups… hubo un problema. Intenta de nuevo.");
-        return;
-      }
-
-      if (data.action === "NAVIGATE" && data.path) {
-        const qs = new URLSearchParams(data.query || {}).toString();
-        navigate(`${data.path}${qs ? `?${qs}` : ""}`);
-        return;
-      }
-
-      setAssistantReply(data.reply || "¿Me das tu medida? 🙂");
-    } catch (e) {
-      console.error(e);
-      setAssistantReply("No pude conectar con el servidor 😕");
-    } finally {
-      setAssistantLoading(false);
-    }
+    navigate(`/ia?q=${encodeURIComponent(message)}`);
   };
 
   return (
@@ -393,7 +351,7 @@ export default function Home() {
       <section className="home-shell">
         <div className="home-layout">
           <div className="home-left">
-            <AiAssistantBox onAskAssistant={askAssistant} replyText={assistantReply} loading={assistantLoading} />
+            <AiAssistantBox onAskAssistant={askAssistant} />
           </div>
 
           <div className="home-right">

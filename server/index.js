@@ -4,6 +4,7 @@ require("dotenv").config();
 const { Pool } = require("pg");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const OpenAI = require("openai");
 
 const app = express();
 
@@ -322,48 +323,143 @@ app.get("/api/catalogo", async (req, res) => {
   }
 });
 
-// ===================== ASSISTANT (V1: sin OpenAI) =====================
+// ===================== ASSISTANT (V2: OpenAI con contexto de catálogo) =====================
+
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+const SYSTEM_PROMPT = `Eres el asistente virtual de MK5 Llantas, una tienda mexicana de llantas (neumáticos).
+Tu trabajo es ayudar a los clientes a encontrar la llanta perfecta.
+
+REGLAS:
+- Responde SIEMPRE en español mexicano, amigable y profesional.
+- Si el cliente da una medida (ej: 205/55/16), busca en el inventario y recomienda opciones.
+- Si el cliente da un auto y año (ej: "March 2018"), indica la medida más común y recomienda.
+- Compara opciones: económica vs premium, explica diferencias brevemente.
+- Menciona precios en MXN cuando tengas datos del inventario.
+- Si hay promoción 4x3 (Continental, Euzkadi, Hankook, Tornel, JK Tyre, Laufenn), menciónala.
+- Sé conciso: máximo 3-4 párrafos cortos.
+- Usa emojis con moderación (1-2 por respuesta).
+- Si no sabes algo, sé honesto y sugiere contactar por WhatsApp.
+- NUNCA inventes productos que no estén en el inventario proporcionado.
+- Si el inventario está vacío para esa medida, dilo honestamente y sugiere medidas similares.
+
+MARCAS QUE MANEJAMOS: Pirelli, Bridgestone, Continental, Michelin, Goodyear, Hankook, Firestone, Euzkadi, Antares, Cooper, Blackhawk, Laufenn, Goodrich, Tornel, Pegasus, Vinmax.
+
+PROMOCIÓN 4x3: En Continental, Euzkadi, Hankook, Tornel, JK Tyre y Laufenn, al comprar 4 llantas pagas solo 3 + 10% de descuento adicional.`;
+
+async function getInventoryContext(message) {
+  try {
+    const m = message.toLowerCase();
+    const match = m.match(/(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i);
+
+    let items = [];
+
+    if (match) {
+      const ancho = match[1];
+      const alto = match[2];
+      const rin = match[3];
+      const r = await pool.query(
+        `SELECT marca, modelo, medida, precio, stock
+         FROM catalogo
+         WHERE stock > 0
+           AND medida ~ $1
+         ORDER BY precio ASC
+         LIMIT 15`,
+        [`^${ancho}/${alto}(R|/)${rin}$`]
+      );
+      items = r.rows;
+    } else {
+      const brandMatch = m.match(/\b(pirelli|bridgestone|continental|michelin|goodyear|hankook|firestone|euzkadi|antares|cooper|blackhawk|laufenn|goodrich|tornel|pegasus|vinmax)\b/i);
+      if (brandMatch) {
+        const r = await pool.query(
+          `SELECT marca, modelo, medida, precio, stock
+           FROM catalogo
+           WHERE stock > 0
+             AND UPPER(marca) = $1
+           ORDER BY precio ASC
+           LIMIT 15`,
+          [brandMatch[1].toUpperCase()]
+        );
+        items = r.rows;
+      }
+    }
+
+    if (!items.length) return "";
+
+    let ctx = "\n\nINVENTARIO DISPONIBLE:\n";
+    for (const it of items) {
+      ctx += `- ${it.marca} ${it.modelo} | Medida: ${it.medida} | $${Number(it.precio).toLocaleString("es-MX")} MXN | Stock: ${it.stock}\n`;
+    }
+    return ctx;
+  } catch (e) {
+    console.error("Error fetching inventory:", e.message);
+    return "";
+  }
+}
+
 app.post("/api/assistant", async (req, res) => {
   try {
-    const message = (req.body?.message || "").toString().trim();
-    if (!message) {
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+    const singleMessage = (req.body?.message || "").toString().trim();
+
+    if (!messages.length && !singleMessage) {
       return res.status(400).json({ ok: false, error: "message_required" });
     }
 
-    const m = message.toLowerCase();
-    const match = m.match(
-      /(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i
-    );
+    // Support both single message (from Home) and chat history (from IA page)
+    const chatMessages = messages.length
+      ? messages
+      : [{ role: "user", content: singleMessage }];
 
-    if (match) {
-      const medida = `${match[1]}/${match[2]}/${match[3]}`;
-      const medida_r = `${match[1]}/${match[2]}R${match[3]}`;
+    const lastUserMsg = [...chatMessages].reverse().find((m) => m.role === "user")?.content || "";
+
+    if (!openai) {
+      // Fallback if no API key: use regex-based logic
+      const m = lastUserMsg.toLowerCase();
+      const match = m.match(/(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i);
+
+      if (match) {
+        const medida = `${match[1]}/${match[2]}/${match[3]}`;
+        return res.json({
+          ok: true,
+          reply: `Encontré la medida ${medida}. Te recomiendo revisar nuestro catálogo para ver opciones disponibles. ¿Necesitas ayuda con algo más?`,
+          action: "REPLY",
+        });
+      }
 
       return res.json({
         ok: true,
-        reply: `Listo ✅ Te llevo al catálogo con la medida ${medida}. ¿Buscas económica o premium?`,
-        action: "NAVIGATE",
-        path: "/catalogo",
-        query: { medida, medida_r },
-      });
-    }
-
-    if (m.includes("recom")) {
-      return res.json({
-        ok: true,
-        reply:
-          "Para recomendarte bien necesito tu medida (ej: 205/55/16) o el auto (ej: March 2020). 🙂",
+        reply: "Para darte la mejor recomendación necesito tu medida de llanta (ej: 205/55/16) o tu auto y año. ¿Me lo compartes? 🙂",
         action: "REPLY",
       });
     }
 
+    // Get inventory context based on the last user message
+    const inventoryCtx = await getInventoryContext(lastUserMsg);
+
+    const systemMsg = SYSTEM_PROMPT + inventoryCtx;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemMsg },
+        ...chatMessages.slice(-10), // Keep last 10 messages for context
+      ],
+      max_tokens: 800,
+      temperature: 0.7,
+    });
+
+    const reply = completion.choices?.[0]?.message?.content || "Hubo un problema generando la respuesta. Intenta de nuevo.";
+
     return res.json({
       ok: true,
-      reply: "¿Me dices tu medida? Ejemplo: 205/55/16 🔎 (o dime el auto y año).",
+      reply,
       action: "REPLY",
     });
   } catch (e) {
-    console.error(e);
+    console.error("Assistant error:", e.message);
     res.status(500).json({ ok: false, error: "assistant_error" });
   }
 });

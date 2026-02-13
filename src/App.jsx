@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Catalogo from "./pages/Catalogo";
 import Checkout from "./pages/Checkout";
+import IA from "./pages/IA";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
 
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/ia" element={<IA />} />
         <Route path="/catalogo" element={<Catalogo />} />
         <Route path="/catalogo/:marca" element={<Catalogo />} />
         <Route path="/checkout" element={<Checkout />} />
