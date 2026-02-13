@@ -1,5 +1,5 @@
 import "../styles/ia.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { API_BASE } from "../config";
 import AsistenteMK5 from "../components/AsistenteMK5";
@@ -12,30 +12,24 @@ export default function IA() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [started, setStarted] = useState(false);
+  const hasSentInitial = useRef(false);
 
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
 
   // Auto-scroll al fondo cuando hay nuevos mensajes
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, loading]);
 
-  // Si llega con ?q=..., enviar automáticamente
-  useEffect(() => {
-    if (initialQuery && !started) {
-      setStarted(true);
-      sendMessage(initialQuery);
-    }
-  }, [initialQuery]);
-
-  async function sendMessage(text) {
+  const sendMessage = useCallback(async (text, prevMessages) => {
     const msg = (text || "").trim();
-    if (!msg || loading) return;
+    if (!msg) return;
 
     const userMsg = { role: "user", content: msg };
-    const updated = [...messages, userMsg];
+    const updated = [...(prevMessages || []), userMsg];
     setMessages(updated);
     setInput("");
     setLoading(true);
@@ -49,7 +43,7 @@ export default function IA() {
 
       const data = await r.json();
 
-      if (data?.ok && data.reply) {
+      if (data && data.ok && data.reply) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
       } else {
         setMessages((prev) => [
@@ -57,20 +51,38 @@ export default function IA() {
           { role: "assistant", content: "Ups, hubo un problema. Intenta de nuevo." },
         ]);
       }
-    } catch {
+    } catch (err) {
+      console.error("Error en assistant:", err);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "No pude conectar con el servidor. Intenta de nuevo." },
       ]);
     } finally {
       setLoading(false);
-      inputRef.current?.focus();
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
-  }
+  }, []);
+
+  // Si llega con ?q=..., enviar automáticamente (solo una vez)
+  useEffect(() => {
+    if (initialQuery && !hasSentInitial.current) {
+      hasSentInitial.current = true;
+      sendMessage(initialQuery, []);
+    }
+  }, [initialQuery, sendMessage]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    sendMessage(input);
+    const msg = (input || "").trim();
+    if (!msg || loading) return;
+    sendMessage(msg, messages);
+  };
+
+  const handleSuggestion = (text) => {
+    if (loading) return;
+    sendMessage(text, messages);
   };
 
   return (
@@ -96,31 +108,27 @@ export default function IA() {
               <div className="ia-empty__icon">🛞</div>
               <h2>Pregunta lo que necesites</h2>
               <p>
-                Puedo recomendarte llantas por medida, auto, presupuesto o marca. Dime, ¿en
-                qué te ayudo?
+                Puedo recomendarte llantas por medida, auto, presupuesto o marca.
               </p>
               <div className="ia-suggestions">
-                {[
-                  "Llantas para Nissan March 2018",
-                  "Busco llanta 205/55/16 económica",
-                  "¿Qué marcas premium manejan?",
-                  "Llantas para Honda Civic 2020",
-                ].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    className="ia-suggestion"
-                    onClick={() => sendMessage(s)}
-                  >
-                    {s}
-                  </button>
-                ))}
+                <button type="button" className="ia-suggestion" onClick={() => handleSuggestion("Llantas para Nissan March 2018")}>
+                  Llantas para Nissan March 2018
+                </button>
+                <button type="button" className="ia-suggestion" onClick={() => handleSuggestion("Busco llanta 205/55/16 económica")}>
+                  Busco llanta 205/55/16 económica
+                </button>
+                <button type="button" className="ia-suggestion" onClick={() => handleSuggestion("¿Qué marcas premium manejan?")}>
+                  ¿Qué marcas premium manejan?
+                </button>
+                <button type="button" className="ia-suggestion" onClick={() => handleSuggestion("Llantas para Honda Civic 2020")}>
+                  Llantas para Honda Civic 2020
+                </button>
               </div>
             </div>
           ) : (
             <div className="ia-messages">
               {messages.map((m, i) => (
-                <div key={i} className={`ia-msg ia-msg--${m.role}`}>
+                <div key={i} className={"ia-msg ia-msg--" + m.role}>
                   {m.role === "assistant" && (
                     <div className="ia-msg__avatar">
                       <AsistenteMK5 />
@@ -162,21 +170,12 @@ export default function IA() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Escribe tu pregunta..."
             disabled={loading}
-            autoFocus
           />
           <button className="ia-send" type="submit" disabled={!input.trim() || loading}>
-            {loading ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="32">
-                  <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite" />
-                </circle>
-              </svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            )}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
           </button>
         </form>
 
