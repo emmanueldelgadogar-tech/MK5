@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -17,17 +16,31 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ===================== CORS =====================
+// ✅ En dev: permite localhost/127.0.0.1 en cualquier puerto (5173, 5174, etc.)
+// ✅ En prod: deja tus dominios mk5.com (cuando los descomentes)
 const ALLOWED_ORIGINS = [
+  // DEV (si quieres forzar solo ciertos puertos, puedes dejarlos aquí)
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+
+  // PROD (descomenta cuando publiques)
   // "https://mk5.com",
   // "https://www.mk5.com",
 ];
 
+const isDevLocalhost = (origin) =>
+  /^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
 const corsOptions = {
   origin(origin, cb) {
     if (!origin) return cb(null, true); // curl/postman
+
+    // ✅ Permite cualquier puerto en localhost/127.0.0.1 (Vite cambia puertos)
+    if (isDevLocalhost(origin)) return cb(null, true);
+
+    // ✅ Permite los que estén en tu lista (para prod / whitelist)
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+
     return cb(new Error("CORS_BLOCKED"), false);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -201,22 +214,22 @@ app.get("/api/catalogo/items", async (req, res) => {
     const rinesArr = toIntArr(rines);
 
     const params = [];
-    const where = [`stock > 0`];
+    const where = [`base.stock > 0`];
 
     const qTrim = q.trim();
     if (qTrim) {
       params.push(`%${up(qTrim)}%`);
       const p = `$${params.length}`;
       where.push(`(
-        UPPER(marca)  LIKE ${p}
-        OR UPPER(modelo) LIKE ${p}
-        OR UPPER(medida) LIKE ${p}
+        UPPER(base.marca)  LIKE ${p}
+        OR UPPER(base.modelo) LIKE ${p}
+        OR UPPER(base.medida) LIKE ${p}
       )`);
     }
 
     if (marcasUniq.length) {
       params.push(marcasUniq);
-      where.push(`UPPER(marca) = ANY($${params.length})`);
+      where.push(`UPPER(base.marca) = ANY($${params.length})`);
     }
 
     const baseCTE = `
@@ -232,23 +245,23 @@ app.get("/api/catalogo/items", async (req, res) => {
 
     if (anchosArr.length) {
       params.push(anchosArr);
-      where.push(`ancho_i = ANY($${params.length}::int[])`);
+      where.push(`base.ancho_i = ANY($${params.length}::int[])`);
     }
     if (altosArr.length) {
       params.push(altosArr);
-      where.push(`alto_i = ANY($${params.length}::int[])`);
+      where.push(`base.alto_i = ANY($${params.length}::int[])`);
     }
     if (rinesArr.length) {
       params.push(rinesArr);
-      where.push(`rin_i = ANY($${params.length}::int[])`);
+      where.push(`base.rin_i = ANY($${params.length}::int[])`);
     }
 
     const whereSql = `WHERE ${where.join(" AND ")}`;
 
     const orderBy =
       sort === "price_desc"
-        ? "precio DESC NULLS LAST"
-        : "precio ASC NULLS LAST";
+        ? "base.precio DESC NULLS LAST"
+        : "base.precio ASC NULLS LAST";
 
     const totalQ = `
       ${baseCTE}
@@ -318,7 +331,9 @@ app.post("/api/assistant", async (req, res) => {
     }
 
     const m = message.toLowerCase();
-    const match = m.match(/(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i);
+    const match = m.match(
+      /(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i
+    );
 
     if (match) {
       const medida = `${match[1]}/${match[2]}/${match[3]}`;
@@ -336,7 +351,8 @@ app.post("/api/assistant", async (req, res) => {
     if (m.includes("recom")) {
       return res.json({
         ok: true,
-        reply: "Para recomendarte bien necesito tu medida (ej: 205/55/16) o el auto (ej: March 2020). 🙂",
+        reply:
+          "Para recomendarte bien necesito tu medida (ej: 205/55/16) o el auto (ej: March 2020). 🙂",
         action: "REPLY",
       });
     }
@@ -391,9 +407,9 @@ app.post("/api/checkout/create", async (req, res) => {
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     const customer = req.body?.customer || {};
 
-    if (!items.length) return res.status(400).json({ ok: false, error: "items_required" });
+    if (!items.length)
+      return res.status(400).json({ ok: false, error: "items_required" });
 
-    // normaliza: suma SKUs repetidos
     const mapQty = new Map();
     for (const it of items) {
       const sku = String(it.sku || "").trim();
@@ -403,7 +419,8 @@ app.post("/api/checkout/create", async (req, res) => {
     }
 
     const clean = Array.from(mapQty.entries()).map(([sku, qty]) => ({ sku, qty }));
-    if (!clean.length) return res.status(400).json({ ok: false, error: "invalid_items" });
+    if (!clean.length)
+      return res.status(400).json({ ok: false, error: "invalid_items" });
 
     const skus = clean.map((x) => x.sku);
 
@@ -419,7 +436,10 @@ app.post("/api/checkout/create", async (req, res) => {
     const lines = [];
     for (const it of clean) {
       const row = catMap.get(it.sku);
-      if (!row) return res.status(404).json({ ok: false, error: "sku_not_found", sku: it.sku });
+      if (!row)
+        return res
+          .status(404)
+          .json({ ok: false, error: "sku_not_found", sku: it.sku });
 
       if (Number(row.stock) < it.qty) {
         return res.status(409).json({

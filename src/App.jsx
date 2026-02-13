@@ -1,16 +1,15 @@
 import { Routes, Route } from "react-router-dom";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
 
-import Header from "./components/Header.jsx";
-import Footer from "./components/Footer.jsx";
-
-import Home from "./pages/Home.jsx";
-import Catalogo from "./pages/Catalogo.jsx";
-import Checkout from "./pages/Checkout.jsx";
+import Home from "./pages/Home";
+import Catalogo from "./pages/Catalogo";
+import Checkout from "./pages/Checkout";
 
 export default function App() {
   return (
     <>
-      <Header />
+      <Header /> {/* siempre visible */}
 
       <Routes>
         <Route path="/" element={<Home />} />
