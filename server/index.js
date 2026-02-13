@@ -1,23 +1,72 @@
+
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { Pool } = require("pg");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// ===================== TRUST PROXY (Render/Vercel/NGINX) =====================
+app.set("trust proxy", 1);
+
+// ===================== SECURITY + PARSERS =====================
+app.use(helmet());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+// ===================== CORS =====================
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  // "https://mk5.com",
+  // "https://www.mk5.com",
+];
+
+const corsOptions = {
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // curl/postman
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    return cb(new Error("CORS_BLOCKED"), false);
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  credentials: true,
+};
+
+// Preflight
+app.options(/.*/, cors(corsOptions));
+app.use(cors(corsOptions));
+
+// ===================== RATE LIMIT =====================
+app.use(
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
+
+// ===================== DB =====================
+if (!process.env.DATABASE_URL) {
+  console.error("❌ Falta DATABASE_URL en .env");
+  process.exit(1);
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
-// helpers
+// ===================== HELPERS =====================
 const up = (v) => (v ?? "").toString().trim().toUpperCase();
+
 const asNull = (v) => {
   const s = (v ?? "").toString().trim();
   return s ? s : null;
 };
+
 const toArr = (v) =>
   String(v ?? "")
     .split(",")
@@ -29,17 +78,26 @@ const toIntArr = (v) =>
     .map((x) => parseInt(x, 10))
     .filter((n) => Number.isFinite(n));
 
+function round2(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
 // ===================== HEALTH =====================
 app.get("/api/health", async (req, res) => {
-  const r = await pool.query("SELECT now() as ok");
-  res.json({ ok: true, time: r.rows[0].ok });
+  try {
+    const r = await pool.query("SELECT now() as ok");
+    res.json({ ok: true, time: r.rows[0].ok });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false });
+  }
 });
 
 // ===================== FILTROS (marca + medida) =====================
-// ✅ acepta ?marca= (para /catalogo/:marca)
 app.get("/api/catalogo/filtros", async (req, res) => {
   try {
     const marca = up(req.query.marca);
+
     const sql = `
       WITH base AS (
         SELECT * FROM catalogo
@@ -47,11 +105,12 @@ app.get("/api/catalogo/filtros", async (req, res) => {
           AND ($1 = '' OR UPPER(marca) = $1)
       )
       SELECT
-        (SELECT json_agg(marca ORDER BY marca)
+        (SELECT COALESCE(json_agg(marca ORDER BY marca), '[]'::json)
          FROM (SELECT DISTINCT marca FROM base) m) AS marcas,
-        (SELECT json_agg(medida ORDER BY medida)
+        (SELECT COALESCE(json_agg(medida ORDER BY medida), '[]'::json)
          FROM (SELECT DISTINCT medida FROM base) d) AS medidas;
     `;
+
     const r = await pool.query(sql, [marca]);
     res.json(r.rows[0] || { marcas: [], medidas: [] });
   } catch (e) {
@@ -60,8 +119,7 @@ app.get("/api/catalogo/filtros", async (req, res) => {
   }
 });
 
-// ===================== FILTROS MEDIDA (HOME: ancho/alto/rin dependientes) =====================
-// ✅ robusto: soporta medida con R o sin R
+// ===================== FILTROS MEDIDA (HOME: ancho/alto/rin) =====================
 app.get("/api/catalogo/filtros-medida", async (req, res) => {
   try {
     const marca = up(req.query.marca);
@@ -81,10 +139,10 @@ app.get("/api/catalogo/filtros-medida", async (req, res) => {
           AND medida ~ '^[0-9]{3}/[0-9]{2}(R|/)[0-9]{2}$'
       )
       SELECT
-        (SELECT json_agg(x ORDER BY x)
+        (SELECT COALESCE(json_agg(x ORDER BY x), '[]'::json)
          FROM (SELECT DISTINCT ancho AS x FROM base WHERE ancho IS NOT NULL) s) AS anchos,
 
-        (SELECT json_agg(x ORDER BY x)
+        (SELECT COALESCE(json_agg(x ORDER BY x), '[]'::json)
          FROM (
            SELECT DISTINCT altura AS x
            FROM base
@@ -93,7 +151,7 @@ app.get("/api/catalogo/filtros-medida", async (req, res) => {
              AND ($3::text IS NULL OR rin = $3::text)
          ) s) AS alturas,
 
-        (SELECT json_agg(x ORDER BY x)
+        (SELECT COALESCE(json_agg(x ORDER BY x), '[]'::json)
          FROM (
            SELECT DISTINCT rin AS x
            FROM base
@@ -113,7 +171,6 @@ app.get("/api/catalogo/filtros-medida", async (req, res) => {
 });
 
 // ===================== CATALOGO ITEMS (filtros + sort + paginado) =====================
-// ✅ FIX PRO: filtra por ancho/alto/rin NUMÉRICOS (sirve con 155/50R16 y 155/50/16)
 app.get("/api/catalogo/items", async (req, res) => {
   try {
     const {
@@ -143,9 +200,8 @@ app.get("/api/catalogo/items", async (req, res) => {
     const altosArr = toIntArr(altos);
     const rinesArr = toIntArr(rines);
 
-    // Base + parsing de medida en SQL (soporta R o /)
-    const where = [`stock > 0`];
     const params = [];
+    const where = [`stock > 0`];
 
     const qTrim = q.trim();
     if (qTrim) {
@@ -163,10 +219,17 @@ app.get("/api/catalogo/items", async (req, res) => {
       where.push(`UPPER(marca) = ANY($${params.length})`);
     }
 
-    // ✅ Comparación por partes numéricas extraídas
-    // ancho_i: primeros 3 dígitos
-    // alto_i: después de '/'
-    // rin_i: al final, después de 'R' o '/'
+    const baseCTE = `
+      WITH base AS (
+        SELECT
+          sku, marca, modelo, medida, precio, stock,
+          NULLIF(substring(medida from '^([0-9]{3})'), '')::int AS ancho_i,
+          NULLIF(substring(medida from '^[0-9]{3}/([0-9]{2})'), '')::int AS alto_i,
+          NULLIF(substring(medida from '(?:R|/)([0-9]{2})$'), '')::int AS rin_i
+        FROM catalogo
+      )
+    `;
+
     if (anchosArr.length) {
       params.push(anchosArr);
       where.push(`ancho_i = ANY($${params.length}::int[])`);
@@ -180,23 +243,12 @@ app.get("/api/catalogo/items", async (req, res) => {
       where.push(`rin_i = ANY($${params.length}::int[])`);
     }
 
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+
     const orderBy =
       sort === "price_desc"
         ? "precio DESC NULLS LAST"
         : "precio ASC NULLS LAST";
-
-    const whereSql = `WHERE ${where.join(" AND ")}`;
-
-    const baseCTE = `
-      WITH base AS (
-        SELECT
-          sku, marca, modelo, medida, precio, stock,
-          NULLIF(substring(medida from '^([0-9]{3})'), '')::int AS ancho_i,
-          NULLIF(substring(medida from '^[0-9]{3}/([0-9]{2})'), '')::int AS alto_i,
-          NULLIF(substring(medida from '(?:R|/)([0-9]{2})$'), '')::int AS rin_i
-        FROM catalogo
-      )
-    `;
 
     const totalQ = `
       ${baseCTE}
@@ -224,7 +276,7 @@ app.get("/api/catalogo/items", async (req, res) => {
       ok: true,
       total,
       page: pageNum,
-      pages: Math.max(1, Math.ceil(total / limitNum)), // ✅ evita pages=0
+      pages: Math.max(1, Math.ceil(total / limitNum)),
       items: itemsR.rows,
     });
   } catch (err) {
@@ -266,32 +318,32 @@ app.post("/api/assistant", async (req, res) => {
     }
 
     const m = message.toLowerCase();
-
-    // Detecta medida: "155 50 16" | "155/50/16" | "155-50-16" | "155/50R16"
     const match = m.match(/(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i);
+
     if (match) {
-      const medida = `${match[1]}/${match[2]}/${match[3]}`; // formato que tu front parsea
+      const medida = `${match[1]}/${match[2]}/${match[3]}`;
+      const medida_r = `${match[1]}/${match[2]}R${match[3]}`;
+
       return res.json({
         ok: true,
         reply: `Listo ✅ Te llevo al catálogo con la medida ${medida}. ¿Buscas económica o premium?`,
         action: "NAVIGATE",
         path: "/catalogo",
-        query: { medida },
+        query: { medida, medida_r },
       });
     }
 
     if (m.includes("recom")) {
       return res.json({
         ok: true,
-        reply:
-          "Para recomendarte bien necesito tu medida (ej: 205/55/16) o el auto (ej: March 2020). 🙂",
+        reply: "Para recomendarte bien necesito tu medida (ej: 205/55/16) o el auto (ej: March 2020). 🙂",
         action: "REPLY",
       });
     }
 
     return res.json({
       ok: true,
-      reply: "¿Me dices tu medida? Ejemplo: 155/50/16 🔎 (o dime el auto y año).",
+      reply: "¿Me dices tu medida? Ejemplo: 205/55/16 🔎 (o dime el auto y año).",
       action: "REPLY",
     });
   } catch (e) {
@@ -300,7 +352,188 @@ app.post("/api/assistant", async (req, res) => {
   }
 });
 
+// ===================== CHECKOUT (MVP REAL) =====================
+const PROMO_4X3_BRANDS = new Set([
+  "CONTINENTAL",
+  "EUZKADI",
+  "HANKOOK",
+  "TORNEL",
+  "JK TYRE",
+  "LAUFENN",
+]);
+
+function calcLineTotals({ marca, unitPrice, qty, stock }) {
+  const price = Number(unitPrice);
+  const q = Number(qty);
+
+  const normalSubtotal = price * q;
+  const normalTotal = normalSubtotal * 0.9;
+
+  let promoTotal = normalTotal;
+  const brandUp = up(marca);
+
+  if (PROMO_4X3_BRANDS.has(brandUp) && q >= 4 && Number(stock) >= 4) {
+    const payUnits = q - Math.floor(q / 4);
+    const promoSubtotal = price * payUnits;
+    promoTotal = promoSubtotal * 0.9;
+  }
+
+  const bestTotal = Math.min(normalTotal, promoTotal);
+
+  return {
+    line_total: round2(bestTotal),
+    line_discount: round2(normalSubtotal - bestTotal),
+  };
+}
+
+app.post("/api/checkout/create", async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const customer = req.body?.customer || {};
+
+    if (!items.length) return res.status(400).json({ ok: false, error: "items_required" });
+
+    // normaliza: suma SKUs repetidos
+    const mapQty = new Map();
+    for (const it of items) {
+      const sku = String(it.sku || "").trim();
+      const qty = Math.max(parseInt(it.qty, 10) || 0, 0);
+      if (!sku || qty <= 0) continue;
+      mapQty.set(sku, (mapQty.get(sku) || 0) + qty);
+    }
+
+    const clean = Array.from(mapQty.entries()).map(([sku, qty]) => ({ sku, qty }));
+    if (!clean.length) return res.status(400).json({ ok: false, error: "invalid_items" });
+
+    const skus = clean.map((x) => x.sku);
+
+    const r = await pool.query(
+      `SELECT sku, marca, modelo, medida, precio, stock
+       FROM catalogo
+       WHERE sku = ANY($1::text[])`,
+      [skus]
+    );
+
+    const catMap = new Map(r.rows.map((row) => [row.sku, row]));
+
+    const lines = [];
+    for (const it of clean) {
+      const row = catMap.get(it.sku);
+      if (!row) return res.status(404).json({ ok: false, error: "sku_not_found", sku: it.sku });
+
+      if (Number(row.stock) < it.qty) {
+        return res.status(409).json({
+          ok: false,
+          error: "insufficient_stock",
+          sku: it.sku,
+          stock: row.stock,
+          requested: it.qty,
+        });
+      }
+
+      const { line_total, line_discount } = calcLineTotals({
+        marca: row.marca,
+        unitPrice: row.precio,
+        qty: it.qty,
+        stock: row.stock,
+      });
+
+      lines.push({
+        sku: row.sku,
+        marca: row.marca,
+        modelo: row.modelo,
+        medida: row.medida,
+        qty: it.qty,
+        unit_price: Number(row.precio),
+        line_total,
+        line_discount,
+      });
+    }
+
+    const subtotal = round2(lines.reduce((s, l) => s + l.unit_price * l.qty, 0));
+    const total = round2(lines.reduce((s, l) => s + l.line_total, 0));
+    const discount = round2(subtotal - total);
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const o = await client.query(
+        `INSERT INTO orders (customer_name, customer_phone, customer_email, subtotal, discount, total)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         RETURNING id, status, created_at`,
+        [
+          asNull(customer.name),
+          asNull(customer.phone),
+          asNull(customer.email),
+          subtotal,
+          discount,
+          total,
+        ]
+      );
+
+      const orderId = o.rows[0].id;
+
+      for (const l of lines) {
+        await client.query(
+          `INSERT INTO order_items (order_id, sku, marca, modelo, medida, qty, unit_price, line_total)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [
+            orderId,
+            l.sku,
+            l.marca,
+            l.modelo,
+            l.medida,
+            l.qty,
+            l.unit_price,
+            l.line_total,
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      return res.json({
+        ok: true,
+        order: {
+          id: orderId,
+          status: o.rows[0].status,
+          created_at: o.rows[0].created_at,
+          subtotal,
+          discount,
+          total,
+          currency: "MXN",
+          items: lines,
+        },
+      });
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "checkout_error" });
+  }
+});
+
+// ===================== 404 API =====================
+app.use("/api", (req, res) => {
+  res.status(404).json({ ok: false, error: "not_found" });
+});
+
+// ===================== ERROR HANDLER =====================
+app.use((err, req, res, next) => {
+  if (err && err.message === "CORS_BLOCKED") {
+    return res.status(403).json({ ok: false, error: "cors_blocked" });
+  }
+  console.error(err);
+  res.status(500).json({ ok: false, error: "unhandled_error" });
+});
+
 // ===================== LISTEN =====================
-app.listen(process.env.PORT || 4000, () => {
-  console.log("✅ Backend activo en http://localhost:" + (process.env.PORT || 4000));
+const PORT = Number(process.env.PORT || 4000);
+app.listen(PORT, () => {
+  console.log("✅ Backend activo en http://localhost:" + PORT);
 });
