@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
 
-import logoImg from "../assets/mini-logo.png"; // usa tu logo real
+import logoImg from "../assets/logos/mini-logo.png";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export default function Header() {
           <img src={logoImg} alt="MK5" />
         </NavLink>
 
-        {/* 🔥 BUSCADOR EN MEDIO */}
+        
         <form className="header__search" onSubmit={onSearch}>
           <input
             className="header__searchInput"
@@ -42,8 +42,8 @@ export default function Header() {
           <NavLink to="/catalogo" className="nav__link">
             Catálogo
           </NavLink>
-          <NavLink to="/cita" className="nav__link">
-            Cita
+          <NavLink to="/checkout" className="nav__link">
+            Carrito
           </NavLink>
         </nav>
       </div>
