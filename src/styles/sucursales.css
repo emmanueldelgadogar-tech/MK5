@@ -1,0 +1,172 @@
+/* =========================================================
+   SUCURSALES.CSS — estilos específicos de la página Sucursales
+   ========================================================= */
+
+/* Hero extendido */
+.suc-hero {
+  padding-bottom: 28px;
+}
+.suc-hero-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.suc-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: 13px;
+  text-decoration: none;
+  transition: opacity .15s;
+}
+.suc-hero-btn:hover { opacity: .85; }
+.suc-hero-btn--call { background: #fff; color: #111; }
+.suc-hero-btn--wa   { background: #25d366; color: #fff; }
+.suc-hero-btn--fb   { background: #1877f2; color: #fff; }
+.suc-hero-btn--ig   { background: linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888); color: #fff; }
+
+/* Mini logos banner */
+.suc-minilogos-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+  padding: 18px 24px;
+  margin-bottom: 14px;
+}
+.suc-minilogo {
+  height: 56px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.12));
+}
+
+/* Tarjeta de sucursal */
+.suc-card {
+  padding: 0;
+  overflow: hidden;
+}
+.suc-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 24px 0;
+  flex-wrap: wrap;
+}
+.suc-card__header h2 {
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+.suc-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 900;
+}
+.suc-badge--open { background: #dcfce7; color: #166534; }
+.suc-badge--closed { background: #fee2e2; color: #991b1b; }
+
+.suc-card__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 18px 24px 24px;
+}
+
+.suc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.suc-tel-link {
+  color: #ff5b00;
+  font-weight: 700;
+  text-decoration: none;
+}
+.suc-tel-link:hover { text-decoration: underline; }
+
+.suc-btn-wa {
+  background: #25d366;
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 900;
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.suc-btn-maps {
+  background: #f3f4f6;
+  color: #111;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 900;
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Garantía banner */
+.suc-garantia {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.suc-garantia h2 { border-color: #d97706; }
+
+/* Envío gratis */
+.suc-envio {}
+.suc-estados-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.suc-estado-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #166534;
+}
+.suc-estado-check {
+  color: #16a34a;
+  font-weight: 900;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .suc-card__body {
+    grid-template-columns: 1fr;
+  }
+  .suc-estados-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .suc-minilogo { height: 40px; }
+}
+@media (max-width: 480px) {
+  .suc-estados-grid { grid-template-columns: 1fr; }
+  .suc-hero-contacts { flex-direction: column; }
+}

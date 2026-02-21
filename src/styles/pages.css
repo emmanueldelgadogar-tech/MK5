@@ -1,0 +1,345 @@
+/* =========================================================
+   PAGES.CSS — estilos compartidos para páginas estáticas
+   ========================================================= */
+
+.static-page{
+  width: min(960px, 94%);
+  margin: 32px auto 60px;
+}
+
+/* Hero de la página */
+.static-hero{
+  background: linear-gradient(135deg, #0d0d0d 0%, #1c1c1c 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 40px 36px;
+  margin-bottom: 22px;
+  position: relative;
+  overflow: hidden;
+}
+.static-hero::before{
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255,91,0,.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+.static-hero h1{
+  font-size: clamp(22px, 4vw, 34px);
+  font-weight: 950;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+.static-hero p{
+  color: rgba(255,255,255,.65);
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 600px;
+}
+.static-hero__badge{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,91,0,.18);
+  color: #ff5b00;
+  border: 1px solid rgba(255,91,0,.3);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Sección genérica */
+.static-section{
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  padding: 24px 28px;
+  margin-bottom: 14px;
+}
+.static-section h2{
+  font-size: 17px;
+  font-weight: 950;
+  margin-bottom: 12px;
+  color: #111;
+  padding-left: 10px;
+  border-left: 3px solid #ff5b00;
+}
+.static-section h3{
+  font-size: 15px;
+  font-weight: 900;
+  margin: 14px 0 8px;
+  color: #222;
+}
+.static-section p{
+  font-size: 14px;
+  color: #444;
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+.static-section ul, .static-section ol{
+  padding-left: 20px;
+}
+.static-section li{
+  font-size: 14px;
+  color: #444;
+  line-height: 1.65;
+  margin-bottom: 6px;
+}
+
+/* Grid de tarjetas para blogs, sucursales, etc */
+.static-grid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.static-card{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.09);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform .15s, box-shadow .15s;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+}
+.static-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,.1);
+}
+.static-card__img{
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  background: #f3f4f6;
+}
+.static-card__img-placeholder{
+  width: 100%;
+  height: 160px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+}
+.static-card__body{
+  padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.static-card__tag{
+  display: inline-block;
+  background: #fff0e8;
+  color: #ff5b00;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+.static-card__title{
+  font-size: 16px;
+  font-weight: 900;
+  color: #111;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+.static-card__desc{
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  flex: 1;
+}
+.static-card__footer{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #999;
+}
+.static-card__cta{
+  color: #ff5b00;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+/* Info card de sucursal / pago */
+.info-card{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.09);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.info-card h3{
+  font-size: 17px;
+  font-weight: 950;
+  color: #111;
+  margin: 0;
+}
+.info-row{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: #444;
+  line-height: 1.5;
+}
+.info-row__icon{ font-size: 18px; line-height: 1.2; flex-shrink: 0; }
+
+/* Tarjetas de métodos de pago */
+.payment-grid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.payment-card{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.09);
+  border-radius: 12px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.payment-card__icon{ font-size: 32px; line-height: 1; }
+.payment-card__name{
+  font-size: 15px;
+  font-weight: 950;
+  color: #111;
+}
+.payment-card__desc{
+  font-size: 13px;
+  color: #666;
+  line-height: 1.45;
+}
+.payment-card__badge{
+  display: inline-block;
+  background: #f0fdf4;
+  color: #166534;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  align-self: flex-start;
+}
+
+/* Chips de beneficios */
+.benefit-chips{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.benefit-chip{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+}
+.benefit-chip__icon{ font-size: 20px; }
+
+/* Stats row */
+.stats-row{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.stat-box{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+.stat-box__num{
+  font-size: 28px;
+  font-weight: 950;
+  color: #ff5b00;
+  line-height: 1;
+}
+.stat-box__label{
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* CTA band */
+.cta-band{
+  background: linear-gradient(135deg, #ff5b00 0%, #e04800 100%);
+  border-radius: 14px;
+  padding: 28px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.cta-band h3{
+  color: #fff;
+  font-size: 20px;
+  font-weight: 950;
+  margin: 0 0 4px;
+}
+.cta-band p{ color: rgba(255,255,255,.8); font-size: 14px; margin: 0; }
+.cta-band__btn{
+  background: #fff;
+  color: #ff5b00;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 22px;
+  font-weight: 950;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  white-space: nowrap;
+}
+.cta-band__btn:hover{ filter: brightness(.96); }
+
+/* Map placeholder */
+.map-placeholder{
+  width: 100%;
+  height: 280px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.1);
+  overflow: hidden;
+}
+.map-placeholder iframe{
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+@media (max-width: 720px){
+  .static-grid{ grid-template-columns: 1fr; }
+  .payment-grid{ grid-template-columns: 1fr 1fr; }
+  .stats-row{ grid-template-columns: 1fr 1fr; }
+  .static-hero{ padding: 28px 20px; }
+  .static-section{ padding: 18px 16px; }
+  .cta-band{ flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 480px){
+  .payment-grid{ grid-template-columns: 1fr; }
+  .stats-row{ grid-template-columns: 1fr 1fr; }
+}

@@ -1,0 +1,400 @@
+/* =========================================================
+   CUENTA.CSS — Mi Cuenta + Rastrear Pedido
+   ========================================================= */
+
+/* Hero de cuenta */
+.cuenta-hero { padding-bottom: 24px; }
+
+/* Grid de cuenta logueada */
+.cuenta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+/* Acciones rápidas */
+.cuenta-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+.cuenta-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: 14px;
+  text-decoration: none;
+  background: linear-gradient(135deg, #ff6a2a, #ff5202);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.cuenta-action-btn:hover { opacity: .88; }
+.cuenta-action-btn--outline {
+  background: transparent;
+  border: 1px solid rgba(0,0,0,.15);
+  color: #333;
+}
+.cuenta-action-btn--danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Form wrap */
+.cuenta-form-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* Tabs login/registro */
+.cuenta-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.1);
+}
+.cuenta-tab {
+  flex: 1;
+  padding: 12px;
+  background: #f9f9f9;
+  border: none;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  color: #666;
+  transition: background .15s, color .15s;
+}
+.cuenta-tab.is-active {
+  background: #ff5202;
+  color: #fff;
+}
+
+/* Formulario */
+.cuenta-form {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+}
+.cuenta-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+}
+.cuenta-form input {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.14);
+  background: #fafafa;
+  color: #111;
+  padding: 0 14px;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color .15s;
+}
+.cuenta-form input:focus { border-color: #ff5202; }
+.cuenta-form label.has-error input { border-color: #dc2626; }
+
+/* Password wrap */
+.pass-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pass-wrap input { padding-right: 44px; }
+.pass-toggle {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  line-height: 1;
+}
+
+/* Alerts */
+.cuenta-alert {
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.cuenta-alert--error   { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+.cuenta-alert--success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+
+/* Field error */
+.field-error {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Submit button */
+.cuenta-submit {
+  height: 46px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff6a2a, #ff5202);
+  color: #fff;
+  font-weight: 900;
+  font-size: 15px;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity .15s;
+}
+.cuenta-submit:disabled { opacity: .6; }
+.cuenta-submit:hover:not(:disabled) { opacity: .9; }
+
+/* Link dentro del form */
+.cuenta-link {
+  background: none;
+  border: none;
+  color: #ff5202;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  font-size: inherit;
+}
+
+/* Seguridad */
+.cuenta-seguridad {
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  margin-top: 12px;
+}
+
+/* ── Rastrear Pedido ── */
+.rastrear-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rastrear-input {
+  flex: 1;
+  min-width: 200px;
+  height: 46px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.14);
+  padding: 0 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+  outline: none;
+}
+.rastrear-input:focus { border-color: #ff5202; }
+.rastrear-btn {
+  height: 46px;
+  border: none;
+  border-radius: 10px;
+  padding: 0 22px;
+  background: linear-gradient(135deg, #ff6a2a, #ff5202);
+  color: #fff;
+  font-weight: 900;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Resultado del rastreo */
+.rastrear-result {}
+
+/* Timeline vertical (página rastrear) */
+.order-timeline-v {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.otv-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  opacity: .35;
+  transition: opacity .3s;
+  padding-bottom: 4px;
+  position: relative;
+}
+.otv-step.is-done    { opacity: 1; }
+.otv-step.is-current { opacity: 1; }
+
+.otv-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+.otv-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  border: 2px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  z-index: 1;
+  transition: border-color .3s, background .3s;
+}
+.otv-step.is-done .otv-icon    { background: #dcfce7; border-color: #4ade80; }
+.otv-step.is-current .otv-icon { background: #fff7ed; border-color: #ff6a2a; animation: pulse-otv 1.8s ease-in-out infinite; }
+@keyframes pulse-otv {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,106,42,.3); }
+  50%      { box-shadow: 0 0 0 8px rgba(255,106,42,0); }
+}
+.otv-line {
+  width: 2px;
+  flex: 1;
+  min-height: 30px;
+  background: #e5e7eb;
+  margin: 4px 0;
+  transition: background .3s;
+}
+.otv-line.is-done { background: #4ade80; }
+
+.otv-content {
+  padding: 10px 0;
+  flex: 1;
+}
+.otv-label {
+  font-weight: 900;
+  font-size: 15px;
+  color: #111;
+  line-height: 1.2;
+}
+.otv-desc {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+}
+.otv-badge {
+  background: #ff5202;
+  color: #fff;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* Meta del pedido */
+.rastrear-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 16px;
+}
+.rastrear-meta__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rastrear-meta__label {
+  font-size: 11px;
+  color: #999;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.rastrear-meta__val {
+  font-size: 15px;
+  font-weight: 900;
+  color: #111;
+}
+.rastrear-pay-link {
+  display: inline-block;
+  background: linear-gradient(135deg,#ff6a2a,#ff5202);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: 13px;
+  text-decoration: none;
+  margin-top: 6px;
+}
+
+/* ── Timeline horizontal en Checkout ── */
+.order-timeline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  margin: 24px auto 20px;
+  max-width: 600px;
+  position: relative;
+}
+.order-timeline__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  position: relative;
+  opacity: .35;
+  transition: opacity .3s;
+}
+.order-timeline__step.is-done    { opacity: 1; }
+.order-timeline__step.is-current { opacity: 1; }
+.order-timeline__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  border: 2px solid rgba(255,255,255,.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  z-index: 1;
+  transition: border-color .3s, background .3s;
+}
+.order-timeline__step.is-done    .order-timeline__icon { background: rgba(74,222,128,.15); border-color: #4ade80; }
+.order-timeline__step.is-current .order-timeline__icon { background: rgba(255,106,42,.15); border-color: #ff6a2a; animation: pulse-step 1.8s ease-in-out infinite; }
+@keyframes pulse-step {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,106,42,.3); }
+  50%      { box-shadow: 0 0 0 8px rgba(255,106,42,0); }
+}
+.order-timeline__label {
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  color: rgba(255,255,255,.85);
+  line-height: 1.3;
+  max-width: 70px;
+}
+.order-timeline__line {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(255,255,255,.1);
+  z-index: 0;
+}
+.order-timeline__line.is-done { background: #4ade80; }
+
+/* Responsive */
+@media (max-width: 720px) {
+  .cuenta-grid   { grid-template-columns: 1fr; }
+  .rastrear-meta { grid-template-columns: 1fr; }
+  .order-timeline { overflow-x: auto; }
+}
