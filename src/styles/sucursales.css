@@ -170,3 +170,10 @@
   .suc-estados-grid { grid-template-columns: 1fr; }
   .suc-hero-contacts { flex-direction: column; }
 }
+
+/* Lista de 17 tarjetas de sucursales */
+.suc-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}

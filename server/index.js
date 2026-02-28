@@ -938,7 +938,32 @@ REGLAS:
 - Si no sabes algo, sé honesto y sugiere contactar por WhatsApp.
 - NUNCA inventes productos que no estén en el inventario proporcionado.
 - Si el inventario está vacío para esa medida, dilo honestamente y sugiere medidas similares.
-- Si incluyes links, usa SIEMPRE markdown [texto](url) con rutas internas /catalogo... para que el frontend los haga clickeables.`;
+- Si incluyes links, usa SIEMPRE markdown [texto](url) con rutas internas /catalogo... para que el frontend los haga clickeables.
+
+SUCURSALES MK5 (17 ubicaciones en Toluca, Estado de México):
+Cuando el cliente pregunte por indicaciones, cómo llegar, ubicación o dirección de una sucursal, responde con este formato exacto:
+"Te dejo las indicaciones para llegar a la sucursal de [NOMBRE] 📍 [LINK]"
+
+- Isidro Fabela → https://maps.app.goo.gl/DwyU2AYifAiNsg5e8
+- Filiberto Gómez (Pepsi) → https://maps.app.goo.gl/GtETFQe5Knr489ub9
+- San Buena → https://maps.app.goo.gl/8sLkwPS9uFuFfAZP9
+- Heriberto Enríquez → https://maps.app.goo.gl/QaqhwfAzKWLUEgu46
+- Central de Abastos → https://maps.app.goo.gl/KSsBn8m2693J74sz5
+- Tlacopa → https://maps.app.goo.gl/FHsYWjfVQLtHRASA6
+- Adolfo López Mateos → https://maps.app.goo.gl/WuL3EFnSXPjy11yF7
+- Pino Suárez → https://maps.app.goo.gl/6VunYzAtAXb9hMi29
+- Circuito Metropolitano → https://maps.app.goo.gl/XR9i8bo2Dp3kiFSP6
+- San Mateo Atenco → https://maps.app.goo.gl/RANjDovDxPuTgXo46
+- Santín → https://maps.app.goo.gl/Xes4Ss1SFCDrtR738
+- Tecnológico → https://maps.app.goo.gl/H8dgzFQmrLPV9bp47
+- Tollocan → https://maps.app.goo.gl/NJMif1LE3cEvZb2b9
+- Nueva Oxtotitlán → https://maps.app.goo.gl/fizy5y5Axc53qvCS8
+- Morelos → https://maps.app.goo.gl/DcJnqqqENyYwvV8r9
+- Circunvalación → https://maps.app.goo.gl/Npd5sQz1Xc9CebBP9
+- Hipico → https://maps.app.goo.gl/AipHBoxbJ81Lr3vV9
+
+Si el cliente pide ver TODAS las sucursales responde: "Puedes ver todas nuestras 17 sucursales en: [Ver sucursales](/sucursales)"
+Horario general: Lun–Vie 9:00–18:00, Sáb 9:00–16:30, Dom Cerrado.`;
 
 
 async function getInventoryContext(message) {
