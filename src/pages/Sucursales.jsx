@@ -32,15 +32,6 @@ const SUCURSALES = [
   { nombre: "Hipico",                 maps: "https://maps.app.goo.gl/AipHBoxbJ81Lr3vV9" },
 ];
 
-const SERVICIOS = [
-  "Instalación de llantas",
-  "Balanceo",
-  "Alineación",
-  "Inflado de nitrógeno",
-  "Revisión de presión gratis",
-  "Asesoría personalizada",
-];
-
 const ESTADOS_ENVIO_GRATIS = [
   "San Luis Potosí","Nuevo León","Nayarit","Durango","Colima",
   "Tlaxcala","Zacatecas","Puebla","Aguascalientes","Guanajuato",
@@ -48,30 +39,10 @@ const ESTADOS_ENVIO_GRATIS = [
 ];
 
 const METODOS_PAGO = [
-  {
-    icono: "💳",
-    nombre: "Mercado Pago",
-    desc: "Tarjeta de crédito o débito. Meses sin intereses de acuerdo a tu banco y las promociones vigentes de la plataforma.",
-    badge: "MSI disponibles",
-  },
-  {
-    icono: "🅿️",
-    nombre: "PayPal",
-    desc: "Paga de forma segura con tu cuenta PayPal o tarjeta vinculada.",
-    badge: "Protección al comprador",
-  },
-  {
-    icono: "🏦",
-    nombre: "Transferencia SPEI",
-    desc: "Transferencia bancaria directa a nuestra cuenta CLABE. Confirmación en minutos.",
-    badge: "Sin comisiones",
-  },
-  {
-    icono: "🏪",
-    nombre: "OXXO Pay",
-    desc: "Genera tu referencia y paga en cualquier tienda OXXO del país.",
-    badge: "+20,000 tiendas",
-  },
+  { icono: "💳", nombre: "Mercado Pago",       desc: "Tarjeta de crédito o débito. Meses sin intereses disponibles.", badge: "MSI disponibles" },
+  { icono: "🅿️", nombre: "PayPal",             desc: "Paga de forma segura con tu cuenta PayPal o tarjeta vinculada.", badge: "Protección al comprador" },
+  { icono: "🏦", nombre: "Transferencia SPEI", desc: "Transferencia bancaria directa a nuestra cuenta CLABE.", badge: "Sin comisiones" },
+  { icono: "🏪", nombre: "OXXO Pay",           desc: "Genera tu referencia y paga en cualquier tienda OXXO.", badge: "+20,000 tiendas" },
 ];
 
 export default function Sucursales() {
@@ -87,10 +58,10 @@ export default function Sucursales() {
         </p>
         <div className="suc-hero-contacts">
           <a href="tel:7291022894" className="suc-hero-btn suc-hero-btn--call">
-            📞 Llamar: 729 102 2894
+            📞 729 102 2894
           </a>
           <a href={WA_VENTAS} target="_blank" rel="noreferrer" className="suc-hero-btn suc-hero-btn--wa">
-            💬 WhatsApp ventas: 729 113 6254
+            💬 WhatsApp ventas
           </a>
           <a href={FB} target="_blank" rel="noreferrer" className="suc-hero-btn suc-hero-btn--fb">
             📘 Facebook
@@ -103,72 +74,65 @@ export default function Sucursales() {
 
       {/* Mini logos banner */}
       <div className="suc-minilogos-banner">
-        <img src={logoBanner}      alt="MK5 Llantas"        className="suc-minilogo" />
-        <img src={logoMercadoLider} alt="Mercado Líder"     className="suc-minilogo" />
-        <img src={logoCobertura}   alt="Cobertura nacional" className="suc-minilogo" />
-        <img src={logoBalanceo}    alt="Balanceo y alineación" className="suc-minilogo" />
+        <img src={logoBanner}       alt="MK5 Llantas"           className="suc-minilogo" />
+        <img src={logoMercadoLider} alt="Mercado Líder"         className="suc-minilogo" />
+        <img src={logoCobertura}    alt="Cobertura nacional"     className="suc-minilogo" />
+        <img src={logoBalanceo}     alt="Balanceo y alineación"  className="suc-minilogo" />
       </div>
 
-      {/* 17 tarjetas de sucursales */}
-      <div className="suc-cards-list">
-        {SUCURSALES.map((s) => (
-          <div key={s.nombre} className="static-section suc-card">
-            <div className="suc-card__header">
-              <h2>MK5 Llantas — {s.nombre}</h2>
-              <span className="suc-badge suc-badge--open">Abierto</span>
-            </div>
-
-            <div className="suc-card__body">
-              <div className="suc-info">
-                <div className="info-row">
-                  <span className="info-row__icon">📍</span>
-                  <span>Toluca, Estado de México — Sucursal {s.nombre}</span>
+      {/* Grid 2 columnas de sucursales */}
+      <div className="static-section" style={{ paddingBottom: 8 }}>
+        <h2>📍 Nuestras 17 sucursales</h2>
+        <p style={{ color: "#999", fontSize: 13, marginBottom: 24 }}>
+          Toluca, Estado de México — Lun–Vie 9:00–18:00 · Sáb 9:00–16:30
+        </p>
+        <div className="suc-2col-grid">
+          {SUCURSALES.map((s) => (
+            <div key={s.nombre} className="suc-mini-card">
+              <div className="suc-mini-card__header">
+                <div>
+                  <span className="suc-mini-card__icon">📍</span>
+                  <span className="suc-mini-card__name">MK5 — {s.nombre}</span>
                 </div>
+                <span className="suc-badge suc-badge--open">Abierto</span>
+              </div>
+
+              <div className="suc-mini-card__info">
                 <div className="info-row">
                   <span className="info-row__icon">🕐</span>
-                  <div>
-                    <div><strong>Lun – Vie:</strong> 9:00 am – 6:00 pm</div>
-                    <div><strong>Sábado:</strong> 9:00 am – 4:30 pm</div>
-                    <div style={{ color: "#999", fontSize: 12 }}>Domingos: Cerrado</div>
-                  </div>
+                  <span>Lun–Vie 9:00–18:00 · Sáb 9:00–16:30</span>
                 </div>
                 <div className="info-row">
                   <span className="info-row__icon">📞</span>
-                  <div>
-                    <div><strong>Ventas:</strong> <a href="tel:7291136254" className="suc-tel-link">729 113 6254</a></div>
-                    <div><strong>Llamadas:</strong> <a href="tel:7291022894" className="suc-tel-link">729 102 2894</a></div>
-                  </div>
-                </div>
-                <div className="info-row">
-                  <span className="info-row__icon">📘</span>
-                  <a href={FB} target="_blank" rel="noreferrer" className="suc-tel-link">facebook.com/MK5Llantera</a>
-                </div>
-                <div className="info-row">
-                  <span className="info-row__icon">📸</span>
-                  <a href={IG} target="_blank" rel="noreferrer" className="suc-tel-link">@mk5llantera</a>
-                </div>
-
-                <div style={{ marginTop: 14 }}>
-                  <p style={{ fontWeight: 900, fontSize: 13, marginBottom: 8 }}>Servicios disponibles:</p>
-                  <ul style={{ paddingLeft: 18, margin: 0 }}>
-                    {SERVICIOS.map((srv) => (
-                      <li key={srv} style={{ fontSize: 13, color: "#ccc", marginBottom: 4 }}>{srv}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <a href={WA_CITAS} target="_blank" rel="noreferrer" className="suc-btn-wa">
-                    💬 Agendar por WhatsApp
-                  </a>
-                  <a href={s.maps} target="_blank" rel="noreferrer" className="suc-btn-maps">
-                    📍 Ver en Maps
-                  </a>
+                  <span>
+                    <a href="tel:7291136254" className="suc-tel-link">729 113 6254</a>
+                    {" · "}
+                    <a href="tel:7291022894" className="suc-tel-link">729 102 2894</a>
+                  </span>
                 </div>
               </div>
+
+              <div className="suc-mini-card__actions">
+                <a
+                  href={s.maps}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="suc-btn-llegar"
+                >
+                  📍 Llegar a {s.nombre}
+                </a>
+                <a
+                  href={WA_CITAS}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="suc-btn-wa-mini"
+                >
+                  💬 Agendar
+                </a>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Banner garantía */}
@@ -177,11 +141,6 @@ export default function Sucursales() {
         <p>
           Todos nuestros productos cuentan con <strong>garantía contra defecto de fábrica</strong>.
           Si tu llanta presenta un defecto de fabricación, la reemplazamos sin costo.
-          El desgaste natural, daños por impactos o mal uso no están cubiertos por esta garantía.
-        </p>
-        <p style={{ fontSize: 13, color: "#666" }}>
-          Para hacer válida tu garantía, conserva tu comprobante de compra y contáctanos
-          directamente por WhatsApp o llámanos.
         </p>
       </div>
 
@@ -198,10 +157,6 @@ export default function Sucursales() {
             </div>
           ))}
         </div>
-        <p style={{ marginTop: 12, fontSize: 13, color: "#666" }}>
-          * Los meses sin intereses están sujetos a las promociones vigentes de Mercado Pago
-          y al banco emisor de tu tarjeta. Consulta disponibilidad al momento de tu compra.
-        </p>
       </div>
 
       {/* Envío gratis */}
@@ -216,20 +171,16 @@ export default function Sucursales() {
             </div>
           ))}
         </div>
-        <p style={{ marginTop: 12, fontSize: 13, color: "#666" }}>
-          Para otros estados aplica costo de envío según destino. Consulta antes de comprar.
-        </p>
       </div>
 
       {/* Banner instalación gratis */}
       <div className="static-section" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
         <h2 style={{ borderColor: "#16a34a" }}>🛠️ ¿Compraste en línea? La instalación es gratis</h2>
         <p>
-          Todos nuestros clientes que compran en línea pueden llevar sus llantas a cualquiera de nuestras
-          sucursales en Toluca para instalación y balanceo <strong>sin costo adicional</strong>.
-          Solo agenda tu cita por WhatsApp y listo.
+          Lleva tus llantas a cualquiera de nuestras sucursales en Toluca para instalación y
+          balanceo <strong>sin costo adicional</strong>. Solo agenda tu cita por WhatsApp.
         </p>
-        <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
           <a
             href={WA_CITAS}
             target="_blank"
