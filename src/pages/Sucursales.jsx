@@ -13,23 +13,23 @@ const FB        = "https://www.facebook.com/MK5Llantera";
 const IG        = "https://www.instagram.com/mk5llantera?igsh=c29veDlibGdma2t2";
 
 const SUCURSALES = [
-  { nombre: "Isidro Fabela",          maps: "https://maps.app.goo.gl/DwyU2AYifAiNsg5e8" },
-  { nombre: "Filiberto Gómez (Pepsi)",maps: "https://maps.app.goo.gl/GtETFQe5Knr489ub9" },
-  { nombre: "San Buena",              maps: "https://maps.app.goo.gl/8sLkwPS9uFuFfAZP9" },
-  { nombre: "Heriberto Enríquez",     maps: "https://maps.app.goo.gl/QaqhwfAzKWLUEgu46" },
-  { nombre: "Central de Abastos",     maps: "https://maps.app.goo.gl/KSsBn8m2693J74sz5" },
-  { nombre: "Tlacopa",                maps: "https://maps.app.goo.gl/FHsYWjfVQLtHRASA6" },
-  { nombre: "Adolfo López Mateos",    maps: "https://maps.app.goo.gl/WuL3EFnSXPjy11yF7" },
-  { nombre: "Pino Suárez",            maps: "https://maps.app.goo.gl/6VunYzAtAXb9hMi29" },
-  { nombre: "Circuito Metropolitano", maps: "https://maps.app.goo.gl/XR9i8bo2Dp3kiFSP6" },
-  { nombre: "San Mateo Atenco",       maps: "https://maps.app.goo.gl/RANjDovDxPuTgXo46" },
-  { nombre: "Santín",                 maps: "https://maps.app.goo.gl/Xes4Ss1SFCDrtR738" },
-  { nombre: "Tecnológico",            maps: "https://maps.app.goo.gl/H8dgzFQmrLPV9bp47" },
-  { nombre: "Tollocan",               maps: "https://maps.app.goo.gl/NJMif1LE3cEvZb2b9" },
-  { nombre: "Nueva Oxtotitlán",       maps: "https://maps.app.goo.gl/fizy5y5Axc53qvCS8" },
-  { nombre: "Morelos",                maps: "https://maps.app.goo.gl/DcJnqqqENyYwvV8r9" },
-  { nombre: "Circunvalación",         maps: "https://maps.app.goo.gl/Npd5sQz1Xc9CebBP9" },
-  { nombre: "Hipico",                 maps: "https://maps.app.goo.gl/AipHBoxbJ81Lr3vV9" },
+  { nombre: "Isidro Fabela",          maps: "https://maps.app.goo.gl/DwyU2AYifAiNsg5e8",  q: "MK5+Llantas+Isidro+Fabela+Toluca+Estado+de+Mexico" },
+  { nombre: "Filiberto Gómez (Pepsi)",maps: "https://maps.app.goo.gl/GtETFQe5Knr489ub9",  q: "MK5+Llantas+Filiberto+Gomez+Toluca+Estado+de+Mexico" },
+  { nombre: "San Buena",              maps: "https://maps.app.goo.gl/8sLkwPS9uFuFfAZP9",  q: "MK5+Llantas+San+Buena+Toluca+Estado+de+Mexico" },
+  { nombre: "Heriberto Enríquez",     maps: "https://maps.app.goo.gl/QaqhwfAzKWLUEgu46",  q: "MK5+Llantas+Heriberto+Enriquez+Toluca+Estado+de+Mexico" },
+  { nombre: "Central de Abastos",     maps: "https://maps.app.goo.gl/KSsBn8m2693J74sz5",  q: "MK5+Llantas+Central+de+Abastos+Toluca+Estado+de+Mexico" },
+  { nombre: "Tlacopa",                maps: "https://maps.app.goo.gl/FHsYWjfVQLtHRASA6",  q: "MK5+Llantas+Tlacopa+Toluca+Estado+de+Mexico" },
+  { nombre: "Adolfo López Mateos",    maps: "https://maps.app.goo.gl/WuL3EFnSXPjy11yF7",  q: "MK5+Llantas+Adolfo+Lopez+Mateos+Toluca+Estado+de+Mexico" },
+  { nombre: "Pino Suárez",            maps: "https://maps.app.goo.gl/6VunYzAtAXb9hMi29",  q: "MK5+Llantas+Pino+Suarez+Toluca+Estado+de+Mexico" },
+  { nombre: "Circuito Metropolitano", maps: "https://maps.app.goo.gl/XR9i8bo2Dp3kiFSP6",  q: "MK5+Llantas+Circuito+Metropolitano+Toluca+Estado+de+Mexico" },
+  { nombre: "San Mateo Atenco",       maps: "https://maps.app.goo.gl/RANjDovDxPuTgXo46",  q: "MK5+Llantas+San+Mateo+Atenco+Estado+de+Mexico" },
+  { nombre: "Santín",                 maps: "https://maps.app.goo.gl/Xes4Ss1SFCDrtR738",  q: "MK5+Llantas+Santin+Toluca+Estado+de+Mexico" },
+  { nombre: "Tecnológico",            maps: "https://maps.app.goo.gl/H8dgzFQmrLPV9bp47",  q: "MK5+Llantas+Tecnologico+Toluca+Estado+de+Mexico" },
+  { nombre: "Tollocan",               maps: "https://maps.app.goo.gl/NJMif1LE3cEvZb2b9",  q: "MK5+Llantas+Tollocan+Toluca+Estado+de+Mexico" },
+  { nombre: "Nueva Oxtotitlán",       maps: "https://maps.app.goo.gl/fizy5y5Axc53qvCS8",  q: "MK5+Llantas+Nueva+Oxtotitlan+Toluca+Estado+de+Mexico" },
+  { nombre: "Morelos",                maps: "https://maps.app.goo.gl/DcJnqqqENyYwvV8r9",  q: "MK5+Llantas+Morelos+Toluca+Estado+de+Mexico" },
+  { nombre: "Circunvalación",         maps: "https://maps.app.goo.gl/Npd5sQz1Xc9CebBP9",  q: "MK5+Llantas+Circunvalacion+Toluca+Estado+de+Mexico" },
+  { nombre: "Hipico",                 maps: "https://maps.app.goo.gl/AipHBoxbJ81Lr3vV9",  q: "MK5+Llantas+Hipico+Toluca+Estado+de+Mexico" },
 ];
 
 const ESTADOS_ENVIO_GRATIS = [
@@ -57,27 +57,19 @@ export default function Sucursales() {
           Atendemos con cita previa por WhatsApp para reducir tiempos de espera.
         </p>
         <div className="suc-hero-contacts">
-          <a href="tel:7291022894" className="suc-hero-btn suc-hero-btn--call">
-            📞 729 102 2894
-          </a>
-          <a href={WA_VENTAS} target="_blank" rel="noreferrer" className="suc-hero-btn suc-hero-btn--wa">
-            💬 WhatsApp ventas
-          </a>
-          <a href={FB} target="_blank" rel="noreferrer" className="suc-hero-btn suc-hero-btn--fb">
-            📘 Facebook
-          </a>
-          <a href={IG} target="_blank" rel="noreferrer" className="suc-hero-btn suc-hero-btn--ig">
-            📸 Instagram
-          </a>
+          <a href="tel:7291022894" className="suc-hero-btn suc-hero-btn--call">📞 729 102 2894</a>
+          <a href={WA_VENTAS} target="_blank" rel="noreferrer" className="suc-hero-btn suc-hero-btn--wa">💬 WhatsApp ventas</a>
+          <a href={FB} target="_blank" rel="noreferrer" className="suc-hero-btn suc-hero-btn--fb">📘 Facebook</a>
+          <a href={IG} target="_blank" rel="noreferrer" className="suc-hero-btn suc-hero-btn--ig">📸 Instagram</a>
         </div>
       </div>
 
       {/* Mini logos banner */}
       <div className="suc-minilogos-banner">
-        <img src={logoBanner}       alt="MK5 Llantas"           className="suc-minilogo" />
-        <img src={logoMercadoLider} alt="Mercado Líder"         className="suc-minilogo" />
-        <img src={logoCobertura}    alt="Cobertura nacional"     className="suc-minilogo" />
-        <img src={logoBalanceo}     alt="Balanceo y alineación"  className="suc-minilogo" />
+        <img src={logoBanner}       alt="MK5 Llantas"          className="suc-minilogo" />
+        <img src={logoMercadoLider} alt="Mercado Líder"        className="suc-minilogo" />
+        <img src={logoCobertura}    alt="Cobertura nacional"    className="suc-minilogo" />
+        <img src={logoBalanceo}     alt="Balanceo y alineación" className="suc-minilogo" />
       </div>
 
       {/* Grid 2 columnas de sucursales */}
@@ -86,49 +78,58 @@ export default function Sucursales() {
         <p style={{ color: "#999", fontSize: 13, marginBottom: 24 }}>
           Toluca, Estado de México — Lun–Vie 9:00–18:00 · Sáb 9:00–16:30
         </p>
+
         <div className="suc-2col-grid">
           {SUCURSALES.map((s) => (
             <div key={s.nombre} className="suc-mini-card">
+              {/* Header */}
               <div className="suc-mini-card__header">
-                <div>
-                  <span className="suc-mini-card__icon">📍</span>
-                  <span className="suc-mini-card__name">MK5 — {s.nombre}</span>
-                </div>
+                <h3 className="suc-mini-card__name">MK5 — {s.nombre}</h3>
                 <span className="suc-badge suc-badge--open">Abierto</span>
               </div>
 
-              <div className="suc-mini-card__info">
-                <div className="info-row">
-                  <span className="info-row__icon">🕐</span>
-                  <span>Lun–Vie 9:00–18:00 · Sáb 9:00–16:30</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-row__icon">📞</span>
-                  <span>
-                    <a href="tel:7291136254" className="suc-tel-link">729 113 6254</a>
-                    {" · "}
-                    <a href="tel:7291022894" className="suc-tel-link">729 102 2894</a>
-                  </span>
-                </div>
-              </div>
+              {/* Body: info + mapa */}
+              <div className="suc-mini-card__body">
+                <div className="suc-mini-card__info">
+                  <div className="info-row">
+                    <span className="info-row__icon">📍</span>
+                    <span>Toluca, Estado de México</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-row__icon">🕐</span>
+                    <div>
+                      <div><strong>Lun–Vie:</strong> 9:00–18:00</div>
+                      <div><strong>Sábado:</strong> 9:00–16:30</div>
+                      <div style={{ color: "#999", fontSize: 12 }}>Dom: Cerrado</div>
+                    </div>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-row__icon">📞</span>
+                    <div>
+                      <div><strong>Ventas:</strong> <a href="tel:7291136254" className="suc-tel-link">729 113 6254</a></div>
+                      <div><strong>Llamadas:</strong> <a href="tel:7291022894" className="suc-tel-link">729 102 2894</a></div>
+                    </div>
+                  </div>
 
-              <div className="suc-mini-card__actions">
-                <a
-                  href={s.maps}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="suc-btn-llegar"
-                >
-                  📍 Llegar a {s.nombre}
-                </a>
-                <a
-                  href={WA_CITAS}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="suc-btn-wa-mini"
-                >
-                  💬 Agendar
-                </a>
+                  <div className="suc-mini-card__actions">
+                    <a href={WA_CITAS} target="_blank" rel="noreferrer" className="suc-btn-wa">
+                      💬 Agendar por WhatsApp
+                    </a>
+                    <a href={s.maps} target="_blank" rel="noreferrer" className="suc-btn-llegar">
+                      📍 Llegar a {s.nombre}
+                    </a>
+                  </div>
+                </div>
+
+                {/* Mapa embed */}
+                <div className="map-placeholder">
+                  <iframe
+                    src={`https://www.google.com/maps?q=${s.q}&output=embed&z=15`}
+                    title={`Mapa MK5 ${s.nombre}`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
               </div>
             </div>
           ))}
@@ -181,15 +182,8 @@ export default function Sucursales() {
           balanceo <strong>sin costo adicional</strong>. Solo agenda tu cita por WhatsApp.
         </p>
         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-          <a
-            href={WA_CITAS}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              background: "#16a34a", color: "#fff", borderRadius: 10,
-              padding: "10px 18px", fontWeight: 900, fontSize: 13, textDecoration: "none",
-            }}
-          >
+          <a href={WA_CITAS} target="_blank" rel="noreferrer"
+            style={{ background: "#16a34a", color: "#fff", borderRadius: 10, padding: "10px 18px", fontWeight: 900, fontSize: 13, textDecoration: "none" }}>
             💬 Agendar instalación gratis
           </a>
         </div>
