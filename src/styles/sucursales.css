@@ -178,6 +178,11 @@
   gap: 20px;
 }
 
+/* Override colores info-row dentro de tarjetas oscuras */
+.suc-mini-card .info-row { color: #ccc; }
+.suc-mini-card .info-row strong { color: #fff; }
+.suc-mini-card .suc-tel-link { color: #ff5b00; }
+
 /* Tarjeta de sucursal con mapa */
 .suc-mini-card {
   background: #1a1a1a;
