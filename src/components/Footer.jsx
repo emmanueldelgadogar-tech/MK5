@@ -52,6 +52,7 @@ export default function Footer() {
             <li><Link to="/metodos-de-pago">Métodos de pago</Link></li>
             <li><Link to="/devoluciones">Devoluciones y garantías</Link></li>
             <li><Link to="/terminos">Términos y condiciones</Link></li>
+            <li><Link to="/privacidad">Política de privacidad</Link></li>
             <li><Link to="/ia">Asistente IA</Link></li>
             <li><Link to="/mi-cuenta">Mi cuenta</Link></li>
             <li><Link to="/rastrear-pedido">Rastrear pedido</Link></li>

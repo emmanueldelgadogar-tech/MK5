@@ -14,6 +14,19 @@ import bannerGoodyear    from "../assets/logos/goodyear.png";
 import bannerHankook     from "../assets/logos/hankook.png";
 import bannerContinental from "../assets/logos/continental.png";
 
+const SAFE_PAYMENT_HOSTS = new Set([
+  "www.mercadopago.com.mx", "www.mercadopago.com", "mercadopago.com",
+  "www.paypal.com", "sandbox.paypal.com", "www.sandbox.paypal.com",
+]);
+
+function isSafePaymentUrl(url) {
+  if (!url) return false;
+  try {
+    const { protocol, hostname } = new URL(url);
+    return (protocol === "https:" || protocol === "http:") && SAFE_PAYMENT_HOSTS.has(hostname);
+  } catch { return false; }
+}
+
 const CART_BRANDS = [
   bannerBridgestone, bannerMichelin, bannerPirelli,
   bannerGoodyear, bannerHankook, bannerContinental,
@@ -168,14 +181,18 @@ export default function Checkout() {
   }, [cart, detailsBySku]);
 
   useEffect(() => {
-    const params    = new URLSearchParams(location.search);
-    const payment   = String(params.get("payment") || "").trim().toLowerCase();
+    const params     = new URLSearchParams(location.search);
+    const payment    = String(params.get("payment") || "").trim().toLowerCase();
     const orderParam = String(params.get("order") || "").trim();
     if (!payment || !orderParam) return;
 
     async function loadPaymentStatus() {
       try {
-        const res  = await fetch(`${API_BASE}/api/checkout/order/${encodeURIComponent(orderParam)}/payment`);
+        // Recuperar email guardado al completar el checkout (mismo dispositivo)
+        const savedEmail = localStorage.getItem(`mk5_order_${orderParam}_email`) || "";
+        if (!savedEmail) return;
+        const url = `${API_BASE}/api/checkout/order/${encodeURIComponent(orderParam)}/payment?email=${encodeURIComponent(savedEmail)}`;
+        const res  = await fetch(url, { credentials: "include" });
         const data = await res.json();
         if (!res.ok || !data?.ok) return;
         const row = data.order;
@@ -313,6 +330,11 @@ export default function Checkout() {
         return;
       }
       setOrder(data.order);
+      // Guardar email en localStorage para poder rastrear la orden en este dispositivo
+      const orderId = data.order?.id;
+      if (orderId && customer.email) {
+        localStorage.setItem(`mk5_order_${orderId}_email`, customer.email.trim().toLowerCase());
+      }
       trackEvent("purchase", {
         amount: Number(data.order?.total || 0),
         qty: cart.reduce((acc, row) => acc + (parseInt(row?.qty, 10) || 0), 0),
@@ -659,7 +681,7 @@ export default function Checkout() {
             {order?.payment?.reference && (
               <p className="checkout-payment-ref">Referencia: <b>{order.payment.reference}</b></p>
             )}
-            {order?.payment?.provider_url && (
+            {isSafePaymentUrl(order?.payment?.provider_url) && (
               <a className="checkout-pay-link" href={order.payment.provider_url} target="_blank" rel="noreferrer">
                 Ir a pagar ahora
               </a>

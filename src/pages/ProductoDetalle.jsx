@@ -119,6 +119,19 @@ export default function ProductoDetalle() {
   const [error, setError] = useState("");
   const [viewTracked, setViewTracked] = useState(false);
   const [similarItems, setSimilarItems] = useState([]);
+  const [activeImg, setActiveImg] = useState(0);
+  const [zoomOpen, setZoomOpen] = useState(false);
+
+  const images = useMemo(() => {
+    if (!item) return [llantaPlaceholder];
+    if (item.imagenes) {
+      try {
+        const arr = JSON.parse(item.imagenes);
+        if (Array.isArray(arr) && arr.length > 0) return arr;
+      } catch { /* ignorar */ }
+    }
+    return [item.imagen || llantaPlaceholder];
+  }, [item]);
 
   useEffect(() => {
     const stateItem = location.state?.item || null;
@@ -272,12 +285,56 @@ export default function ProductoDetalle() {
 
       <section className="product-layout sketch-top">
         <article className="product-gallery">
-          <img
-            src={item.imagen || llantaPlaceholder}
-            alt={`${item.marca || ""} ${item.modelo || ""}`.trim()}
-            loading="lazy"
-          />
+          {/* Thumbnails laterales */}
+          {images.length > 1 && (
+            <div className="gallery-thumbs">
+              {images.map((img, i) => (
+                <img
+                  key={i}
+                  src={img}
+                  alt=""
+                  className={`gallery-thumb${activeImg === i ? " active" : ""}`}
+                  onClick={() => setActiveImg(i)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Imagen principal con botón de zoom */}
+          <div className="gallery-main" onClick={() => setZoomOpen(true)}>
+            <img
+              src={images[activeImg]}
+              alt={`${item.marca || ""} ${item.modelo || ""}`.trim()}
+              loading="lazy"
+            />
+            <span className="gallery-zoom-btn" title="Ampliar">⊕</span>
+          </div>
         </article>
+
+        {/* Modal de zoom */}
+        {zoomOpen && (
+          <div className="gallery-modal" onClick={() => setZoomOpen(false)}>
+            <button className="gallery-modal-close" onClick={() => setZoomOpen(false)}>✕</button>
+            {images.length > 1 && (
+              <button
+                className="gallery-modal-prev"
+                onClick={(e) => { e.stopPropagation(); setActiveImg((p) => (p - 1 + images.length) % images.length); }}
+              >‹</button>
+            )}
+            <img
+              src={images[activeImg]}
+              alt={`${item.marca || ""} ${item.modelo || ""}`.trim()}
+              onClick={(e) => e.stopPropagation()}
+            />
+            {images.length > 1 && (
+              <button
+                className="gallery-modal-next"
+                onClick={(e) => { e.stopPropagation(); setActiveImg((p) => (p + 1) % images.length); }}
+              >›</button>
+            )}
+            <span className="gallery-modal-counter">{activeImg + 1} / {images.length}</span>
+          </div>
+        )}
 
         <article className="product-summary">
           <span className="product-brand-pill">

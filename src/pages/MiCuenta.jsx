@@ -8,10 +8,25 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
+const ERROR_MESSAGES = {
+  auth_failed: "Correo o contraseña incorrectos.",
+  email_already_registered: "Ese correo ya está registrado. Inicia sesión.",
+  invalid_credentials: "Revisa tu correo y contraseña (mínimo 8 caracteres).",
+  invalid_email: "Ingresa un correo electrónico válido.",
+  name_too_long: "El nombre es demasiado largo.",
+  too_many_requests: "Demasiados intentos. Espera 15 minutos e intenta de nuevo.",
+  session_expired: "Tu sesión expiró. Inicia sesión de nuevo.",
+};
+
+function friendlyError(code, fallback) {
+  return ERROR_MESSAGES[code] || fallback;
+}
+
 export default function MiCuenta() {
-  const navigate = useNavigate();
+  useNavigate();
   const [mode, setMode] = useState("login"); // "login" | "register"
   const [user, setUser] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [loading, setLoading] = useState(false);
@@ -20,14 +35,43 @@ export default function MiCuenta() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [showPass, setShowPass] = useState(false);
 
+  // Verifica sesión real contra el servidor (JWT cookie)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("mk5_user");
-      if (stored) setUser(JSON.parse(stored));
-    } catch { /* ignore */ }
+    async function checkSession() {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.ok && data?.user) {
+            setUser(data.user);
+            localStorage.setItem("mk5_user", JSON.stringify(data.user));
+            window.dispatchEvent(new Event("mk5-user-updated"));
+          }
+        } else {
+          // Sesión inválida o expirada — limpiar caché local
+          localStorage.removeItem("mk5_user");
+          window.dispatchEvent(new Event("mk5-user-updated"));
+        }
+      } catch {
+        // Sin conexión: intentar con caché local
+        try {
+          const stored = localStorage.getItem("mk5_user");
+          if (stored) setUser(JSON.parse(stored));
+        } catch { /* ignorar */ }
+      } finally {
+        setSessionLoading(false);
+      }
+    }
+    checkSession();
   }, []);
 
-  function logout() {
+  async function logout() {
+    try {
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch { /* ignorar errores de red */ }
     localStorage.removeItem("mk5_user");
     setUser(null);
     window.dispatchEvent(new Event("mk5-user-updated"));
@@ -66,19 +110,21 @@ export default function MiCuenta() {
         ? { email: form.email, password: form.password }
         : { name: form.name, email: form.email, phone: form.phone, password: form.password };
 
-      const res  = await fetch(`${API_BASE}${endpoint}`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",   // necesario para recibir la cookie JWT
         body: JSON.stringify(body),
       });
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        setError(data?.error || (mode === "login" ? "Credenciales incorrectas." : "No se pudo crear la cuenta."));
+        setError(friendlyError(data?.error, mode === "login" ? "Credenciales incorrectas." : "No se pudo crear la cuenta."));
         return;
       }
 
-      const userData = { id: data.id, name: data.name, email: data.email };
+      const src = data.user || data;
+      const userData = { id: src.id, name: src.name, email: src.email };
       localStorage.setItem("mk5_user", JSON.stringify(userData));
       window.dispatchEvent(new Event("mk5-user-updated"));
       setUser(userData);
@@ -88,6 +134,16 @@ export default function MiCuenta() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (sessionLoading) {
+    return (
+      <main className="static-page">
+        <div className="static-hero cuenta-hero">
+          <p style={{ color: "#999" }}>Verificando sesión…</p>
+        </div>
+      </main>
+    );
   }
 
   // Usuario ya logueado
@@ -182,7 +238,7 @@ export default function MiCuenta() {
           {mode === "register" && (
             <label className={fieldErrors.name ? "has-error" : ""}>
               Nombre completo *
-              <input type="text" value={form.name} autoComplete="name"
+              <input type="text" value={form.name} autoComplete="name" maxLength={120}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
               {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
             </label>
