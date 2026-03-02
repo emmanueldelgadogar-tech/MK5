@@ -244,23 +244,24 @@
 
 .card-image{
   width: 100%;
-  min-height: 132px;
-  height: 132px;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  padding: 10px;
+  height: 170px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
   border-radius: 12px;
   background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+  overflow: hidden;
 }
 .card-link{
   text-decoration: none;
   color: inherit;
 }
 .card-image img{
-  width: min(160px, 100%);
-  height: 112px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  display: block;
 }
 
 .card-body{
@@ -511,11 +512,8 @@
   .catalog-grid{
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .card-image{ min-height: 130px; }
-  .card-image img{
-    width: min(148px, 100%);
-    height: 108px;
-  }
+  .card-image{ height: 150px; }
+  .card-image img{ width: 100%; height: 100%; object-fit: contain; }
   .card-stock strong{ font-size: 13px; }
   .card-price strong{ font-size: 22px; }
   .card-price small{ font-size: 14px; }
