@@ -178,23 +178,19 @@
   gap: 20px;
 }
 
-/* Override colores info-row dentro de tarjetas oscuras */
-.suc-mini-card .info-row { color: #ccc; }
-.suc-mini-card .info-row strong { color: #fff; }
-.suc-mini-card .suc-tel-link { color: #ff5b00; }
-
 /* Tarjeta de sucursal con mapa */
 .suc-mini-card {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: #fff;
+  border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  transition: border-color .15s;
+  transition: border-color .15s, box-shadow .15s;
+  box-shadow: 0 4px 14px rgba(0,0,0,.07);
 }
-.suc-mini-card:hover { border-color: #ff5b00; }
+.suc-mini-card:hover { border-color: #ff5b00; box-shadow: 0 6px 20px rgba(255,91,0,.12); }
 
 .suc-mini-card__header {
   display: flex;
@@ -205,7 +201,7 @@
 .suc-mini-card__name {
   font-weight: 900;
   font-size: 15px;
-  color: #fff;
+  color: #111;
   margin: 0;
 }
 

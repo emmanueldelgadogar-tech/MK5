@@ -99,6 +99,15 @@ const authLimiter = rateLimit({
   message: { ok: false, error: "too_many_requests" },
 });
 
+// Límite para el asistente IA: 20 req / 15 min por IP (evita abuso costoso de OpenAI)
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "too_many_requests", detail: "Límite de consultas al asistente alcanzado. Espera unos minutos." },
+});
+
 // ===================== DB =====================
 if (!process.env.DATABASE_URL) {
   console.error("Falta DATABASE_URL en .env");
@@ -426,8 +435,8 @@ app.get("/api/catalogo/items", async (req, res) => {
         SELECT
           sku, marca, modelo, medida, precio, stock, imagen, imagenes,
           NULLIF(substring(medida from '^([0-9]{3})'), '')::int AS ancho_i,
-          NULLIF(substring(medida from '^[0-9]{3}/([0-9]{2})'), '')::int AS alto_i,
-          NULLIF(substring(medida from '(?:R|/)([0-9]{2})$'), '')::int AS rin_i
+          NULLIF(substring(medida from '^[0-9]{3}[-/]([0-9]{2})'), '')::int AS alto_i,
+          NULLIF(substring(medida from '(?:R|[-/])([0-9]{2})$'), '')::int AS rin_i
         FROM catalogo
       )
     `;
@@ -917,28 +926,23 @@ const openai = process.env.OPENAI_API_KEY
 const SYSTEM_PROMPT = `Eres el asistente virtual de MK5 Llantas, una tienda mexicana de llantas (neumáticos).
 Tu trabajo es ayudar a los clientes a encontrar la llanta perfecta.
 
-REGLAS:
+REGLAS ESTRICTAS:
 - Responde SIEMPRE en español mexicano, amigable y profesional.
-- Si el cliente da una medida (ej: 205/55/16), busca en el inventario y recomienda opciones.
-- Si el cliente da un auto y año (ej: "March 2018"), indica la medida ORIGINAL de fábrica y también MEDIDAS ALTERNATIVAS que le pueden quedar, explicando brevemente el efecto de cada una (ej: "hará el carro un poco más alto", "mejor agarre en curvas pero más firme", "ride más suave", etc.).
-- SIEMPRE escribe las medidas en formato XXX/XX/XX (ej: 195/50/15, 205/55/16). El sistema las convertirá automáticamente en links al catálogo.
-- Cuando el cliente pregunte por vehículo + año, usa este formato base (ajústalo según inventario real):
-  "Para la [Marca Modelo Año], la medida más común es [MEDIDA]. Aquí te comparto algunas opciones que están con promoción en esa medida:".
-  Después lista hasta 3 productos reales del inventario en bullets y en CADA bullet incluye:
-  - Marca y modelo
-  - Precio antes y precio ahora (si hay promo / descuento)
-  - Link de producto usando formato markdown con URL relativa: [Ver modelo](/catalogo?q=MARCA%20MODELO&medida=MEDIDA)
-  Luego agrega: "Si deseas más información o ayuda con otra medida, no dudes en preguntar."
-  Y después: "Otras medidas que podrías considerar y que son compatibles con tu vehículo son:" seguido de bullets con medida + efecto breve + link markdown: [Ver opciones](/catalogo?medida=MEDIDA)
-- Compara opciones: económica vs premium, explica diferencias brevemente.
-- Menciona precios en MXN cuando tengas datos del inventario.
+- SIEMPRE escribe las medidas en formato XXX/XX/XX (ej: 195/50/15, 205/55/16). El sistema las convertirá automáticamente en links clickeables al catálogo.
+- NUNCA inventes productos, marcas, modelos ni precios que no estén en el bloque INVENTARIO DISPONIBLE de este mensaje.
+- Si el INVENTARIO DISPONIBLE está vacío o no contiene la medida buscada, di claramente: "Actualmente no tenemos stock en esa medida." NO inventes ni sugieras productos ficticios.
+- Para medidas alternativas compatibles con el vehículo: SOLO menciona la medida en formato XXX/XX/XX para que el cliente pueda ver el catálogo. NO inventes productos ni precios para esas medidas alternas.
+- Cuando el cliente pregunte por vehículo + año:
+  1. Indica la medida original de fábrica.
+  2. Si hay INVENTARIO DISPONIBLE para esa medida, lista hasta 3 productos con: Marca, Modelo, Precio (exactamente como aparece en el inventario).
+  3. Si NO hay inventario para esa medida, dilo claramente.
+  4. Menciona 1-2 medidas alternativas compatibles en formato XXX/XX/XX.
+- Compara opciones económica vs premium brevemente solo cuando el inventario lo permite.
+- Menciona precios en MXN SOLO cuando aparezcan en el INVENTARIO DISPONIBLE.
 - Si hay promoción 4x3 (Continental, Euzkadi, Hankook, Tornel, JK Tyre, Laufenn), menciónala.
 - Sé conciso: máximo 3-4 párrafos cortos.
 - Usa emojis con moderación (1-2 por respuesta).
 - Si no sabes algo, sé honesto y sugiere contactar por WhatsApp.
-- NUNCA inventes productos que no estén en el inventario proporcionado.
-- Si el inventario está vacío para esa medida, dilo honestamente y sugiere medidas similares.
-- Si incluyes links, usa SIEMPRE markdown [texto](url) con rutas internas /catalogo... para que el frontend los haga clickeables.
 
 SUCURSALES MK5 (17 ubicaciones en Toluca, Estado de México):
 Cuando el cliente pregunte por indicaciones, cómo llegar, ubicación o dirección de una sucursal, responde con este formato exacto:
@@ -966,49 +970,165 @@ Si el cliente pide ver TODAS las sucursales responde: "Puedes ver todas nuestras
 Horario general: Lun–Vie 9:00–18:00, Sáb 9:00–16:30, Dom Cerrado.`;
 
 
+// Medidas OEM por vehículo (los más comunes en México)
+const VEHICLE_MEDIDAS = {
+  "march": ["175/65/14","175/70/14"],
+  "versa": ["175/65/15","185/55/15"],
+  "tiida": ["185/65/15","185/55/15"],
+  "sentra": ["205/55/16","195/65/15"],
+  "np300": ["195/75/16","215/75/16"],
+  "xtrail": ["225/65/17","215/65/16"],
+  "x-trail": ["225/65/17","215/65/16"],
+  "kicks": ["205/60/16","215/55/17"],
+  "frontier": ["265/70/16","255/70/16"],
+  "aveo": ["175/65/14","185/55/15"],
+  "spark": ["165/65/13","175/65/14"],
+  "trax": ["215/65/16","215/60/17"],
+  "beat": ["175/65/14"],
+  "equinox": ["235/65/17","225/60/18"],
+  "blazer": ["235/55/19","255/50/20"],
+  "jetta": ["205/55/16","195/65/15","215/45/17"],
+  "vento": ["195/65/15","185/65/15"],
+  "tiguan": ["215/55/18","225/45/18"],
+  "gol": ["175/70/14","185/65/14"],
+  "polo": ["185/65/15","195/55/16"],
+  "corolla": ["205/55/16","215/45/17"],
+  "hilux": ["265/70/16","265/60/18"],
+  "camry": ["215/55/17","225/55/17"],
+  "yaris": ["185/60/15","175/65/14"],
+  "rav4": ["235/55/18","235/60/17"],
+  "rav-4": ["235/55/18","235/60/17"],
+  "civic": ["215/50/17","205/55/16","215/55/16"],
+  "city": ["195/60/15","185/55/16"],
+  "crv": ["235/60/17","225/65/17"],
+  "cr-v": ["235/60/17","225/65/17"],
+  "hrv": ["215/55/17","215/60/16"],
+  "hr-v": ["215/55/17","215/60/16"],
+  "ranger": ["265/70/16","255/70/16"],
+  "escape": ["235/55/17","225/65/17"],
+  "focus": ["205/55/16","195/65/15"],
+  "fiera": ["195/75/14","205/70/14"],
+  "expedition": ["255/70/17","265/60/18"],
+  "mazda3": ["205/55/16","215/45/18"],
+  "mazda 3": ["205/55/16","215/45/18"],
+  "cx5": ["225/55/19","225/65/17"],
+  "cx-5": ["225/55/19","225/65/17"],
+  "cx30": ["215/55/18","225/50/18"],
+  "cx-30": ["215/55/18","225/50/18"],
+  "ibiza": ["195/55/15","185/65/15"],
+  "leon": ["205/55/16","225/45/17"],
+  "elantra": ["205/55/16","195/65/15"],
+  "tucson": ["235/55/18","225/65/17"],
+  "creta": ["215/60/17","215/55/17"],
+  "accent": ["185/65/15","175/65/14"],
+  "rio": ["185/65/15","175/65/14"],
+  "sportage": ["235/55/18","225/65/17"],
+  "forte": ["205/60/16","195/65/15"],
+  "cherokee": ["265/70/17","255/65/17"],
+  "wrangler": ["255/75/17","245/75/16"],
+  "tsuru": ["175/70/13","165/70/13"],
+  "pointer": ["175/65/14","185/60/14"],
+  "c3": ["185/65/15","195/55/16"],
+  "c4": ["205/55/16","215/45/17"],
+  "duster": ["215/65/16","215/60/17"],
+  "sandero": ["185/65/15","175/65/14"],
+  "logan": ["185/65/15"],
+  "swift": ["185/60/15","175/65/15"],
+  "vitara": ["215/55/17","215/60/16"],
+  "sx4": ["205/55/16","215/50/17"],
+  "almera": ["185/65/15","175/65/14"],
+  "murano": ["235/65/18","255/55/18"],
+  "outlander": ["225/55/18","235/55/18"],
+  "asx": ["215/60/17","215/55/17"],
+  "b200": ["205/55/16"],
+  "c200": ["205/55/17","225/45/17"],
+  "classe a": ["205/55/16","225/45/17"],
+  "3 series": ["205/55/16","225/45/17"],
+  "serie 3": ["205/55/16","225/45/17"],
+  "a3": ["205/55/16","225/45/17"],
+  "q5": ["235/55/19","235/60/18"],
+  "compass": ["225/55/18","215/60/17"],
+  "renegade": ["215/55/17","215/60/16"],
+  "cruze": ["205/55/16","225/45/17"],
+  "malibu": ["215/55/17","225/55/17"],
+  "tahoe": ["265/65/18","275/55/20"],
+};
+
+async function queryByMedidas(medidas) {
+  if (!medidas.length) return [];
+  const regexes = medidas.map(med => {
+    const p = med.split("/");
+    if (p.length !== 3) return null;
+    return `^${p[0]}/${p[1]}(R|/)${p[2]}$`;
+  }).filter(Boolean);
+  if (!regexes.length) return [];
+
+  let items = [];
+  for (const regex of regexes) {
+    const r = await pool.query(
+      `SELECT marca, modelo, medida, precio, stock
+       FROM catalogo
+       WHERE stock > 0 AND medida ~ $1
+       ORDER BY precio ASC LIMIT 8`,
+      [regex]
+    );
+    items = items.concat(r.rows);
+  }
+  return items;
+}
+
 async function getInventoryContext(message) {
   try {
     const m = message.toLowerCase();
     const match = m.match(/(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i);
 
     let items = [];
+    let vehicleDetected = null;
 
     if (match) {
       const ancho = match[1];
       const alto = match[2];
       const rin = match[3];
-      // Validar que sean exactamente dígitos (previene ReDoS)
       if (/^\d{3}$/.test(ancho) && /^\d{2}$/.test(alto) && /^\d{2}$/.test(rin)) {
         const r = await pool.query(
           `SELECT marca, modelo, medida, precio, stock
            FROM catalogo
-           WHERE stock > 0
-             AND medida ~ $1
-           ORDER BY precio ASC
-           LIMIT 15`,
+           WHERE stock > 0 AND medida ~ $1
+           ORDER BY precio ASC LIMIT 15`,
           [`^${ancho}/${alto}(R|/)${rin}$`]
         );
         items = r.rows;
       }
     } else {
-      const brandMatch = m.match(/\b(pirelli|bridgestone|continental|michelin|goodyear|hankook|firestone|euzkadi|antares|cooper|blackhawk|laufenn|goodrich|tornel|pegasus|vinmax)\b/i);
-      if (brandMatch) {
-        const r = await pool.query(
-          `SELECT marca, modelo, medida, precio, stock
-           FROM catalogo
-           WHERE stock > 0
-             AND UPPER(marca) = $1
-           ORDER BY precio ASC
-           LIMIT 15`,
-          [brandMatch[1].toUpperCase()]
-        );
-        items = r.rows;
+      // Detectar vehículo por nombre
+      const vehicleKey = Object.keys(VEHICLE_MEDIDAS).find(v => m.includes(v));
+      if (vehicleKey) {
+        vehicleDetected = vehicleKey;
+        items = await queryByMedidas(VEHICLE_MEDIDAS[vehicleKey]);
+      } else {
+        // Detectar marca de llanta
+        const brandMatch = m.match(/\b(pirelli|bridgestone|continental|michelin|goodyear|hankook|firestone|euzkadi|antares|cooper|blackhawk|laufenn|goodrich|tornel|pegasus|vinmax)\b/i);
+        if (brandMatch) {
+          const r = await pool.query(
+            `SELECT marca, modelo, medida, precio, stock
+             FROM catalogo
+             WHERE stock > 0 AND UPPER(marca) = $1
+             ORDER BY precio ASC LIMIT 15`,
+            [brandMatch[1].toUpperCase()]
+          );
+          items = r.rows;
+        }
       }
     }
 
-    if (!items.length) return "";
+    if (!items.length) {
+      if (vehicleDetected) {
+        return `\n\nINVENTARIO DISPONIBLE: Sin stock actual en las medidas OEM de ${vehicleDetected}. Informa al cliente que no hay stock para esas medidas y que puede consultar el catálogo completo.`;
+      }
+      return "";
+    }
 
-    let ctx = "\n\nINVENTARIO DISPONIBLE:\n";
+    let ctx = "\n\nINVENTARIO DISPONIBLE (SOLO usa estos productos, no inventes otros):\n";
     for (const it of items) {
       ctx += `- ${it.marca} ${it.modelo} | Medida: ${it.medida} | $${Number(it.precio).toLocaleString("es-MX")} MXN | Stock: ${it.stock}\n`;
     }
@@ -1019,18 +1139,21 @@ async function getInventoryContext(message) {
   }
 }
 
-app.post("/api/assistant", async (req, res) => {
+app.post("/api/assistant", aiLimiter, async (req, res) => {
   try {
-    const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+    const rawMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
     const singleMessage = (req.body?.message || "").toString().trim();
 
-    if (!messages.length && !singleMessage) {
+    if (!rawMessages.length && !singleMessage) {
       return res.status(400).json({ ok: false, error: "message_required" });
     }
 
-    const chatMessages = messages.length
-      ? messages
-      : [{ role: "user", content: singleMessage }];
+    // Sanitize: only allow role+content strings, truncate to 2000 chars each
+    const VALID_ROLES = new Set(["user", "assistant"]);
+    const chatMessages = (rawMessages.length ? rawMessages : [{ role: "user", content: singleMessage }])
+      .filter((m) => m && VALID_ROLES.has(m.role) && typeof m.content === "string")
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }))
+      .slice(-10);
 
     const lastUserMsg = [...chatMessages].reverse().find((m) => m.role === "user")?.content || "";
 
@@ -1062,7 +1185,7 @@ app.post("/api/assistant", async (req, res) => {
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemMsg },
-        ...chatMessages.slice(-10),
+        ...chatMessages,
       ],
       max_tokens: 800,
       temperature: 0.7,

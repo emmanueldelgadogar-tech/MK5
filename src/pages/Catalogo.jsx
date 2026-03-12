@@ -1,5 +1,5 @@
 // src/pages/Catalogo.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../config";
 import {
@@ -171,10 +171,40 @@ export default function Catalogo() {
   const [marcas, setMarcas] = useState([]);
   const [medidas, setMedidas] = useState([]);
 
-  const [marcasSel, setMarcasSel] = useState(new Set());
-  const [anchosSel, setAnchosSel] = useState(new Set());
-  const [altosSel, setAltosSel] = useState(new Set());
-  const [rinesSel, setRinesSel] = useState(new Set());
+  const [marcasSel, setMarcasSel] = useState(() => {
+    try {
+      const f = JSON.parse(sessionStorage.getItem("mk5_catalogo_filters") || "{}");
+      return f.marcas?.length ? new Set(f.marcas) : new Set();
+    } catch { return new Set(); }
+  });
+  const [anchosSel, setAnchosSel] = useState(() => {
+    try {
+      const f = JSON.parse(sessionStorage.getItem("mk5_catalogo_filters") || "{}");
+      return f.anchos?.length ? new Set(f.anchos) : new Set();
+    } catch { return new Set(); }
+  });
+  const [altosSel, setAltosSel] = useState(() => {
+    try {
+      const f = JSON.parse(sessionStorage.getItem("mk5_catalogo_filters") || "{}");
+      return f.altos?.length ? new Set(f.altos) : new Set();
+    } catch { return new Set(); }
+  });
+  const [rinesSel, setRinesSel] = useState(() => {
+    try {
+      const f = JSON.parse(sessionStorage.getItem("mk5_catalogo_filters") || "{}");
+      return f.rines?.length ? new Set(f.rines) : new Set();
+    } catch { return new Set(); }
+  });
+
+  // Persist filters to sessionStorage on every change
+  useEffect(() => {
+    sessionStorage.setItem("mk5_catalogo_filters", JSON.stringify({
+      marcas: Array.from(marcasSel),
+      anchos: Array.from(anchosSel),
+      altos: Array.from(altosSel),
+      rines: Array.from(rinesSel),
+    }));
+  }, [marcasSel, anchosSel, altosSel, rinesSel]);
 
   const [qUrl, setQUrl] = useState("");
   const [medidaUrl, setMedidaUrl] = useState("");
@@ -185,6 +215,21 @@ export default function Catalogo() {
 
   const [items, setItems] = useState([]);
   const [qtyBySku, setQtyBySku] = useState({});
+
+  // Build the canonical params string for a given filter state (used for cache keying)
+  const buildParamsKey = useCallback(({ marcas, anchos, altos, rines, q = "" } = {}) => {
+    const p = new URLSearchParams();
+    const mFinal = new Set(marcas || []);
+    if (marcaFixedUpper) { mFinal.clear(); mFinal.add(marcaFixedUpper); }
+    const qF = (q || "").trim();
+    if (qF) p.set("q", qF);
+    if (mFinal.size) p.set("marcas", Array.from(mFinal).join(","));
+    if (anchos?.size) p.set("anchos", Array.from(anchos).join(","));
+    if (altos?.size) p.set("altos", Array.from(altos).join(","));
+    if (rines?.size) p.set("rines", Array.from(rines).join(","));
+    p.set("sort", "price_asc");
+    return p.toString();
+  }, [marcaFixedUpper]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -287,13 +332,28 @@ export default function Catalogo() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
+      const newItems = data.items || [];
 
       setTotal(data.total || 0);
       setPages(data.pages || 1);
       setPage(data.page || nextPage);
 
-      if (append) setItems((prev) => [...prev, ...(data.items || [])]);
-      else setItems(data.items || []);
+      if (append) {
+        setItems((prev) => [...prev, ...newItems]);
+      } else {
+        setItems(newItems);
+        // Cache page-1 results for instant back-navigation restore
+        try {
+          sessionStorage.setItem("mk5_catalogo_results", JSON.stringify({
+            items: newItems,
+            total: data.total || 0,
+            pages: data.pages || 1,
+            page: data.page || nextPage,
+            key: params.toString(),
+            ts: Date.now(),
+          }));
+        } catch {}
+      }
     } catch (e) {
       console.error(e);
       setError("No se pudo cargar el catálogo. Reintenta.");
@@ -307,15 +367,30 @@ export default function Catalogo() {
   };
 
   useEffect(() => {
+    // Check if we have fresh cached results for exactly these filters
+    try {
+      const cached = JSON.parse(sessionStorage.getItem("mk5_catalogo_results") || "null");
+      const currentKey = buildParamsKey({ marcas: marcasSel, anchos: anchosSel, altos: altosSel, rines: rinesSel, q: qUrl });
+      if (cached && cached.key === currentKey && Date.now() - cached.ts < 3 * 60 * 1000) {
+        setItems(cached.items);
+        setTotal(cached.total);
+        setPages(cached.pages);
+        setPage(cached.page);
+        return;
+      }
+    } catch {}
+
     setItems([]);
     setPage(1);
     setPages(1);
     setTotal(0);
     aplicarFiltros({ append: false, pageOverride: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marcaFixedUpper, qUrl, medidaUrl, marcasSel, anchosSel, altosSel, rinesSel]);
+  }, [marcaFixedUpper, qUrl, medidaUrl, marcasSel, anchosSel, altosSel, rinesSel, buildParamsKey]);
 
   const limpiar = () => {
+    sessionStorage.removeItem("mk5_catalogo_filters");
+    sessionStorage.removeItem("mk5_catalogo_results");
     if (!marcaFixedUpper) setMarcasSel(new Set());
     setAnchosSel(new Set());
     setAltosSel(new Set());
@@ -334,46 +409,12 @@ export default function Catalogo() {
     <main className="main catalogo catalogoWide">
       <aside className="filters filters-ecom">
         <div className="filters-ecom__top">
-          <div>
-            <h2>Filtros</h2>
-
-            <div className="filters-ecom__meta">
-              <span>{marcas.length} marcas</span>
-              <span className="sep">•</span>
-              <span>{medidas.length} medidas</span>
-
-              {marcaFixedUpper && (
-                <>
-                  <span className="sep">•</span>
-                  <span>
-                    Marca fija: <b>{marcaFixedUpper}</b>
-                  </span>
-                </>
-              )}
-
-              {medidaUrl && (
-                <>
-                  <span className="sep">•</span>
-                  <span>
-                    Medida: <b>{medidaUrl}</b>
-                  </span>
-                </>
-              )}
-
-              {qUrl && (
-                <>
-                  <span className="sep">•</span>
-                  <span>
-                    Búsqueda: <b>{qUrl}</b>
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          <button type="button" className="filters-ecom__clear" onClick={limpiar}>
-            Limpiar
-          </button>
+          <h2>Filtros</h2>
+          {totalSel > 0 && (
+            <button type="button" className="filters-ecom__clear" onClick={limpiar}>
+              Limpiar ({totalSel})
+            </button>
+          )}
         </div>
 
         <form
@@ -400,46 +441,46 @@ export default function Catalogo() {
           )}
 
           <Accordion title="Ancho">
-            <div className="fchk__list">
+            <div className="fpills">
               {anchos.map((a) => (
-                <label key={a} className="fchk">
-                  <input
-                    type="checkbox"
-                    checked={anchosSel.has(a)}
-                    onChange={() => toggleSetValue(setAnchosSel, a)}
-                  />
-                  <span>{a}</span>
-                </label>
+                <button
+                  key={a}
+                  type="button"
+                  className={`fpill${anchosSel.has(a) ? " is-active" : ""}`}
+                  onClick={() => toggleSetValue(setAnchosSel, a)}
+                >
+                  {a}
+                </button>
               ))}
             </div>
           </Accordion>
 
-          <Accordion title="Alto">
-            <div className="fchk__list">
+          <Accordion title="Alto de perfil">
+            <div className="fpills">
               {altos.map((h) => (
-                <label key={h} className="fchk">
-                  <input
-                    type="checkbox"
-                    checked={altosSel.has(h)}
-                    onChange={() => toggleSetValue(setAltosSel, h)}
-                  />
-                  <span>{h}</span>
-                </label>
+                <button
+                  key={h}
+                  type="button"
+                  className={`fpill${altosSel.has(h) ? " is-active" : ""}`}
+                  onClick={() => toggleSetValue(setAltosSel, h)}
+                >
+                  {h}
+                </button>
               ))}
             </div>
           </Accordion>
 
           <Accordion title="Rin">
-            <div className="fchk__list">
+            <div className="fpills">
               {rines.map((r) => (
-                <label key={r} className="fchk">
-                  <input
-                    type="checkbox"
-                    checked={rinesSel.has(r)}
-                    onChange={() => toggleSetValue(setRinesSel, r)}
-                  />
-                  <span>{r}</span>
-                </label>
+                <button
+                  key={r}
+                  type="button"
+                  className={`fpill${rinesSel.has(r) ? " is-active" : ""}`}
+                  onClick={() => toggleSetValue(setRinesSel, r)}
+                >
+                  R{r}
+                </button>
               ))}
             </div>
           </Accordion>
@@ -474,6 +515,35 @@ export default function Catalogo() {
           <h2>{marcaFixedUpper ? `Productos ${marcaFixedUpper}` : "Resultados"}</h2>
           <small>{total} encontrados</small>
         </div>
+
+        {/* Active filter chips */}
+        {((!marcaFixedUpper && marcasSel.size > 0) || anchosSel.size > 0 || altosSel.size > 0 || rinesSel.size > 0) && (
+          <div className="active-filters">
+            {!marcaFixedUpper && Array.from(marcasSel).map((m) => (
+              <button key={m} type="button" className="active-chip" onClick={() => toggleSetValue(setMarcasSel, m)}>
+                {m} <span aria-hidden="true">×</span>
+              </button>
+            ))}
+            {Array.from(anchosSel).map((a) => (
+              <button key={a} type="button" className="active-chip" onClick={() => toggleSetValue(setAnchosSel, a)}>
+                Ancho {a} <span aria-hidden="true">×</span>
+              </button>
+            ))}
+            {Array.from(altosSel).map((h) => (
+              <button key={h} type="button" className="active-chip" onClick={() => toggleSetValue(setAltosSel, h)}>
+                /{h} <span aria-hidden="true">×</span>
+              </button>
+            ))}
+            {Array.from(rinesSel).map((r) => (
+              <button key={r} type="button" className="active-chip" onClick={() => toggleSetValue(setRinesSel, r)}>
+                R{r} <span aria-hidden="true">×</span>
+              </button>
+            ))}
+            <button type="button" className="active-chip active-chip--clear" onClick={limpiar}>
+              Limpiar todo
+            </button>
+          </div>
+        )}
 
         {error && <p className="catalogError">{error}</p>}
         {!error && items.length === 0 && !loading && <p>No hay resultados con esos filtros.</p>}
@@ -518,6 +588,7 @@ export default function Catalogo() {
                   src={it.imagen || llantaPlaceholder}
                   alt={`${it.marca || ""} ${it.modelo || ""}`.trim()}
                   loading="lazy"
+                  onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }}
                 />
               </Link>
 

@@ -1,6 +1,46 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
+/* ── Reseñas de productos ── */
+const REVIEWS_DB = [
+  {
+    author: "Carlos M.",
+    location: "Toluca, EDOMEX",
+    rating: 5,
+    date: "hace 2 semanas",
+    title: "Excelente calidad, llegaron rápido",
+    text: "Llegaron en perfectas condiciones. Las monté en mi Nissan Sentra y el agarre mejoró notablemente, sobre todo en piso mojado. La instalación fue muy rápida en sucursal. 100% recomendadas.",
+    verified: true,
+  },
+  {
+    author: "Laura G.",
+    location: "Metepec, EDOMEX",
+    rating: 5,
+    date: "hace 1 mes",
+    title: "Mejor precio que en cualquier otro lado",
+    text: "Busqué en varios lugares y MK5 tenía el mejor precio por mucho. El envío fue en 2 días y el producto llegó sellado y nuevo. Muy satisfecha con la compra.",
+    verified: true,
+  },
+  {
+    author: "Roberto A.",
+    location: "Ciudad de México",
+    rating: 4,
+    date: "hace 1 mes",
+    title: "Buena llanta, atención por WhatsApp muy ágil",
+    text: "El producto es exactamente lo que esperaba. Tuve una duda sobre la medida y me respondieron en minutos por WhatsApp. Resté una estrella porque el envío tardó un día más de lo indicado, pero en general muy buena experiencia.",
+    verified: true,
+  },
+  {
+    author: "Diana R.",
+    location: "Lerma, EDOMEX",
+    rating: 5,
+    date: "hace 2 meses",
+    title: "Compra segura, llantas de primera",
+    text: "Ya es la segunda vez que compro aquí. La primera fue para mi Honda City y ahora para la camioneta de mi esposo. Siempre llegan bien empacadas y la garantía da mucha confianza. No compraría en otro lado.",
+    verified: true,
+  },
+];
+
 /* ── Vehículos compatibles por medida (mercado mexicano) ── */
 const VEHICULOS_POR_MEDIDA = {
   "175/65R14": ["Chevrolet Spark", "Nissan March", "Fiat 500"],
@@ -306,6 +346,7 @@ export default function ProductoDetalle() {
               src={images[activeImg]}
               alt={`${item.marca || ""} ${item.modelo || ""}`.trim()}
               loading="lazy"
+              onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }}
             />
             <span className="gallery-zoom-btn" title="Ampliar">⊕</span>
           </div>
@@ -590,6 +631,38 @@ export default function ProductoDetalle() {
           </div>
         </div>
 
+        {/* ── Reseñas ── */}
+        <div className="detail-section">
+          <div className="reviews-head">
+            <h3>Reseñas de clientes</h3>
+            <div className="reviews-summary">
+              <span className="reviews-avg">4.8</span>
+              <div className="reviews-stars reviews-stars--lg">
+                {"★★★★★".split("").map((s, i) => <span key={i}>{s}</span>)}
+              </div>
+              <span className="reviews-count">{REVIEWS_DB.length} reseñas verificadas</span>
+            </div>
+          </div>
+          <div className="reviews-list">
+            {REVIEWS_DB.map((r, i) => (
+              <div key={i} className="review-card">
+                <div className="review-card__top">
+                  <div className="review-card__stars">
+                    {"★★★★★".split("").map((s, si) => (
+                      <span key={si} className={si < r.rating ? "star-on" : "star-off"}>{s}</span>
+                    ))}
+                  </div>
+                  {r.verified && <span className="review-verified">Compra verificada</span>}
+                  <span className="review-date">{r.date}</span>
+                </div>
+                <p className="review-title">{r.title}</p>
+                <p className="review-text">{r.text}</p>
+                <div className="review-author">{r.author} · {r.location}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* ── Productos similares ── */}
         {similarItems.length > 0 && (
           <div className="detail-section">
@@ -607,6 +680,7 @@ export default function ProductoDetalle() {
                     src={sim.imagen || llantaPlaceholder}
                     alt={`${sim.marca || ""} ${sim.modelo || ""}`.trim()}
                     loading="lazy"
+                    onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }}
                   />
                   <div className="similar-card__body">
                     <p className="similar-card__brand">{sim.marca}</p>

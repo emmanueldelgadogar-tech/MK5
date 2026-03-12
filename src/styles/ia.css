@@ -191,6 +191,19 @@
   word-break: break-word;
 }
 
+/* Link genérico generado por markdown [texto](url) */
+.ia-link {
+  color: #ff5202;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 82, 2, .4);
+  transition: border-color .15s, color .15s;
+}
+.ia-link:hover {
+  color: #ff7a3a;
+  border-bottom-color: #ff5202;
+}
+
 /* Link de medida clickeable dentro del chat */
 .ia-medida-link {
   display: inline-flex;

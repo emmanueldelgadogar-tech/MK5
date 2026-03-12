@@ -84,26 +84,55 @@ export default function IA() {
     sendMessage(text, messages);
   };
 
-  // Regex para detectar medidas de llantas
+  // Regex combinada: [texto](url)  |  **bold**  |  medida
+  const COMBINED_RE = /\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|(\d{3}\/\d{2}(?:R|\/)\d{2})/gi;
   const MEDIDA_RE = /(\d{3}\/\d{2}(?:R|\/)\d{2})/gi;
   const MEDIDA_EXACT = /^\d{3}\/\d{2}(?:R|\/)\d{2}$/i;
 
-  // Convierte medidas inline en links
-  function renderMessageContent(text) {
-    const parts = text.split(MEDIDA_RE);
-    if (parts.length === 1) return text;
-
-    return parts.map((part, idx) => {
-      if (MEDIDA_EXACT.test(part)) {
-        const medida = part.replace(/R/gi, "/");
-        return (
-          <Link key={idx} to={"/catalogo?medida=" + encodeURIComponent(medida)} className="ia-medida-link">
-            {part}
+  // Parsea una línea de texto y devuelve nodos React
+  function parseInline(text, keyBase) {
+    const parts = [];
+    let last = 0;
+    let i = 0;
+    const re = new RegExp(COMBINED_RE.source, "gi");
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      if (match.index > last) parts.push(text.slice(last, match.index));
+      if (match[1] !== undefined) {
+        // [texto](url)
+        const url = match[2].trim();
+        if (url.startsWith("/")) {
+          parts.push(<Link key={`${keyBase}-${i++}`} to={url} className="ia-link">{match[1]}</Link>);
+        } else {
+          parts.push(<a key={`${keyBase}-${i++}`} href={url} target="_blank" rel="noreferrer" className="ia-link">{match[1]}</a>);
+        }
+      } else if (match[3] !== undefined) {
+        // **bold**
+        parts.push(<strong key={`${keyBase}-${i++}`}>{match[3]}</strong>);
+      } else if (match[4] !== undefined && MEDIDA_EXACT.test(match[4])) {
+        // medida de llanta
+        const medida = match[4].replace(/R/gi, "/");
+        parts.push(
+          <Link key={`${keyBase}-${i++}`} to={"/catalogo?medida=" + encodeURIComponent(medida)} className="ia-medida-link">
+            {match[4]}
           </Link>
         );
       }
-      return part;
-    });
+      last = match.index + match[0].length;
+    }
+    if (last < text.length) parts.push(text.slice(last));
+    return parts;
+  }
+
+  // Renderiza el mensaje completo línea por línea
+  function renderMessageContent(text) {
+    const lines = text.split("\n");
+    return lines.map((line, lineIdx) => (
+      <span key={lineIdx}>
+        {parseInline(line, lineIdx * 10000)}
+        {lineIdx < lines.length - 1 && <br />}
+      </span>
+    ));
   }
 
   // Extrae medidas únicas de un texto para los botones "Ver llantas"
