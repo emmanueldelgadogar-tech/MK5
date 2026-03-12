@@ -39,6 +39,16 @@ import logoFirestone from "../assets/logos/firestone.png";
 import logoLaufenn from "../assets/logos/laufenn.png";
 import logoTornel from "../assets/logos/tornel.png";
 import logoVinmax from "../assets/logos/vinmax.png";
+import logoBlackhawk from "../assets/logos/blackhawk.png";
+import logoAntares from "../assets/logos/antares.png";
+import logoGeneral from "../assets/logos/general.png";
+import logoGoodrich from "../assets/logos/goodrich.jpg";
+import logoMirage from "../assets/logos/mirage.png";
+import logoSaferich from "../assets/logos/saferich.png";
+import logoWanli from "../assets/logos/wanli.jpg";
+import logoJkTyre from "../assets/logos/jktyre.png";
+import logoDoubleking from "../assets/logos/doubleking.jpg";
+import logoOvation from "../assets/logos/ovation.jpg";
 import logoRft from "../assets/minilogos/ChatGPT Image 19 feb 2026, 10_09_11 p.m..png";
 
 const BRAND_SLUG_TO_DB = {
@@ -100,6 +110,19 @@ const CARD_BRAND_LOGOS = {
   LAUFENN: logoLaufenn,
   TORNEL: logoTornel,
   VINMAX: logoVinmax,
+  BLACKHAWK: logoBlackhawk,
+  ANTARES: logoAntares,
+  GENERAL: logoGeneral,
+  GOODRICH: logoGoodrich,
+  "BF GOODRICH": logoGoodrich,
+  MIRAGE: logoMirage,
+  SAFERICH: logoSaferich,
+  WANLI: logoWanli,
+  JKTYRE: logoJkTyre,
+  "JK TYRE": logoJkTyre,
+  DOUBLEKING: logoDoubleking,
+  "DOUBLE KING": logoDoubleking,
+  OVATION: logoOvation,
 };
 
 function parseMedidaParts(medida) {
@@ -426,16 +449,23 @@ export default function Catalogo() {
           {!marcaFixedUpper && (
             <Accordion title="Marca">
               <div className="fchk__list">
-                {marcas.map((m) => (
-                  <label key={m} className="fchk">
-                    <input
-                      type="checkbox"
-                      checked={marcasSel.has(m)}
-                      onChange={() => toggleSetValue(setMarcasSel, m)}
-                    />
-                    <span>{m}</span>
-                  </label>
-                ))}
+                {marcas.map((m) => {
+                  const logo = CARD_BRAND_LOGOS[m.toUpperCase()] || null;
+                  return (
+                    <label key={m} className={`fchk${marcasSel.has(m) ? " fchk--active" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={marcasSel.has(m)}
+                        onChange={() => toggleSetValue(setMarcasSel, m)}
+                      />
+                      {logo
+                        ? <img src={logo} alt={m} className="fchk__logo" />
+                        : <span className="fchk__dot" />
+                      }
+                      <span>{m}</span>
+                    </label>
+                  );
+                })}
               </div>
             </Accordion>
           )}

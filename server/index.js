@@ -121,6 +121,30 @@ const pool = new Pool({
     : { rejectUnauthorized: false },
 });
 
+// Corrección de nombres de marca mal escritos en la BD
+async function normalizeBrandNames() {
+  const fixes = [
+    ["BLACHAWK",    "BLACKHAWK"],
+    ["BLAKHAWK",    "BLACKHAWK"],
+    ["BRIGESTONE",  "BRIDGESTONE"],
+    ["BRIDGSTONE",  "BRIDGESTONE"],
+    ["BRIGEDSTONE", "BRIDGESTONE"],
+    ["MICHELLIN",   "MICHELIN"],
+    ["CONTINETAL",  "CONTINENTAL"],
+    ["CONTINENTEL", "CONTINENTAL"],
+    ["GOODYAER",    "GOODYEAR"],
+    ["PIRELI",      "PIRELLI"],
+    ["HANKKOK",     "HANKOOK"],
+  ];
+  for (const [wrong, correct] of fixes) {
+    const r = await pool.query(
+      `UPDATE catalogo SET marca = $2 WHERE UPPER(TRIM(marca)) = $1`,
+      [wrong, correct]
+    );
+    if (r.rowCount > 0) console.log(`DB fix: ${wrong} → ${correct} (${r.rowCount} filas)`);
+  }
+}
+
 async function ensureAnalyticsTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS analytics_events (
@@ -1817,4 +1841,7 @@ app.listen(PORT, () => {
     .then(() => pool.query(`ALTER TABLE catalogo ADD COLUMN IF NOT EXISTS imagenes TEXT`))
     .then(() => console.log("Columnas imagen/imagenes listas"))
     .catch((e) => console.error("No pude agregar columnas imagen/imagenes:", e.message));
+  normalizeBrandNames()
+    .then(() => console.log("Marcas normalizadas"))
+    .catch((e) => console.error("No pude normalizar marcas:", e.message));
 });
