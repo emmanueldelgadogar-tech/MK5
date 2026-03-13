@@ -11,10 +11,10 @@ import {
 } from "../utils/catalogoHelpers";
 import { trackEvent } from "../utils/metrics";
 
-// ✅ IMPORTA TU CSS DEL CATALOGO (si no, no se aplicará)
+
 import "../styles/catalogo.css";
 
-// ✅ placeholder local (ajusta el path si tu llanta está en otro lado)
+
 import llantaPlaceholder from "../assets/llanta.png";
 
 import imgContinental from "../assets/CatalogoMarcas/bannercontinental.png";
@@ -49,7 +49,6 @@ import logoWanli from "../assets/logos/wanli.jpg";
 import logoJkTyre from "../assets/logos/jktyre.png";
 import logoDoubleking from "../assets/logos/doubleking.jpg";
 import logoOvation from "../assets/logos/ovation.jpg";
-import logoRft from "../assets/minilogos/ChatGPT Image 19 feb 2026, 10_09_11 p.m..png";
 
 const BRAND_SLUG_TO_DB = {
   continental: "CONTINENTAL",
@@ -375,7 +374,7 @@ export default function Catalogo() {
             key: params.toString(),
             ts: Date.now(),
           }));
-        } catch {}
+        } catch { }
       }
     } catch (e) {
       console.error(e);
@@ -401,7 +400,7 @@ export default function Catalogo() {
         setPage(cached.page);
         return;
       }
-    } catch {}
+    } catch { }
 
     setItems([]);
     setPage(1);
@@ -588,45 +587,20 @@ export default function Catalogo() {
             const brandLogo = CARD_BRAND_LOGOS[String(it?.marca || "").toUpperCase()] || null;
             const productName = String(it?.modelo || "").trim() || getProductTitle(it);
             return (
-            <article className="catalog-card" key={skuKey}>
-              <div className="card-discount-ribbon">
-                {formatMoney(discountAmount)} de descuento
-              </div>
-
+              <article className="catalog-card" key={skuKey}>
               <div className="card-tags">
-                {runFlat ? (
-                  <span className="card-tag card-tag--runflat">
-                    <img src={logoRft} alt="Run Flat" />
-                    <span>Run Flat</span>
-                  </span>
-                ) : null}
-                <span className="card-tag card-tag--dry">Piso seco</span>
-              </div>
+                  {runFlat ? (
+                    <span className="card-tag card-tag--runflat">
+                      <span>Run Flat</span>
+                    </span>
+                  ) : null}
+                  <span className="card-tag card-tag--dry">Piso seco</span>
+                </div>
 
-              <Link
-                to={buildProductPath(it)}
-                state={{ item: it }}
-                className="card-image card-link"
-                onClick={() =>
-                  trackEvent("product_click", {
-                    sku: getItemSku(it),
-                    source: "catalogo",
-                  })
-                }
-              >
-                <img
-                  src={it.imagen || llantaPlaceholder}
-                  alt={`${it.marca || ""} ${it.modelo || ""}`.trim()}
-                  loading="lazy"
-                  onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }}
-                />
-              </Link>
-
-              <div className="card-body">
                 <Link
                   to={buildProductPath(it)}
                   state={{ item: it }}
-                  className="card-link card-title"
+                  className="card-image card-link"
                   onClick={() =>
                     trackEvent("product_click", {
                       sku: getItemSku(it),
@@ -634,64 +608,85 @@ export default function Catalogo() {
                     })
                   }
                 >
-                  <h3 className="model">{productName}</h3>
+                  <img
+                    src={it.imagen || llantaPlaceholder}
+                    alt={`${it.marca || ""} ${it.modelo || ""}`.trim()}
+                    loading="lazy"
+                    onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }}
+                  />
                 </Link>
 
-                {it.medida && <p className="card-medida">{it.medida}</p>}
+                <div className="card-body">
+                  <Link
+                    to={buildProductPath(it)}
+                    state={{ item: it }}
+                    className="card-link card-title"
+                    onClick={() =>
+                      trackEvent("product_click", {
+                        sku: getItemSku(it),
+                        source: "catalogo",
+                      })
+                    }
+                  >
+                    <h3 className="model">{productName}</h3>
+                  </Link>
 
-                <div className="card-brand-stock">
-                  {brandLogo ? (
-                    <img className="card-brand-stock__logo" src={brandLogo} alt={`Logo ${it.marca || "Marca"}`} />
-                  ) : (
-                    <strong className="card-brand-stock__name">{it.marca || "Marca"}</strong>
-                  )}
-                  <span className="card-brand-stock__qty">+{Math.max(Number(it.stock || 0), 1)} PZS. EN STOCK</span>
-                </div>
+                  {it.medida && <p className="card-medida">{it.medida}</p>}
 
-                <div className="card-stock">
-                  <div className="stock-line">
-                    <span>Nacional</span>
-                    <div className="stock-bars">
-                      {[0, 1, 2, 3, 4].map((bar) => (
-                        <i
-                          key={bar}
-                          className={bar < availabilityLevel(it.stock) ? "is-on" : ""}
-                        />
-                      ))}
+                  <div className="card-brand-stock">
+                    {brandLogo ? (
+                      <img className="card-brand-stock__logo" src={brandLogo} alt={`Logo ${it.marca || "Marca"}`} />
+                    ) : (
+                      <strong className="card-brand-stock__name">{it.marca || "Marca"}</strong>
+                    )}
+                    <span className="card-brand-stock__qty">+{Math.max(Number(it.stock || 0), 1)} PZS. EN STOCK</span>
+                  </div>
+
+                  <div className="card-stock">
+                    <div className="stock-line">
+                      <span>Nacional</span>
+                      <div className="stock-bars">
+                        {[0, 1, 2, 3, 4].map((bar) => (
+                          <i
+                            key={bar}
+                            className={bar < availabilityLevel(it.stock) ? "is-on" : ""}
+                          />
+                        ))}
+                      </div>
+                      <span>+ {Math.max(Number(it.stock || 0), 1)}</span>
                     </div>
-                    <span>+ {Math.max(Number(it.stock || 0), 1)}</span>
                   </div>
-                </div>
 
-                <div className="card-price">
-                  <strong>{formatMoney(price)}</strong>
-                  <small>{formatMoney(listPrice)}</small>
-                  <span>-{Math.max(Math.round((discountAmount / Math.max(listPrice, 1)) * 100), 0)}%</span>
-                </div>
-
-                <div className="card-qty">
-                  <span>Cantidad</span>
-                  <div>
-                    <button type="button" onClick={() => setQty(skuKey, (n) => n - 1)}>
-                      -
-                    </button>
-                    <strong>{qtyFor(skuKey)}</strong>
-                    <button type="button" onClick={() => setQty(skuKey, (n) => n + 1)}>
-                      +
-                    </button>
+                  <div className="card-price">
+                    <strong>{formatMoney(price)}</strong>
+                    <small>{formatMoney(listPrice)}</small>
+                    <span>-{Math.max(Math.round((discountAmount / Math.max(listPrice, 1)) * 100), 0)}%</span>
                   </div>
-                </div>
 
-                <button
-                  className="btn-secondary"
-                  type="button"
-                  onClick={() => navigate(buildProductPath(it), { state: { item: it } })}
-                >
-                  Seleccionar
-                </button>
-              </div>
-            </article>
-          )})}
+                  <div className="card-qty">
+                    <span>Cantidad</span>
+                    <div>
+                      <button type="button" onClick={() => setQty(skuKey, (n) => n - 1)}>
+                        -
+                      </button>
+                      <strong>{qtyFor(skuKey)}</strong>
+                      <button type="button" onClick={() => setQty(skuKey, (n) => n + 1)}>
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    onClick={() => navigate(buildProductPath(it), { state: { item: it } })}
+                  >
+                    Seleccionar
+                  </button>
+                </div>
+              </article>
+            )
+          })}
         </div>
 
         <div className="catalogMore">

@@ -3,6 +3,8 @@ import "../styles/pages.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_BASE } from "../config";
+import { formatMoney, estimateListPrice, getProductTitle, addToCart, getItemSku, buildProductPath } from "../utils/catalogoHelpers";
+import llantaPlaceholder from "../assets/llanta.png";
 
 import pirelliLogo from "../assets/logos/pirelli.png";
 import firestoneLogo from "../assets/logos/firestone.png";
@@ -103,6 +105,60 @@ const PROMOS_MENSUALES = [
   { id: "vinmax-2", name: "Vinmax", img: promoMensualVinmax2, to: "/catalogo/vinmax" },
   { id: "vinmax-3", name: "Vinmax", img: promoMensualVinmax3, to: "/catalogo/vinmax" },
 ];
+
+function TopSellerCard({ item }) {
+  const navigate = useNavigate();
+  const sku = getItemSku(item);
+  const price = Number(item?.precio || 0);
+  const listPrice = estimateListPrice(price);
+  const discountAmount = Math.max(listPrice - price, 0);
+  const discountPct = Math.max(Math.round((discountAmount / Math.max(listPrice, 1)) * 100), 0);
+  
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCart(item, 1);
+    alert("Agregado al carrito: " + getProductTitle(item));
+  };
+
+  const handleBuyNow = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCart(item, 1);
+    navigate("/checkout");
+  };
+
+  return (
+    <div className="ts-card" onClick={() => navigate(buildProductPath(item), { state: { item } })}>
+      <div className="ts-card__badge-msi">6 MSI</div>
+      <div className="ts-card__image-wrapper">
+         <img src={item.imagen || llantaPlaceholder} alt={getProductTitle(item)} className="ts-card__image" onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }} />
+      </div>
+      <div className="ts-card__info">
+         <h4 className="ts-card__title">{getProductTitle(item)}</h4>
+         
+         <div className="ts-card__availability">
+            <svg className="ts-icon-stock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            Disponibilidad
+         </div>
+         
+         <div className="ts-card__prices">
+            <div className="ts-price-row">
+              <strong className="ts-price-new">{formatMoney(price)}</strong>
+              <span className="ts-price-old">{formatMoney(listPrice)}</span>
+              <span className="ts-discount">-{discountPct}%</span>
+            </div>
+            <small className="ts-price-note">Precio con promoción aplicada,<br/> Instalación, Válvula y Balanceo INCLUIDO</small>
+         </div>
+         
+         <div className="ts-card__actions">
+            <button className="ts-btn ts-btn--cart" onClick={handleAddToCart}>AGREGAR AL CARRITO</button>
+            <button className="ts-btn ts-btn--buy" onClick={handleBuyNow}>COMPRAR AHORA</button>
+         </div>
+      </div>
+    </div>
+  );
+}
 
 function AiAssistantBox({ onAskAssistant }) {
   const [q, setQ] = useState("");
@@ -298,6 +354,8 @@ export default function Home() {
   const [alturas, setAlturas] = useState([]);
   const [rines, setRines] = useState([]);
 
+  const [topSellers, setTopSellers] = useState([]);
+
   const [anchoSel, setAnchoSel] = useState("");
   const [alturaSel, setAlturaSel] = useState("");
   const [rinSel, setRinSel] = useState("");
@@ -375,6 +433,16 @@ export default function Home() {
         setAnchos(data.anchos || []);
         setAlturas(data.alturas || []);
         setRines(data.rines || []);
+      })
+      .catch(() => {});
+
+    // Fetch top sellers
+    fetch(`${API_BASE}/api/catalogo/items?limit=10&sort=price_desc`)
+      .then(res => res.json())
+      .then(data => {
+        if(data.ok && data.items) {
+          setTopSellers(data.items);
+        }
       })
       .catch(() => {});
   }, []);
@@ -484,6 +552,42 @@ export default function Home() {
           </div>
         </section>
 
+        <div className="home-grid2" style={{ marginBottom: 40 }}>
+          <div className="card card--brands">
+            <div className="card__head card__head--row">
+              <div>
+                <h3 className="card__title">Marcas más buscadas</h3>
+                <p className="card__sub">Entra por marca en un click.</p>
+              </div>
+
+              <Link className="ghostLink" to="/catalogo">
+                Ver catálogo →
+              </Link>
+            </div>
+
+            <div className="brandGrid brandGrid--compact">
+              {MARCAS_DESTACADAS.map((m) => (
+                <Link key={m.key} to={`/catalogo/${m.key}`} className="brandCard">
+                  <img className="brandCard__img" src={m.img} alt={m.name} />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <ManualMeasureBox
+            anchos={anchos}
+            alturas={alturas}
+            rines={rines}
+            anchoSel={anchoSel}
+            alturaSel={alturaSel}
+            rinSel={rinSel}
+            setAnchoSel={setAnchoSel}
+            setAlturaSel={setAlturaSel}
+            setRinSel={setRinSel}
+            onSubmit={buscarMedida}
+          />
+        </div>
+
         <section className="monthly-promos">
           <div className="monthly-promos__head">
             <div>
@@ -502,6 +606,23 @@ export default function Home() {
                 <img src={promo.img} alt={`Promoción ${promo.name}`} loading="lazy" decoding="async" />
               </Link>
             ))}
+          </div>
+        </section>
+
+        <section className="podium-section" style={{ marginTop: 40, background: '#f5f5f5', border: 'none' }}>
+          <div className="podium-shell">
+            <div className="podium-head">
+              <h2 className="podium-title" style={{ color: '#111' }}>Llantas más compradas</h2>
+              <p className="podium-sub" style={{ color: '#555' }}>Los modelos más buscados en el mercado.</p>
+            </div>
+
+            <div className="ts-trackWrap">
+              <div className="ts-grid">
+                {topSellers.map((item) => (
+                  <TopSellerCard key={getItemSku(item)} item={item} />
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -539,45 +660,11 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="home-grid2">
-          <div className="card card--brands">
-            <div className="card__head card__head--row">
-              <div>
-                <h3 className="card__title">Marcas más buscadas</h3>
-                <p className="card__sub">Entra por marca en un click.</p>
-              </div>
+      <div className="home-banner home-banner--full" style={{ marginTop: 40 }} aria-label="Promoción MSI">
+        <img src={bannermsi} alt="Promoción MSI MK5" loading="lazy" decoding="async" />
+      </div>
 
-              <Link className="ghostLink" to="/catalogo">
-                Ver catálogo →
-              </Link>
-            </div>
-
-            <div className="brandGrid brandGrid--compact">
-              {MARCAS_DESTACADAS.map((m) => (
-                <Link key={m.key} to={`/catalogo/${m.key}`} className="brandCard">
-                  <img className="brandCard__img" src={m.img} alt={m.name} />
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <ManualMeasureBox
-            anchos={anchos}
-            alturas={alturas}
-            rines={rines}
-            anchoSel={anchoSel}
-            alturaSel={alturaSel}
-            rinSel={rinSel}
-            setAnchoSel={setAnchoSel}
-            setAlturaSel={setAlturaSel}
-            setRinSel={setRinSel}
-            onSubmit={buscarMedida}
-          />
-
-          <div className="home-banner home-banner--full" aria-label="Promoción MSI">
-            <img src={bannermsi} alt="Promoción MSI MK5" loading="lazy" decoding="async" />
-          </div>
-        </div>
+      {/* The home-grid2 section was moved above reviews-section */}
       </section>
     </main>
   );

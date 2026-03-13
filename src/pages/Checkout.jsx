@@ -6,14 +6,6 @@ import { API_BASE } from "../config";
 import { readCart, writeCart } from "../utils/catalogoHelpers";
 import { trackEvent } from "../utils/metrics";
 
-// Imágenes de marcas para el banner del carrito
-import bannerBridgestone from "../assets/logos/bridgestone.png";
-import bannerMichelin    from "../assets/logos/michelin.png";
-import bannerPirelli     from "../assets/logos/pirelli.png";
-import bannerGoodyear    from "../assets/logos/goodyear.png";
-import bannerHankook     from "../assets/logos/hankook.png";
-import bannerContinental from "../assets/logos/continental.png";
-
 const SAFE_PAYMENT_HOSTS = new Set([
   "www.mercadopago.com.mx", "www.mercadopago.com", "mercadopago.com",
   "www.paypal.com", "sandbox.paypal.com", "www.sandbox.paypal.com",
@@ -26,11 +18,6 @@ function isSafePaymentUrl(url) {
     return (protocol === "https:" || protocol === "http:") && SAFE_PAYMENT_HOSTS.has(hostname);
   } catch { return false; }
 }
-
-const CART_BRANDS = [
-  bannerBridgestone, bannerMichelin, bannerPirelli,
-  bannerGoodyear, bannerHankook, bannerContinental,
-];
 
 const ESTADOS_MX = [
   "Aguascalientes","Baja California","Baja California Sur","Campeche",
@@ -48,10 +35,10 @@ const ESTADOS_ENVIO_GRATIS = new Set([
 ]);
 
 const ORDER_STEPS = [
-  { key: "received",    label: "Pedido recibido",  icon: "📋" },
-  { key: "processing",  label: "En preparación",   icon: "⚙️" },
-  { key: "shipped",     label: "En camino",         icon: "🚚" },
-  { key: "delivered",   label: "Entregado",         icon: "✅" },
+  { key: "received",    label: "Pedido recibido",  icon: "" },
+  { key: "processing",  label: "En preparación",   icon: "" },
+  { key: "shipped",     label: "En camino",         icon: "" },
+  { key: "delivered",   label: "Entregado",         icon: "" },
 ];
 
 function getActiveStep(status) {
@@ -87,7 +74,6 @@ export default function Checkout() {
   const [cart, setCart] = useState([]);
   const [cartHydrated, setCartHydrated] = useState(false);
   const [detailsBySku, setDetailsBySku] = useState({});
-  const [bannerIdx, setBannerIdx] = useState(0);
 
   const [skuInput, setSkuInput] = useState("");
   const [qtyInput, setQtyInput] = useState(1);
@@ -115,14 +101,6 @@ export default function Checkout() {
   const [order, setOrder] = useState(null);
   const [checkoutTracked, setCheckoutTracked] = useState(false);
   const [paymentResult, setPaymentResult] = useState(null);
-
-  // Banner rotativo en el carrito
-  useEffect(() => {
-    const t = setInterval(() => {
-      setBannerIdx((prev) => (prev + 1) % CART_BRANDS.length);
-    }, 2000);
-    return () => clearInterval(t);
-  }, []);
 
   useEffect(() => {
     setCart(readCart());
@@ -224,9 +202,28 @@ export default function Checkout() {
     loadPaymentMethods();
   }, []);
 
-  const subtotal         = useMemo(() => lines.reduce((s, l) => s + l.line, 0), [lines]);
-  const estimatedDiscount = subtotal * 0.1;
-  const estimatedTotal   = subtotal - estimatedDiscount;
+  const subtotal = useMemo(() => lines.reduce((s, l) => s + l.line, 0), [lines]);
+  
+  const estimatedDiscount = useMemo(() => {
+    let totalDiscount = 0;
+    for (const l of lines) {
+      if (l.qty >= 4) {
+        // 4x3 Promo (pay for 3 out of every 4)
+        const payUnits = l.qty - Math.floor(l.qty / 4);
+        const normalSubtotal = l.unit * l.qty;
+        const promoSubtotal = l.unit * payUnits;
+        totalDiscount += (normalSubtotal - promoSubtotal);
+      } else if (l.qty >= 1 && l.qty <= 3) {
+        // 25% Promo for 1 to 3 tires
+        const normalSubtotal = l.unit * l.qty;
+        totalDiscount += normalSubtotal * 0.25;
+      }
+    }
+    return totalDiscount;
+  }, [lines]);
+
+  const estimatedShipping = 0; // Ready for dynamic updates based on zip
+  const estimatedTotal   = subtotal - estimatedDiscount + estimatedShipping;
   const envioGratis      = ESTADOS_ENVIO_GRATIS.has(shipping.state);
 
   function updateQty(sku, qty) {
@@ -265,6 +262,27 @@ export default function Checkout() {
       setError("No pude agregar el SKU en este momento.");
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function handleZipBlur() {
+    const rawZip = shipping.zip.trim();
+    if (!/^\d{5}$/.test(rawZip)) return;
+
+    try {
+      const res = await fetch(`https://api.zippopotam.us/mx/${rawZip}`);
+      if (!res.ok) return; // Silent fail if not found
+      const data = await res.json();
+      const place = data.places?.[0];
+      if (place) {
+        setShipping(prev => ({
+          ...prev,
+          city: place["place name"] || prev.city,
+          state: place["state"] || prev.state
+        }));
+      }
+    } catch (e) {
+      console.error("Error fetching zipcode info:", e);
     }
   }
 
@@ -358,7 +376,7 @@ export default function Checkout() {
       <section className="checkout-wrap">
         <header className="checkout-head">
           <h1>Carrito y Checkout MK5</h1>
-          <p>Compra segura 🔒 · Envío en 24–48 h · Garantía defecto de fábrica</p>
+          <p>Compra segura · Envío en 24–48 h · Garantía defecto de fábrica</p>
         </header>
 
         {/* Steps */}
@@ -383,20 +401,6 @@ export default function Checkout() {
             <section className="checkout-card">
               <h2>Tu carrito</h2>
 
-              {/* Banner de marcas rotativo */}
-              <div className="cart-brand-banner">
-                <div className="cart-brand-banner__scroll">
-                  {CART_BRANDS.map((src, i) => (
-                    <img key={i} src={src} alt="Marca de llanta" className={`cart-brand-logo ${i === bannerIdx ? "is-active" : ""}`} />
-                  ))}
-                </div>
-                <div className="cart-banner-info">
-                  <span>🔒 Compra 100% segura</span>
-                  <span>🚚 Envío en 24–48 h</span>
-                  <span>🛡️ Garantía defecto fábrica</span>
-                </div>
-              </div>
-
               <form className="checkout-add" onSubmit={addBySku}>
                 <input type="text" placeholder="SKU del producto"
                   value={skuInput} onChange={(e) => setSkuInput(e.target.value)} required />
@@ -415,7 +419,7 @@ export default function Checkout() {
                   {lines.map((line) => (
                     <li key={line.sku} className="checkout-item">
                       <div className="checkout-item__img">
-                        <div className="checkout-item__img-placeholder">🛞</div>
+                        <div className="checkout-item__img-placeholder"></div>
                       </div>
                       <div style={{ flex: 1 }}>
                         <strong>{line.detail ? `${line.detail.marca} ${line.detail.modelo}` : line.sku}</strong>
@@ -435,16 +439,40 @@ export default function Checkout() {
             </section>
 
             <aside className="checkout-card checkout-summary">
-              <h2>Resumen</h2>
-              <div className="checkout-summary__row"><span>Subtotal</span><b>{money(subtotal)}</b></div>
-              <div className="checkout-summary__row"><span>Descuento estimado (10%)</span><b>-{money(estimatedDiscount)}</b></div>
-              <div className="checkout-summary__row is-total"><span>Total estimado</span><b>{money(estimatedTotal)}</b></div>
-              <small>El total final se recalcula al confirmar, incluyendo promociones activas por marca (ej. 4x3).</small>
+              <h2>Resumen de Orden</h2>
+              
+              <div className="checkout-summary__row">
+                <span>Subtotal</span>
+                <b>{money(subtotal)}</b>
+              </div>
+
+              {estimatedDiscount > 0 && (
+                <div className="checkout-summary__row summary-discount">
+                  <span>Descuento aplicado</span>
+                  <b>-{money(estimatedDiscount)}</b>
+                </div>
+              )}
+
+              <div className="checkout-summary__row">
+                <span>Envío estimado</span>
+                <b>{money(0)}</b>
+              </div>
+
+              <div className="checkout-summary__divider" />
+
+              <div className="checkout-summary__row is-total">
+                <span>Total</span>
+                <b>{money(estimatedTotal)}</b>
+              </div>
+
+              <div className="checkout-coupon-box">
+                <input type="text" placeholder="Código de cupón" />
+                <button type="button" className="btn-secondary">Aplicar</button>
+              </div>
 
               <div className="cart-trust-badges">
-                <div className="cart-trust-badge">🔒 SSL Seguro</div>
-                <div className="cart-trust-badge">🛡️ Compra protegida</div>
-                <div className="cart-trust-badge">🚚 Envío rápido</div>
+                <div className="cart-trust-badge">🔒 Pago Protegido SSL</div>
+                <div className="cart-trust-badge">🚚 Envío Rápido</div>
               </div>
 
               <button type="button" className="checkout-next"
@@ -509,7 +537,8 @@ export default function Checkout() {
                   Código postal *
                   <input type="text" value={shipping.zip} autoComplete="postal-code"
                     maxLength={5} placeholder="50000"
-                    onChange={(e) => setShipping((p) => ({ ...p, zip: e.target.value.replace(/\D/g,"") }))}
+                    onChange={(e) => setShipping((p) => ({ ...p, zip: e.target.value.replace(/\\D/g,"") }))}
+                    onBlur={handleZipBlur}
                     required />
                   {fieldErrors.zip && <span className="field-error">{fieldErrors.zip}</span>}
                 </label>
@@ -533,8 +562,8 @@ export default function Checkout() {
               {shipping.state && (
                 <div className={`envio-indicator ${envioGratis ? "envio-indicator--free" : "envio-indicator--paid"}`}>
                   {envioGratis
-                    ? "✅ ¡Envío GRATIS a tu estado!"
-                    : "ℹ️ Envío con costo adicional — consulta el total al confirmar."}
+                    ? "¡Envío GRATIS a tu estado!"
+                    : "Envío con costo adicional — consulta el total al confirmar."}
                 </div>
               )}
 
@@ -553,7 +582,7 @@ export default function Checkout() {
               </div>
               {paymentMethod === "mercado_pago" && (
                 <div className="msi-info">
-                  💳 Meses sin intereses disponibles según tu banco y las promociones vigentes de Mercado Pago.
+                  Meses sin intereses disponibles según tu banco y las promociones vigentes de Mercado Pago.
                 </div>
               )}
 
@@ -632,8 +661,8 @@ export default function Checkout() {
                 <b>{money(estimatedTotal)}</b>
               </div>
               <div className="cart-trust-badges">
-                <div className="cart-trust-badge">🔒 Pago 100% seguro</div>
-                <div className="cart-trust-badge">🛡️ Garantía defecto fábrica</div>
+                <div className="cart-trust-badge">Pago 100% seguro</div>
+                <div className="cart-trust-badge">Garantía defecto fábrica</div>
               </div>
             </aside>
           </div>
@@ -644,10 +673,10 @@ export default function Checkout() {
           <section className="checkout-card checkout-success">
             <h2>
               {paymentResult === "success" || order?.payment?.status === "paid"
-                ? "Pago confirmado ✅"
+                ? "Pago confirmado"
                 : paymentResult === "failure" || order?.payment?.status === "failed"
-                  ? "Pago rechazado ⚠️"
-                  : "Pedido confirmado ⏳"}
+                  ? "Pago rechazado"
+                  : "Pedido confirmado"}
             </h2>
             <p>
               Tu folio es <b>#{order.id}</b>. En breve te contactamos para validar entrega y pago.

@@ -1,13 +1,11 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 require("dotenv").config();
 const { Pool } = require("pg");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const OpenAI = require("openai");
 const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
 
 const app = express();
 
@@ -15,30 +13,9 @@ const app = express();
 app.set("trust proxy", 1);
 
 // ===================== SECURITY + PARSERS =====================
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'", "https:", "data:"],
-      objectSrc: ["'none'"],
-      frameAncestors: ["'none'"],
-    },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
-  frameguard: { action: "deny" },
-  noSniff: true,
-  xssFilter: true,
-}));
-app.use(express.json({ limit: "100kb" }));
-app.use(express.urlencoded({ extended: true, limit: "100kb" }));
+app.use(helmet());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 if (String(process.env.ENFORCE_SSL || "").toLowerCase() === "true") {
   app.use((req, res, next) => {
@@ -71,16 +48,9 @@ const corsOptions = {
 };
 
 app.options(/.*/, cors(corsOptions));
-
-// ===================== STATIC (imágenes de llantas) =====================
-app.use("/img", (req, res, next) => {
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  next();
-}, express.static(path.join(__dirname, "public/img")));
 app.use(cors(corsOptions));
 
 // ===================== RATE LIMIT =====================
-// Límite global: 120 req/min por IP
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
@@ -90,24 +60,6 @@ app.use(
   })
 );
 
-// Límite estricto para autenticación: 10 intentos cada 15 minutos
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { ok: false, error: "too_many_requests" },
-});
-
-// Límite para el asistente IA: 20 req / 15 min por IP (evita abuso costoso de OpenAI)
-const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { ok: false, error: "too_many_requests", detail: "Límite de consultas al asistente alcanzado. Espera unos minutos." },
-});
-
 // ===================== DB =====================
 if (!process.env.DATABASE_URL) {
   console.error("Falta DATABASE_URL en .env");
@@ -116,34 +68,8 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: true }
-    : { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: false },
 });
-
-// Corrección de nombres de marca mal escritos en la BD
-async function normalizeBrandNames() {
-  const fixes = [
-    ["BLACHAWK",    "BLACKHAWK"],
-    ["BLAKHAWK",    "BLACKHAWK"],
-    ["BRIGESTONE",  "BRIDGESTONE"],
-    ["BRIDGSTONE",  "BRIDGESTONE"],
-    ["BRIGEDSTONE", "BRIDGESTONE"],
-    ["MICHELLIN",   "MICHELIN"],
-    ["CONTINETAL",  "CONTINENTAL"],
-    ["CONTINENTEL", "CONTINENTAL"],
-    ["GOODYAER",    "GOODYEAR"],
-    ["PIRELI",      "PIRELLI"],
-    ["HANKKOK",     "HANKOOK"],
-  ];
-  for (const [wrong, correct] of fixes) {
-    const r = await pool.query(
-      `UPDATE catalogo SET marca = $2 WHERE UPPER(TRIM(marca)) = $1`,
-      [wrong, correct]
-    );
-    if (r.rowCount > 0) console.log(`DB fix: ${wrong} → ${correct} (${r.rowCount} filas)`);
-  }
-}
 
 async function ensureAnalyticsTable() {
   await pool.query(`
@@ -234,65 +160,17 @@ function verifyPassword(password, fullHash) {
   return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(check, "hex"));
 }
 
-// ===================== JWT / SESSION =====================
-const JWT_SECRET = process.env.JWT_SECRET || (() => {
-  const s = crypto.randomBytes(48).toString("hex");
-  console.warn("AVISO: JWT_SECRET no está definido en .env. Las sesiones se invalidan al reiniciar el servidor.");
-  return s;
-})();
-
-const JWT_EXPIRES = "7d";
-const COOKIE_NAME = "mk5_session";
-
-function cookieOpts() {
-  return {
-    httpOnly: true,
-    sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días en ms
-    path: "/",
-  };
-}
-
-// Leer cookie manualmente (sin cookie-parser)
-function readCookie(req, name) {
-  const header = req.headers.cookie || "";
-  for (const part of header.split(";")) {
-    const [k, ...rest] = part.trim().split("=");
-    if (k.trim() === name) return decodeURIComponent(rest.join("="));
-  }
-  return null;
-}
-
-function issueToken(res, payload) {
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  res.cookie(COOKIE_NAME, token, cookieOpts());
-  return token;
-}
-
-function requireAuth(req, res, next) {
-  const raw = readCookie(req, COOKIE_NAME);
-  if (!raw) return res.status(401).json({ ok: false, error: "unauthorized" });
-  try {
-    req.user = jwt.verify(raw, JWT_SECRET);
-    next();
-  } catch {
-    res.clearCookie(COOKIE_NAME, cookieOpts());
-    return res.status(401).json({ ok: false, error: "session_expired" });
-  }
-}
-
-function requireAdmin(req, res, next) {
-  const adminKey = process.env.ADMIN_API_KEY;
-  if (!adminKey) return next(); // sin clave configurada: abierto solo en dev
-  const provided = String(req.headers["x-admin-key"] || req.query.adminKey || "").trim();
-  if (!provided || !crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(adminKey))) {
-    return res.status(401).json({ ok: false, error: "unauthorized" });
+// ===================== HELPERS =====================
+const requireAdmin = (req, res, next) => {
+  const reqKey = req.headers["x-admin-key"] || req.query.key || req.query.admin_key;
+  if (process.env.NODE_ENV === "production" || process.env.ADMIN_API_KEY) {
+    if (!reqKey || reqKey !== process.env.ADMIN_API_KEY) {
+      return res.status(403).json({ ok: false, error: "forbidden" });
+    }
   }
   next();
-}
+};
 
-// ===================== HELPERS =====================
 const up = (v) => (v ?? "").toString().trim().toUpperCase();
 
 const asNull = (v) => {
@@ -457,10 +335,10 @@ app.get("/api/catalogo/items", async (req, res) => {
     const baseCTE = `
       WITH base AS (
         SELECT
-          sku, marca, modelo, medida, precio, stock, imagen, imagenes,
+          sku, marca, modelo, medida, precio, stock, imagen,
           NULLIF(substring(medida from '^([0-9]{3})'), '')::int AS ancho_i,
-          NULLIF(substring(medida from '^[0-9]{3}[-/]([0-9]{2})'), '')::int AS alto_i,
-          NULLIF(substring(medida from '(?:R|[-/])([0-9]{2})$'), '')::int AS rin_i
+          NULLIF(substring(medida from '^[0-9]{3}/([0-9]{2})'), '')::int AS alto_i,
+          NULLIF(substring(medida from '(?:R|/)([0-9]{2})$'), '')::int AS rin_i
         FROM catalogo
       )
     `;
@@ -498,7 +376,7 @@ app.get("/api/catalogo/items", async (req, res) => {
 
     const itemsQ = `
       ${baseCTE}
-      SELECT sku, marca, modelo, medida, precio, stock, imagen, imagenes
+      SELECT sku, marca, modelo, medida, precio, stock, imagen
       FROM base
       ${whereSql}
       ORDER BY ${orderBy}, marca, modelo
@@ -527,7 +405,7 @@ app.get("/api/catalogo/item", async (req, res) => {
     if (!sku) return res.status(400).json({ ok: false, error: "sku_required" });
 
     const r = await pool.query(
-      `SELECT sku, marca, modelo, medida, precio, stock, imagen, imagenes
+      `SELECT sku, marca, modelo, medida, precio, stock, imagen
        FROM catalogo
        WHERE stock > 0 AND sku = $1
        LIMIT 1`,
@@ -550,7 +428,7 @@ app.get("/api/catalogo/item/:sku", async (req, res) => {
     if (!sku) return res.status(400).json({ ok: false, error: "sku_required" });
 
     const r = await pool.query(
-      `SELECT sku, marca, modelo, medida, precio, stock, imagen, imagenes
+      `SELECT sku, marca, modelo, medida, precio, stock, imagen
        FROM catalogo
        WHERE stock > 0 AND sku = $1
        LIMIT 1`,
@@ -573,7 +451,7 @@ app.get("/api/catalogo", async (req, res) => {
     const medida = (req.query.medida || "").toString().trim();
 
     const sql = `
-      SELECT sku, marca, modelo, medida, precio, stock, imagen, imagenes
+      SELECT sku, marca, modelo, medida, precio, stock
       FROM catalogo
       WHERE stock > 0
         AND ($1 = '' OR UPPER(marca) = $1)
@@ -602,13 +480,7 @@ app.post("/api/metrics/track", async (req, res) => {
     const amount = Number.isFinite(Number(req.body?.amount)) ? Number(req.body.amount) : null;
     const page = asNull(req.body?.page);
     const source = asNull(req.body?.source);
-    let meta = req.body?.meta && typeof req.body.meta === "object" ? req.body.meta : null;
-    if (meta) {
-      const metaStr = JSON.stringify(meta);
-      if (metaStr.length > 1000) {
-        return res.status(400).json({ ok: false, error: "meta_too_large" });
-      }
-    }
+    const meta = req.body?.meta && typeof req.body.meta === "object" ? req.body.meta : null;
 
     await pool.query(
       `INSERT INTO analytics_events (event_name, session_id, sku, qty, amount, page, source, meta)
@@ -623,7 +495,7 @@ app.post("/api/metrics/track", async (req, res) => {
   }
 });
 
-app.get("/api/metrics/overview", requireAdmin, async (req, res) => {
+app.get("/api/metrics/overview", async (req, res) => {
   try {
     const daysRaw = parseInt(req.query.days, 10);
     const days = Number.isFinite(daysRaw) ? Math.min(Math.max(daysRaw, 1), 90) : 7;
@@ -727,13 +599,10 @@ app.post("/api/payments/mercadopago/webhook", async (req, res) => {
     const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (!accessToken) return res.status(200).json({ ok: true, ignored: "no_token" });
 
-    const mpCtrl = new AbortController();
-    const mpTimeout = setTimeout(() => mpCtrl.abort(), 5000);
     const pRes = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(dataId)}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
-      signal: mpCtrl.signal,
-    }).finally(() => clearTimeout(mpTimeout));
+    });
     if (!pRes.ok) {
       const detail = await pRes.text().catch(() => "");
       console.error("MP webhook fetch payment error:", pRes.status, detail.slice(0, 220));
@@ -846,7 +715,7 @@ app.post("/api/payments/paypal/webhook", async (req, res) => {
   }
 });
 
-app.post("/api/auth/register", authLimiter, async (req, res) => {
+app.post("/api/auth/register", async (req, res) => {
   try {
     const name = String(req.body?.name || "").trim();
     const phone = String(req.body?.phone || "").trim();
@@ -855,39 +724,25 @@ app.post("/api/auth/register", authLimiter, async (req, res) => {
     if (!email || !password || password.length < 8) {
       return res.status(400).json({ ok: false, error: "invalid_credentials" });
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ ok: false, error: "invalid_email" });
-    }
-    if (name && name.length > 120) {
-      return res.status(400).json({ ok: false, error: "name_too_long" });
-    }
-
-    // Verificar si el correo ya existe antes de insertar
-    const existing = await pool.query(
-      `SELECT id FROM customers WHERE email = $1 LIMIT 1`,
-      [email]
-    );
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ ok: false, error: "email_already_registered" });
-    }
 
     const passHash = hashPassword(password);
-    const inserted = await pool.query(
+    await pool.query(
       `INSERT INTO customers (name, phone, email, password_hash)
        VALUES ($1,$2,$3,$4)
-       RETURNING id, name, phone, email`,
+       ON CONFLICT (email) DO UPDATE
+       SET name = EXCLUDED.name,
+           phone = EXCLUDED.phone,
+           password_hash = EXCLUDED.password_hash`,
       [asNull(name), asNull(phone), email, passHash]
     );
-    const newUser = inserted.rows[0];
-    issueToken(res, { userId: newUser.id, email: newUser.email, name: newUser.name });
-    res.json({ ok: true, user: { id: newUser.id, name: newUser.name, phone: newUser.phone, email: newUser.email } });
+    res.json({ ok: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: "register_error" });
   }
 });
 
-app.post("/api/auth/login", authLimiter, async (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
@@ -902,7 +757,6 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
       return res.status(401).json({ ok: false, error: "auth_failed" });
     }
 
-    issueToken(res, { userId: user.id, email: user.email, name: user.name });
     res.json({
       ok: true,
       user: {
@@ -918,29 +772,6 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
   }
 });
 
-app.get("/api/auth/me", requireAuth, async (req, res) => {
-  try {
-    const r = await pool.query(
-      `SELECT id, name, phone, email FROM customers WHERE id = $1 LIMIT 1`,
-      [req.user.userId]
-    );
-    const user = r.rows[0];
-    if (!user) {
-      res.clearCookie(COOKIE_NAME, cookieOpts());
-      return res.status(401).json({ ok: false, error: "user_not_found" });
-    }
-    res.json({ ok: true, user: { id: user.id, name: user.name, phone: user.phone, email: user.email } });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "me_error" });
-  }
-});
-
-app.post("/api/auth/logout", (req, res) => {
-  res.clearCookie(COOKIE_NAME, cookieOpts());
-  res.json({ ok: true });
-});
-
 // ===================== ASSISTANT (V2: OpenAI con contexto de catálogo) =====================
 
 const openai = process.env.OPENAI_API_KEY
@@ -950,156 +781,29 @@ const openai = process.env.OPENAI_API_KEY
 const SYSTEM_PROMPT = `Eres el asistente virtual de MK5 Llantas, una tienda mexicana de llantas (neumáticos).
 Tu trabajo es ayudar a los clientes a encontrar la llanta perfecta.
 
-REGLAS ESTRICTAS:
+REGLAS:
 - Responde SIEMPRE en español mexicano, amigable y profesional.
-- SIEMPRE escribe las medidas en formato XXX/XX/XX (ej: 195/50/15, 205/55/16). El sistema las convertirá automáticamente en links clickeables al catálogo.
-- NUNCA inventes productos, marcas, modelos ni precios que no estén en el bloque INVENTARIO DISPONIBLE de este mensaje.
-- Si el INVENTARIO DISPONIBLE está vacío o no contiene la medida buscada, di claramente: "Actualmente no tenemos stock en esa medida." NO inventes ni sugieras productos ficticios.
-- Para medidas alternativas compatibles con el vehículo: SOLO menciona la medida en formato XXX/XX/XX para que el cliente pueda ver el catálogo. NO inventes productos ni precios para esas medidas alternas.
-- Cuando el cliente pregunte por vehículo + año:
-  1. Indica la medida original de fábrica.
-  2. Si hay INVENTARIO DISPONIBLE para esa medida, lista hasta 3 productos con: Marca, Modelo, Precio (exactamente como aparece en el inventario).
-  3. Si NO hay inventario para esa medida, dilo claramente.
-  4. Menciona 1-2 medidas alternativas compatibles en formato XXX/XX/XX.
-- Compara opciones económica vs premium brevemente solo cuando el inventario lo permite.
-- Menciona precios en MXN SOLO cuando aparezcan en el INVENTARIO DISPONIBLE.
+- Si el cliente da una medida (ej: 205/55/16), busca en el inventario y recomienda opciones.
+- Si el cliente da un auto y año (ej: "March 2018"), indica la medida ORIGINAL de fábrica y también MEDIDAS ALTERNATIVAS que le pueden quedar, explicando brevemente el efecto de cada una (ej: "hará el carro un poco más alto", "mejor agarre en curvas pero más firme", "ride más suave", etc.).
+- SIEMPRE escribe las medidas en formato XXX/XX/XX (ej: 195/50/15, 205/55/16). El sistema las convertirá automáticamente en links al catálogo.
+- Cuando el cliente pregunte por vehículo + año, usa este formato base (ajústalo según inventario real):
+  "Para la [Marca Modelo Año], la medida más común es [MEDIDA]. Aquí te comparto algunas opciones que están con promoción en esa medida:".
+  Después lista hasta 3 productos reales del inventario en bullets y en CADA bullet incluye:
+  - Marca y modelo
+  - Precio antes y precio ahora (si hay promo / descuento)
+  - Link de producto usando formato markdown con URL relativa: [Ver modelo](/catalogo?q=MARCA%20MODELO&medida=MEDIDA)
+  Luego agrega: "Si deseas más información o ayuda con otra medida, no dudes en preguntar."
+  Y después: "Otras medidas que podrías considerar y que son compatibles con tu vehículo son:" seguido de bullets con medida + efecto breve + link markdown: [Ver opciones](/catalogo?medida=MEDIDA)
+- Compara opciones: económica vs premium, explica diferencias brevemente.
+- Menciona precios en MXN cuando tengas datos del inventario.
 - Si hay promoción 4x3 (Continental, Euzkadi, Hankook, Tornel, JK Tyre, Laufenn), menciónala.
 - Sé conciso: máximo 3-4 párrafos cortos.
 - Usa emojis con moderación (1-2 por respuesta).
 - Si no sabes algo, sé honesto y sugiere contactar por WhatsApp.
+- NUNCA inventes productos que no estén en el inventario proporcionado.
+- Si el inventario está vacío para esa medida, dilo honestamente y sugiere medidas similares.
+- Si incluyes links, usa SIEMPRE markdown [texto](url) con rutas internas /catalogo... para que el frontend los haga clickeables.`;
 
-SUCURSALES MK5 (17 ubicaciones en Toluca, Estado de México):
-Cuando el cliente pregunte por indicaciones, cómo llegar, ubicación o dirección de una sucursal, responde con este formato exacto:
-"Te dejo las indicaciones para llegar a la sucursal de [NOMBRE] 📍 [LINK]"
-
-- Isidro Fabela → https://maps.app.goo.gl/DwyU2AYifAiNsg5e8
-- Filiberto Gómez (Pepsi) → https://maps.app.goo.gl/GtETFQe5Knr489ub9
-- San Buena → https://maps.app.goo.gl/8sLkwPS9uFuFfAZP9
-- Heriberto Enríquez → https://maps.app.goo.gl/QaqhwfAzKWLUEgu46
-- Central de Abastos → https://maps.app.goo.gl/KSsBn8m2693J74sz5
-- Tlacopa → https://maps.app.goo.gl/FHsYWjfVQLtHRASA6
-- Adolfo López Mateos → https://maps.app.goo.gl/WuL3EFnSXPjy11yF7
-- Pino Suárez → https://maps.app.goo.gl/6VunYzAtAXb9hMi29
-- Circuito Metropolitano → https://maps.app.goo.gl/XR9i8bo2Dp3kiFSP6
-- San Mateo Atenco → https://maps.app.goo.gl/RANjDovDxPuTgXo46
-- Santín → https://maps.app.goo.gl/Xes4Ss1SFCDrtR738
-- Tecnológico → https://maps.app.goo.gl/H8dgzFQmrLPV9bp47
-- Tollocan → https://maps.app.goo.gl/NJMif1LE3cEvZb2b9
-- Nueva Oxtotitlán → https://maps.app.goo.gl/fizy5y5Axc53qvCS8
-- Morelos → https://maps.app.goo.gl/DcJnqqqENyYwvV8r9
-- Circunvalación → https://maps.app.goo.gl/Npd5sQz1Xc9CebBP9
-- Hipico → https://maps.app.goo.gl/AipHBoxbJ81Lr3vV9
-
-Si el cliente pide ver TODAS las sucursales responde: "Puedes ver todas nuestras 17 sucursales en: [Ver sucursales](/sucursales)"
-Horario general: Lun–Vie 9:00–18:00, Sáb 9:00–16:30, Dom Cerrado.`;
-
-
-// Medidas OEM por vehículo (los más comunes en México)
-const VEHICLE_MEDIDAS = {
-  "march": ["175/65/14","175/70/14"],
-  "versa": ["175/65/15","185/55/15"],
-  "tiida": ["185/65/15","185/55/15"],
-  "sentra": ["205/55/16","195/65/15"],
-  "np300": ["195/75/16","215/75/16"],
-  "xtrail": ["225/65/17","215/65/16"],
-  "x-trail": ["225/65/17","215/65/16"],
-  "kicks": ["205/60/16","215/55/17"],
-  "frontier": ["265/70/16","255/70/16"],
-  "aveo": ["175/65/14","185/55/15"],
-  "spark": ["165/65/13","175/65/14"],
-  "trax": ["215/65/16","215/60/17"],
-  "beat": ["175/65/14"],
-  "equinox": ["235/65/17","225/60/18"],
-  "blazer": ["235/55/19","255/50/20"],
-  "jetta": ["205/55/16","195/65/15","215/45/17"],
-  "vento": ["195/65/15","185/65/15"],
-  "tiguan": ["215/55/18","225/45/18"],
-  "gol": ["175/70/14","185/65/14"],
-  "polo": ["185/65/15","195/55/16"],
-  "corolla": ["205/55/16","215/45/17"],
-  "hilux": ["265/70/16","265/60/18"],
-  "camry": ["215/55/17","225/55/17"],
-  "yaris": ["185/60/15","175/65/14"],
-  "rav4": ["235/55/18","235/60/17"],
-  "rav-4": ["235/55/18","235/60/17"],
-  "civic": ["215/50/17","205/55/16","215/55/16"],
-  "city": ["195/60/15","185/55/16"],
-  "crv": ["235/60/17","225/65/17"],
-  "cr-v": ["235/60/17","225/65/17"],
-  "hrv": ["215/55/17","215/60/16"],
-  "hr-v": ["215/55/17","215/60/16"],
-  "ranger": ["265/70/16","255/70/16"],
-  "escape": ["235/55/17","225/65/17"],
-  "focus": ["205/55/16","195/65/15"],
-  "fiera": ["195/75/14","205/70/14"],
-  "expedition": ["255/70/17","265/60/18"],
-  "mazda3": ["205/55/16","215/45/18"],
-  "mazda 3": ["205/55/16","215/45/18"],
-  "cx5": ["225/55/19","225/65/17"],
-  "cx-5": ["225/55/19","225/65/17"],
-  "cx30": ["215/55/18","225/50/18"],
-  "cx-30": ["215/55/18","225/50/18"],
-  "ibiza": ["195/55/15","185/65/15"],
-  "leon": ["205/55/16","225/45/17"],
-  "elantra": ["205/55/16","195/65/15"],
-  "tucson": ["235/55/18","225/65/17"],
-  "creta": ["215/60/17","215/55/17"],
-  "accent": ["185/65/15","175/65/14"],
-  "rio": ["185/65/15","175/65/14"],
-  "sportage": ["235/55/18","225/65/17"],
-  "forte": ["205/60/16","195/65/15"],
-  "cherokee": ["265/70/17","255/65/17"],
-  "wrangler": ["255/75/17","245/75/16"],
-  "tsuru": ["175/70/13","165/70/13"],
-  "pointer": ["175/65/14","185/60/14"],
-  "c3": ["185/65/15","195/55/16"],
-  "c4": ["205/55/16","215/45/17"],
-  "duster": ["215/65/16","215/60/17"],
-  "sandero": ["185/65/15","175/65/14"],
-  "logan": ["185/65/15"],
-  "swift": ["185/60/15","175/65/15"],
-  "vitara": ["215/55/17","215/60/16"],
-  "sx4": ["205/55/16","215/50/17"],
-  "almera": ["185/65/15","175/65/14"],
-  "murano": ["235/65/18","255/55/18"],
-  "outlander": ["225/55/18","235/55/18"],
-  "asx": ["215/60/17","215/55/17"],
-  "b200": ["205/55/16"],
-  "c200": ["205/55/17","225/45/17"],
-  "classe a": ["205/55/16","225/45/17"],
-  "3 series": ["205/55/16","225/45/17"],
-  "serie 3": ["205/55/16","225/45/17"],
-  "a3": ["205/55/16","225/45/17"],
-  "q5": ["235/55/19","235/60/18"],
-  "compass": ["225/55/18","215/60/17"],
-  "renegade": ["215/55/17","215/60/16"],
-  "cruze": ["205/55/16","225/45/17"],
-  "malibu": ["215/55/17","225/55/17"],
-  "tahoe": ["265/65/18","275/55/20"],
-};
-
-async function queryByMedidas(medidas) {
-  if (!medidas.length) return [];
-  const regexes = medidas.map(med => {
-    const p = med.split("/");
-    if (p.length !== 3) return null;
-    return `^${p[0]}/${p[1]}(R|/)${p[2]}$`;
-  }).filter(Boolean);
-  if (!regexes.length) return [];
-
-  let items = [];
-  for (const regex of regexes) {
-    const r = await pool.query(
-      `SELECT marca, modelo, medida, precio, stock
-       FROM catalogo
-       WHERE stock > 0 AND medida ~ $1
-       ORDER BY precio ASC LIMIT 8`,
-      [regex]
-    );
-    items = items.concat(r.rows);
-  }
-  return items;
-}
 
 async function getInventoryContext(message) {
   try {
@@ -1107,52 +811,40 @@ async function getInventoryContext(message) {
     const match = m.match(/(\d{3})\s*[-\/ ]\s*(\d{2})\s*(?:r|[-\/ ]\s*)\s*(\d{2})/i);
 
     let items = [];
-    let vehicleDetected = null;
 
     if (match) {
       const ancho = match[1];
       const alto = match[2];
       const rin = match[3];
-      if (/^\d{3}$/.test(ancho) && /^\d{2}$/.test(alto) && /^\d{2}$/.test(rin)) {
+      const r = await pool.query(
+        `SELECT marca, modelo, medida, precio, stock
+         FROM catalogo
+         WHERE stock > 0
+           AND medida ~ $1
+         ORDER BY precio ASC
+         LIMIT 15`,
+        [`^${ancho}/${alto}(R|/)${rin}$`]
+      );
+      items = r.rows;
+    } else {
+      const brandMatch = m.match(/\b(pirelli|bridgestone|continental|michelin|goodyear|hankook|firestone|euzkadi|antares|cooper|blackhawk|laufenn|goodrich|tornel|pegasus|vinmax)\b/i);
+      if (brandMatch) {
         const r = await pool.query(
           `SELECT marca, modelo, medida, precio, stock
            FROM catalogo
-           WHERE stock > 0 AND medida ~ $1
-           ORDER BY precio ASC LIMIT 15`,
-          [`^${ancho}/${alto}(R|/)${rin}$`]
+           WHERE stock > 0
+             AND UPPER(marca) = $1
+           ORDER BY precio ASC
+           LIMIT 15`,
+          [brandMatch[1].toUpperCase()]
         );
         items = r.rows;
       }
-    } else {
-      // Detectar vehículo por nombre
-      const vehicleKey = Object.keys(VEHICLE_MEDIDAS).find(v => m.includes(v));
-      if (vehicleKey) {
-        vehicleDetected = vehicleKey;
-        items = await queryByMedidas(VEHICLE_MEDIDAS[vehicleKey]);
-      } else {
-        // Detectar marca de llanta
-        const brandMatch = m.match(/\b(pirelli|bridgestone|continental|michelin|goodyear|hankook|firestone|euzkadi|antares|cooper|blackhawk|laufenn|goodrich|tornel|pegasus|vinmax)\b/i);
-        if (brandMatch) {
-          const r = await pool.query(
-            `SELECT marca, modelo, medida, precio, stock
-             FROM catalogo
-             WHERE stock > 0 AND UPPER(marca) = $1
-             ORDER BY precio ASC LIMIT 15`,
-            [brandMatch[1].toUpperCase()]
-          );
-          items = r.rows;
-        }
-      }
     }
 
-    if (!items.length) {
-      if (vehicleDetected) {
-        return `\n\nINVENTARIO DISPONIBLE: Sin stock actual en las medidas OEM de ${vehicleDetected}. Informa al cliente que no hay stock para esas medidas y que puede consultar el catálogo completo.`;
-      }
-      return "";
-    }
+    if (!items.length) return "";
 
-    let ctx = "\n\nINVENTARIO DISPONIBLE (SOLO usa estos productos, no inventes otros):\n";
+    let ctx = "\n\nINVENTARIO DISPONIBLE:\n";
     for (const it of items) {
       ctx += `- ${it.marca} ${it.modelo} | Medida: ${it.medida} | $${Number(it.precio).toLocaleString("es-MX")} MXN | Stock: ${it.stock}\n`;
     }
@@ -1163,21 +855,70 @@ async function getInventoryContext(message) {
   }
 }
 
-app.post("/api/assistant", aiLimiter, async (req, res) => {
+async function sendPaymentSuccessEmail(orderId, email, name, total) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[CORREO SIMULADO] Se enviaría correo de confirmación a ${email} por la orden ${orderId}`);
+    return;
+  }
+  
   try {
-    const rawMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+    const { data, error } = await resend.emails.send({
+      from: "MK5 Auto parts <ventas@mk5.mx>",
+      to: [email],
+      subject: `Confirmación de pago - Orden #${orderId}`,
+      html: `
+        <div style="font-family: sans-serif; color: #333;">
+          <h2>¡Pago confirmado, ${name}! 🎉</h2>
+          <p>Hemos recibido correctamente tu pago por <strong>$${total}</strong> correspondiente a la orden <strong>#${orderId}</strong>.</p>
+          <p>Ya estamos preparando tus llantas para el envío. Te notificaremos en cuanto el paquete esté en camino.</p>
+          <br/>
+          <p>Gracias por confiar en <strong>MK5</strong>.</p>
+        </div>
+      `,
+    });
+    console.log(`[RESEND] Correo enviado: `, data);
+  } catch (error) {
+    console.error(`[RESEND ERROR]: `, error);
+  }
+}
+
+app.get("/api/admin/metrics", [requireAdmin], async (req, res) => {
+  try {
+    const clientsResult = await pool.query("SELECT COUNT(*) FROM customers");
+    const totalClients = parseInt(clientsResult.rows[0].count, 10);
+
+    const ordersResult = await pool.query(
+      "SELECT COUNT(*) as count, SUM(total) as revenue FROM orders WHERE status = 'paid'"
+    );
+    const totalOrders = parseInt(ordersResult.rows[0].count, 10);
+    const totalRevenue = parseFloat(ordersResult.rows[0].revenue) || 0;
+
+    res.json({
+      ok: true,
+      metrics: {
+        totalClients,
+        totalOrders,
+        totalRevenue,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching metrics:", error);
+    res.status(500).json({ ok: false, error: "Internal Server Error" });
+  }
+});
+
+app.post("/api/assistant", async (req, res) => {
+  try {
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
     const singleMessage = (req.body?.message || "").toString().trim();
 
-    if (!rawMessages.length && !singleMessage) {
+    if (!messages.length && !singleMessage) {
       return res.status(400).json({ ok: false, error: "message_required" });
     }
 
-    // Sanitize: only allow role+content strings, truncate to 2000 chars each
-    const VALID_ROLES = new Set(["user", "assistant"]);
-    const chatMessages = (rawMessages.length ? rawMessages : [{ role: "user", content: singleMessage }])
-      .filter((m) => m && VALID_ROLES.has(m.role) && typeof m.content === "string")
-      .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }))
-      .slice(-10);
+    const chatMessages = messages.length
+      ? messages
+      : [{ role: "user", content: singleMessage }];
 
     const lastUserMsg = [...chatMessages].reverse().find((m) => m.role === "user")?.content || "";
 
@@ -1209,7 +950,7 @@ app.post("/api/assistant", aiLimiter, async (req, res) => {
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemMsg },
-        ...chatMessages,
+        ...chatMessages.slice(-10),
       ],
       max_tokens: 800,
       temperature: 0.7,
@@ -1345,8 +1086,6 @@ async function getPayPalAccessToken() {
   }
 
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-  const ppCtrl = new AbortController();
-  const ppTimeout = setTimeout(() => ppCtrl.abort(), 5000);
   const res = await fetch(`${paypalBaseUrl()}/v1/oauth2/token`, {
     method: "POST",
     headers: {
@@ -1354,8 +1093,7 @@ async function getPayPalAccessToken() {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: "grant_type=client_credentials",
-    signal: ppCtrl.signal,
-  }).finally(() => clearTimeout(ppTimeout));
+  });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     return { ok: false, error: `paypal_token_error_${res.status}`, detail: detail.slice(0, 500) };
@@ -1537,6 +1275,7 @@ async function buildPaymentPayload(method, order, lines = [], customer = {}, shi
     instructions:
       "Realiza tu transferencia a CLABE 012345678901234567, Banco BBVA, beneficiario MK5 Llantas.",
     error: null,
+    error: null,
   };
 }
 
@@ -1545,18 +1284,16 @@ function calcLineTotals({ marca, unitPrice, qty, stock }) {
   const q = Number(qty);
 
   const normalSubtotal = price * q;
-  const normalTotal = normalSubtotal * 0.9;
+  let bestTotal = normalSubtotal;
 
-  let promoTotal = normalTotal;
-  const brandUp = up(marca);
-
-  if (PROMO_4X3_BRANDS.has(brandUp) && q >= 4 && Number(stock) >= 4) {
+  if (q >= 4 && Number(stock) >= 4) {
+    // 4x3 Promotion applied to ANY brand when buying 4 or more
     const payUnits = q - Math.floor(q / 4);
-    const promoSubtotal = price * payUnits;
-    promoTotal = promoSubtotal * 0.9;
+    bestTotal = price * payUnits;
+  } else if (q >= 1 && q <= 3) {
+    // 25% Discount applied to ANY brand when buying 1 to 3 tires
+    bestTotal = normalSubtotal * 0.75;
   }
-
-  const bestTotal = Math.min(normalTotal, promoTotal);
 
   return {
     line_total: round2(bestTotal),
@@ -1576,12 +1313,6 @@ app.post("/api/checkout/create", async (req, res) => {
 
     if (!items.length)
       return res.status(400).json({ ok: false, error: "items_required" });
-
-    // Validar teléfono si viene
-    const phoneRaw = String(customer?.phone || "").trim();
-    if (phoneRaw && !/^\d{7,15}$/.test(phoneRaw.replace(/[\s\-()+]/g, ""))) {
-      return res.status(400).json({ ok: false, error: "invalid_phone" });
-    }
 
     const mapQty = new Map();
     for (const it of items) {
@@ -1644,8 +1375,12 @@ app.post("/api/checkout/create", async (req, res) => {
     }
 
     const subtotal = round2(lines.reduce((s, l) => s + l.unit_price * l.qty, 0));
-    const total = round2(lines.reduce((s, l) => s + l.line_total, 0));
-    const discount = round2(subtotal - total);
+    const totalLines = round2(lines.reduce((s, l) => s + l.line_total, 0));
+    const discount = round2(subtotal - totalLines);
+    
+    // Base shipping rule: free for now, but ready for future dynamic value injected from UI zip codes
+    const shipping_cost = 0; 
+    const total = round2(totalLines + shipping_cost);
 
     const client = await pool.connect();
     try {
@@ -1669,18 +1404,16 @@ app.post("/api/checkout/create", async (req, res) => {
 
       if (createAccount && customer.email && customerPassword.length >= 8) {
         const emailNorm = String(customer.email || "").trim().toLowerCase();
-        const emailExists = await client.query(
-          `SELECT id FROM customers WHERE email = $1 LIMIT 1`,
-          [emailNorm]
+        const passHash = hashPassword(customerPassword);
+        await client.query(
+          `INSERT INTO customers (name, phone, email, password_hash)
+           VALUES ($1,$2,$3,$4)
+           ON CONFLICT (email) DO UPDATE
+           SET name = EXCLUDED.name,
+               phone = EXCLUDED.phone,
+               password_hash = EXCLUDED.password_hash`,
+          [asNull(customer.name), asNull(customer.phone), emailNorm, passHash]
         );
-        if (emailExists.rows.length === 0) {
-          const passHash = hashPassword(customerPassword);
-          await client.query(
-            `INSERT INTO customers (name, phone, email, password_hash)
-             VALUES ($1,$2,$3,$4)`,
-            [asNull(customer.name), asNull(customer.phone), emailNorm, passHash]
-          );
-        }
       }
       const orderMeta = {
         address: asNull(shipping.address),
@@ -1724,25 +1457,7 @@ app.post("/api/checkout/create", async (req, res) => {
             l.line_total,
           ]
         );
-
-        // Decremento atómico: falla si el stock cambió desde que se validó (race condition)
-        const stockUpdate = await client.query(
-          `UPDATE catalogo SET stock = stock - $1
-           WHERE sku = $2 AND stock >= $1
-           RETURNING stock`,
-          [l.qty, l.sku]
-        );
-        if (!stockUpdate.rows[0]) {
-          await client.query("ROLLBACK");
-          return res.status(409).json({
-            ok: false,
-            error: "insufficient_stock",
-            sku: l.sku,
-            message: "El stock cambió mientras procesabas tu orden. Intenta de nuevo.",
-          });
-        }
       }
-
       await client.query("COMMIT");
 
       return res.json({
@@ -1778,26 +1493,17 @@ app.get("/api/checkout/order/:id/payment", async (req, res) => {
       return res.status(400).json({ ok: false, error: "invalid_order_id" });
     }
 
-    // Requiere el email del cliente para evitar enumeración de órdenes
-    const emailRaw = String(req.query.email || "").trim().toLowerCase();
-    if (!emailRaw) {
-      return res.status(400).json({ ok: false, error: "email_required" });
-    }
-
     const r = await pool.query(
       `SELECT o.id, o.status AS order_status, o.total, o.created_at,
-              p.method, p.status AS payment_status, p.reference,
-              p.provider_url, p.provider_status, p.updated_at
+              p.method, p.status AS payment_status, p.reference, p.provider_url, p.provider_payment_id, p.provider_status, p.updated_at
        FROM orders o
        LEFT JOIN order_payments p ON p.order_id = o.id
        WHERE o.id = $1
-         AND LOWER(o.customer_email) = $2
        ORDER BY p.id DESC
        LIMIT 1`,
-      [orderId, emailRaw]
+      [orderId]
     );
     const row = r.rows[0];
-    // Respuesta genérica para no revelar si el ID existe sin el email correcto
     if (!row) return res.status(404).json({ ok: false, error: "order_not_found" });
 
     res.json({ ok: true, order: row });
@@ -1837,11 +1543,4 @@ app.listen(PORT, () => {
   ensureCustomersTable()
     .then(() => console.log("Tabla customers lista"))
     .catch((e) => console.error("No pude inicializar customers:", e.message));
-  pool.query(`ALTER TABLE catalogo ADD COLUMN IF NOT EXISTS imagen TEXT`)
-    .then(() => pool.query(`ALTER TABLE catalogo ADD COLUMN IF NOT EXISTS imagenes TEXT`))
-    .then(() => console.log("Columnas imagen/imagenes listas"))
-    .catch((e) => console.error("No pude agregar columnas imagen/imagenes:", e.message));
-  normalizeBrandNames()
-    .then(() => console.log("Marcas normalizadas"))
-    .catch((e) => console.error("No pude normalizar marcas:", e.message));
 });

@@ -1,0 +1,6 @@
+
+  Id     Duration CommandLine
+  --     -------- -----------
+   1        0.600 try { . "c:\Users\Dell\AppData\Local\Programs\Microsoft VS Code\…
+   2        0.057 history
+
