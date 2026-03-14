@@ -3,7 +3,7 @@ import "../styles/pages.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_BASE } from "../config";
-import { formatMoney, estimateListPrice, getProductTitle, addToCart, getItemSku, buildProductPath } from "../utils/catalogoHelpers";
+import { formatMoney, getProductTitle, addToCart, getItemSku, buildProductPath } from "../utils/catalogoHelpers";
 import llantaPlaceholder from "../assets/llanta.png";
 
 import pirelliLogo from "../assets/logos/pirelli.png";
@@ -41,11 +41,6 @@ import laufennPodio from "../assets/Marcas/podio laufenn.jpg";
 import tornelPodio from "../assets/Marcas/podio tornel.jpg";
 import vinmaxPodio from "../assets/Marcas/podio vinmax.jpg";
 
-import promoHeaderAntares from "../assets/promos header/promo antares.jpg";
-import promoHeaderJK1 from "../assets/promos header/promo jk.jpg";
-import promoHeaderJK2 from "../assets/promos header/promo jk 2.jpg";
-import promoHeaderKumho from "../assets/promos header/promo kumho.jpg";
-import promoHeaderLaufenn from "../assets/promos header/promo laufenn.jpg";
 
 import promoMensualGoodyear from "../assets/promos mensuales/cuadraro goodyear.jpg";
 import promoMensualJK from "../assets/promos mensuales/cuadrado jk.jpg";
@@ -55,6 +50,12 @@ import promoMensualMinnell from "../assets/promos mensuales/cuadrado minnell.jpg
 import promoMensualVinmax from "../assets/promos mensuales/cuadrado vinmax.jpg";
 import promoMensualVinmax2 from "../assets/promos mensuales/cuadrado vinmax 2.jpg";
 import promoMensualVinmax3 from "../assets/promos mensuales/cuadrado vinmax 3.jpg";
+
+import promoHeaderAntares from "../assets/promos header/promo antares.jpg";
+import promoHeaderJK1 from "../assets/promos header/promo jk.jpg";
+import promoHeaderJK2 from "../assets/promos header/promo jk 2.jpg";
+import promoHeaderKumho from "../assets/promos header/promo kumho.jpg";
+import promoHeaderLaufenn from "../assets/promos header/promo laufenn.jpg";
 
 import AsistenteMK5 from "../components/AsistenteMK5";
 
@@ -97,10 +98,10 @@ const PODIOS_DESTACADOS = [
 
 const PROMOS_MENSUALES = [
   { id: "goodyear", name: "Goodyear", img: promoMensualGoodyear, to: "/catalogo/goodyear" },
-  { id: "jk", name: "JK", img: promoMensualJK, to: "/catalogo?q=JK" },
-  { id: "kumho", name: "Kumho", img: promoMensualKumho, to: "/catalogo?q=KUMHO" },
-  { id: "maxtrek", name: "Maxtrek", img: promoMensualMaxtrek, to: "/catalogo?q=MAXTREK" },
-  { id: "minnell", name: "Minnell", img: promoMensualMinnell, to: "/catalogo?q=MINNELL" },
+  { id: "jk", name: "JK", img: promoMensualJK, to: "/catalogo/jk" },
+  { id: "kumho", name: "Kumho", img: promoMensualKumho, to: "/catalogo/kumho" },
+  { id: "maxtrek", name: "Maxtrek", img: promoMensualMaxtrek, to: "/catalogo/maxtrek" },
+  { id: "minnell", name: "Minnell", img: promoMensualMinnell, to: "/catalogo/minnell" },
   { id: "vinmax", name: "Vinmax", img: promoMensualVinmax, to: "/catalogo/vinmax" },
   { id: "vinmax-2", name: "Vinmax", img: promoMensualVinmax2, to: "/catalogo/vinmax" },
   { id: "vinmax-3", name: "Vinmax", img: promoMensualVinmax3, to: "/catalogo/vinmax" },
@@ -108,12 +109,9 @@ const PROMOS_MENSUALES = [
 
 function TopSellerCard({ item }) {
   const navigate = useNavigate();
-  const sku = getItemSku(item);
   const price = Number(item?.precio || 0);
-  const listPrice = estimateListPrice(price);
-  const discountAmount = Math.max(listPrice - price, 0);
-  const discountPct = Math.max(Math.round((discountAmount / Math.max(listPrice, 1)) * 100), 0);
-  
+  const productPath = buildProductPath(item);
+
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -129,34 +127,30 @@ function TopSellerCard({ item }) {
   };
 
   return (
-    <div className="ts-card" onClick={() => navigate(buildProductPath(item), { state: { item } })}>
+    <Link className="ts-card" to={productPath} state={{ item }}>
       <div className="ts-card__badge-msi">6 MSI</div>
       <div className="ts-card__image-wrapper">
          <img src={item.imagen || llantaPlaceholder} alt={getProductTitle(item)} className="ts-card__image" onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }} />
       </div>
       <div className="ts-card__info">
          <h4 className="ts-card__title">{getProductTitle(item)}</h4>
-         
+
          <div className="ts-card__availability">
             <svg className="ts-icon-stock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             Disponibilidad
          </div>
-         
+
          <div className="ts-card__prices">
-            <div className="ts-price-row">
-              <strong className="ts-price-new">{formatMoney(price)}</strong>
-              <span className="ts-price-old">{formatMoney(listPrice)}</span>
-              <span className="ts-discount">-{discountPct}%</span>
-            </div>
-            <small className="ts-price-note">Precio con promoción aplicada,<br/> Instalación, Válvula y Balanceo INCLUIDO</small>
+            <strong className="ts-price-new">{formatMoney(price)}</strong>
+            <small className="ts-price-note">Instalación, Válvula y Balanceo INCLUIDO</small>
          </div>
-         
+
          <div className="ts-card__actions">
             <button className="ts-btn ts-btn--cart" onClick={handleAddToCart}>AGREGAR AL CARRITO</button>
             <button className="ts-btn ts-btn--buy" onClick={handleBuyNow}>COMPRAR AHORA</button>
          </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -296,9 +290,7 @@ function ManualMeasureBox({
             >
               <option value="">Selecciona</option>
               {anchos.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
+                <option key={x} value={x}>{x}</option>
               ))}
             </select>
           </div>
@@ -311,25 +303,20 @@ function ManualMeasureBox({
                 setAlturaSel(e.target.value);
                 setRinSel("");
               }}
-              disabled={!anchoSel}
             >
               <option value="">Selecciona</option>
               {alturas.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
+                <option key={x} value={x}>{x}</option>
               ))}
             </select>
           </div>
 
           <div className="measure-field">
             <label>RIN</label>
-            <select value={rinSel} onChange={(e) => setRinSel(e.target.value)} disabled={!anchoSel || !alturaSel}>
+            <select value={rinSel} onChange={(e) => setRinSel(e.target.value)}>
               <option value="">Selecciona</option>
               {rines.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
+                <option key={x} value={x}>{x}</option>
               ))}
             </select>
           </div>
@@ -379,6 +366,7 @@ export default function Home() {
   );
 
   const promoActiva = promos[promoIndex];
+
   const podiumVisible = useMemo(() => {
     if (!PODIOS_DESTACADOS.length) return [];
     const count = Math.min(Math.max(podiumVisibleCount, 1), PODIOS_DESTACADOS.length);
@@ -387,13 +375,10 @@ export default function Home() {
 
   useEffect(() => {
     if (!promos.length) return;
-
     setPromoProgress(0);
     const start = Date.now();
-
     const tick = setInterval(() => {
       const p = ((Date.now() - start) / DURATION) * 100;
-
       if (p >= 100) {
         clearInterval(tick);
         setPromoIndex((i) => (i + 1) % promos.length);
@@ -401,7 +386,6 @@ export default function Home() {
         setPromoProgress(p);
       }
     }, 80);
-
     return () => clearInterval(tick);
   }, [promoIndex, promos]);
 
@@ -426,47 +410,46 @@ export default function Home() {
     return () => window.removeEventListener("resize", updateVisible);
   }, []);
 
+  // Carga inicial: anchos completos + top sellers
   useEffect(() => {
     fetch(`${API_BASE}/api/catalogo/filtros-medida`)
       .then((r) => r.json())
       .then((data) => {
         setAnchos(data.anchos || []);
-        setAlturas(data.alturas || []);
-        setRines(data.rines || []);
       })
       .catch(() => {});
 
-    // Fetch top sellers
     fetch(`${API_BASE}/api/catalogo/items?limit=10&sort=price_desc`)
       .then(res => res.json())
       .then(data => {
-        if(data.ok && data.items) {
-          setTopSellers(data.items);
-        }
+        if(data.ok && data.items) setTopSellers(data.items);
       })
       .catch(() => {});
   }, []);
 
+  // Cascade: cuando cambia ANCHO carga alturas filtradas; cuando cambia ALTO carga rines filtrados
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (anchoSel) params.set("ancho", anchoSel);
-    if (alturaSel) params.set("altura", alturaSel);
-    if (rinSel) params.set("rin", rinSel);
-
+    if (!anchoSel) { setAlturas([]); setRines([]); return; }
+    const params = new URLSearchParams({ ancho: anchoSel });
     fetch(`${API_BASE}/api/catalogo/filtros-medida?${params.toString()}`)
       .then((r) => r.json())
-      .then((data) => {
-        setAnchos(data.anchos || []);
-        setAlturas(data.alturas || []);
-        setRines(data.rines || []);
-      })
+      .then((data) => { setAlturas(data.alturas || []); setRines(data.rines || []); })
       .catch(() => {});
-  }, [anchoSel, alturaSel, rinSel]);
+  }, [anchoSel]);
+
+  useEffect(() => {
+    if (!anchoSel || !alturaSel) return;
+    const params = new URLSearchParams({ ancho: anchoSel, altura: alturaSel });
+    fetch(`${API_BASE}/api/catalogo/filtros-medida?${params.toString()}`)
+      .then((r) => r.json())
+      .then((data) => { setRines(data.rines || []); })
+      .catch(() => {});
+  }, [anchoSel, alturaSel]);
 
   const buscarMedida = (e) => {
     e.preventDefault();
     if (!anchoSel || !alturaSel || !rinSel) return;
-    const medida = `${anchoSel}/${alturaSel}R${rinSel}`;
+    const medida = `${anchoSel}-${alturaSel}-${rinSel}`;
     navigate(`/catalogo?medida=${encodeURIComponent(medida)}`);
   };
 
@@ -523,6 +506,7 @@ export default function Home() {
               </div>
             </div>
           </div>
+
         </div>
 
         <section className="podium-section">
@@ -588,18 +572,15 @@ export default function Home() {
           />
         </div>
 
+
         <section className="monthly-promos">
           <div className="monthly-promos__head">
             <div>
               <h2 className="monthly-promos__title">Promociones mensuales</h2>
               <p className="monthly-promos__sub">Aprovecha ofertas activas y entra directo al catálogo.</p>
             </div>
-
-            <Link className="ghostLink" to="/catalogo">
-              Ver catálogo →
-            </Link>
+            <Link className="ghostLink" to="/catalogo">Ver catálogo →</Link>
           </div>
-
           <div className="monthly-promos__grid">
             {PROMOS_MENSUALES.map((promo) => (
               <Link key={promo.id} to={promo.to} className="monthly-promo-card" aria-label={`Ver promoción ${promo.name}`}>

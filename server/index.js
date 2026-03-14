@@ -242,12 +242,12 @@ app.get("/api/catalogo/filtros-medida", async (req, res) => {
       WITH base AS (
         SELECT
           NULLIF(substring(medida from '^([0-9]{3})'), '') as ancho,
-          NULLIF(substring(medida from '^[0-9]{3}/([0-9]{2})'), '') as altura,
-          NULLIF(substring(medida from '(?:R|/)([0-9]{2})$'), '') as rin
+          NULLIF(substring(medida from '^[0-9]{3}-([0-9]{2})'), '') as altura,
+          NULLIF(substring(medida from '^[0-9]{3}-[0-9]{2}-([0-9]{2,3})'), '') as rin
         FROM catalogo
         WHERE stock > 0
           AND ($4 = '' OR UPPER(marca) = $4)
-          AND medida ~ '^[0-9]{3}/[0-9]{2}(R|/)[0-9]{2}$'
+          AND medida ~ '^[0-9]{3}-[0-9]{2}-[0-9]{2}'
       )
       SELECT
         (SELECT COALESCE(json_agg(x ORDER BY x), '[]'::json)
@@ -291,6 +291,7 @@ app.get("/api/catalogo/items", async (req, res) => {
       anchos = "",
       altos = "",
       rines = "",
+      medida = "",
       sort = "price_asc",
       page = "1",
       limit = "12",
@@ -310,6 +311,11 @@ app.get("/api/catalogo/items", async (req, res) => {
     const anchosArr = toIntArr(anchos);
     const altosArr = toIntArr(altos);
     const rinesArr = toIntArr(rines);
+
+    // Normaliza medida a formato BD: 245/35R20 → 245-35-20
+    const medidaNorm = medida.trim()
+      ? medida.trim().replace(/\//g, "-").replace(/[Rr]([0-9])/g, "-$1").replace(/-+/g, "-").replace(/-$/, "")
+      : "";
 
     const params = [];
     const where = [`base.stock > 0`];
@@ -332,13 +338,18 @@ app.get("/api/catalogo/items", async (req, res) => {
       where.push(`UPPER(base.marca) = ANY($${params.length})`);
     }
 
+    if (medidaNorm) {
+      params.push(`${medidaNorm}%`);
+      where.push(`UPPER(base.medida) LIKE UPPER($${params.length})`);
+    }
+
     const baseCTE = `
       WITH base AS (
         SELECT
           sku, marca, modelo, medida, precio, stock, imagen,
           NULLIF(substring(medida from '^([0-9]{3})'), '')::int AS ancho_i,
-          NULLIF(substring(medida from '^[0-9]{3}/([0-9]{2})'), '')::int AS alto_i,
-          NULLIF(substring(medida from '(?:R|/)([0-9]{2})$'), '')::int AS rin_i
+          NULLIF(substring(medida from '^[0-9]{3}-([0-9]{2})'), '')::int AS alto_i,
+          NULLIF(substring(medida from '^[0-9]{3}-[0-9]{2}-([0-9]{2,3})'), '')::int AS rin_i
         FROM catalogo
       )
     `;

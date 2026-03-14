@@ -340,6 +340,7 @@ export default function Catalogo() {
       if (qFinal) params.set("q", qFinal);
 
       if (marcasFinal.size) params.set("marcas", Array.from(marcasFinal).join(","));
+      if (medidaUrl) params.set("medida", medidaUrl);
       if (anchosSel.size) params.set("anchos", Array.from(anchosSel).join(","));
       if (altosSel.size) params.set("altos", Array.from(altosSel).join(","));
       if (rinesSel.size) params.set("rines", Array.from(rinesSel).join(","));
