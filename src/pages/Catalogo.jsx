@@ -14,8 +14,13 @@ import { trackEvent } from "../utils/metrics";
 
 import "../styles/catalogo.css";
 
-
 import llantaPlaceholder from "../assets/llanta.png";
+import iconClimaSeco from "../assets/icons/clima_seco.png";
+import iconDeCarga from "../assets/icons/de_carga.png";
+import iconLluvia from "../assets/icons/lluvia.png";
+import iconSilencioso from "../assets/icons/manejo_silencioso.png";
+import iconRunFlat from "../assets/icons/run_flat.png";
+import iconAllTerrain from "../assets/icons/all_terrain.png";
 
 import imgContinental from "../assets/CatalogoMarcas/bannercontinental.png";
 import imgAntares from "../assets/CatalogoMarcas/antares banner.jpg";
@@ -33,7 +38,7 @@ import logoMichelin from "../assets/logos/michelin.png";
 import logoBridgestone from "../assets/logos/bridgestone.png";
 import logoGoodyear from "../assets/logos/goodyear.png";
 import logoHankook from "../assets/logos/hankook.png";
-import logoCooper from "../assets/logos/cooper.png";
+import logoCooper from "../assets/logos/coopertires.png";
 import logoEuzkadi from "../assets/logos/euzkadi.png";
 import logoFirestone from "../assets/logos/firestone.png";
 import logoLaufenn from "../assets/logos/laufenn.png";
@@ -41,14 +46,57 @@ import logoTornel from "../assets/logos/tornel.png";
 import logoVinmax from "../assets/logos/vinmax.png";
 import logoBlackhawk from "../assets/logos/blackhawk.png";
 import logoAntares from "../assets/logos/antares.png";
-import logoGeneral from "../assets/logos/general.png";
-import logoGoodrich from "../assets/logos/goodrich.jpg";
+import logoGeneral from "../assets/logos/generaltire.png";
+import logoGoodrich from "../assets/logos/bfgoodrich.png";
 import logoMirage from "../assets/logos/mirage.png";
 import logoSaferich from "../assets/logos/saferich.png";
 import logoWanli from "../assets/logos/wanli.jpg";
 import logoJkTyre from "../assets/logos/jktyre.png";
-import logoDoubleking from "../assets/logos/doubleking.jpg";
-import logoOvation from "../assets/logos/ovation.jpg";
+import logoDoubleking from "../assets/logos/doubleking.png";
+import logoOvation from "../assets/logos/ovation.png";
+import logoAccelera from "../assets/logos/accelera.png";
+import logoAgate from "../assets/logos/agate.png";
+import logoAlfamotors from "../assets/logos/alfamotors.png";
+import logoAnsu from "../assets/logos/ansu.png";
+import logoAplus from "../assets/logos/aplus.png";
+import logoArcron from "../assets/logos/arcron.png";
+import logoArdent from "../assets/logos/ardent.png";
+import logoAtlas from "../assets/logos/atlas.png";
+import logoBlackarrow from "../assets/logos/blackarrow.png";
+import logoBroadpeak from "../assets/logos/broadpeak.png";
+import logoChuanshi from "../assets/logos/Chuanshi.png";
+import logoDirezza from "../assets/logos/direzza.png";
+import logoDstar from "../assets/logos/dstar.png";
+import logoDunlop from "../assets/logos/dunlop.png";
+import logoFalken from "../assets/logos/falken.png";
+import logoForceland from "../assets/logos/forceland.png";
+import logoForerunner from "../assets/logos/forerunner.png";
+import logoFullrun from "../assets/logos/fullrun.png";
+import logoGiti from "../assets/logos/giti.png";
+import logoGopro from "../assets/logos/gopro.png";
+import logoGreentrac from "../assets/logos/greentrac.png";
+import logoGuteroad from "../assets/logos/guteroad.png";
+import logoHaida from "../assets/logos/haida.png";
+import logoIlink from "../assets/logos/ilink.png";
+import logoKeter from "../assets/logos/keter.png";
+import logoKpatos from "../assets/logos/kpatos.png";
+import logoKumho from "../assets/logos/kumho.png";
+import logoKustom from "../assets/logos/kustom.png";
+import logoLinglong from "../assets/logos/linglone.png";
+import logoMassimo from "../assets/logos/massimo.png";
+import logoMaxtrek from "../assets/logos/maxtrek.png";
+import logoMazzini from "../assets/logos/mazzini.png";
+import logoMickeythompson from "../assets/logos/mickeytomson.png";
+import logoMileking from "../assets/logos/mileking.png";
+import logoMinnell from "../assets/logos/minnell.png";
+import logoMrf from "../assets/logos/mrf.png";
+import logoNexen from "../assets/logos/nexen.png";
+import logoNovamaxx from "../assets/logos/novamaxx.png";
+import logoRoadclaw from "../assets/logos/roadclaw.png";
+import logoSierra from "../assets/logos/sierra.png";
+import logoStarfire from "../assets/logos/starfire.png";
+import logoSumaxx from "../assets/logos/sumaxx.png";
+import logoPegasus from "../assets/logos/pegasus.png";
 
 const BRAND_SLUG_TO_DB = {
   continental: "CONTINENTAL",
@@ -104,6 +152,8 @@ const CARD_BRAND_LOGOS = {
   GOODYEAR: logoGoodyear,
   HANKOOK: logoHankook,
   COOPER: logoCooper,
+  COOPERTIRES: logoCooper,
+  "COOPER TIRES": logoCooper,
   EUZKADI: logoEuzkadi,
   FIRESTONE: logoFirestone,
   LAUFENN: logoLaufenn,
@@ -112,9 +162,13 @@ const CARD_BRAND_LOGOS = {
   BLACKHAWK: logoBlackhawk,
   ANTARES: logoAntares,
   GENERAL: logoGeneral,
+  "GENERAL TIRE": logoGeneral,
+  GENERALTIRE: logoGeneral,
   GOODRICH: logoGoodrich,
   "BF GOODRICH": logoGoodrich,
+  BFGOODRICH: logoGoodrich,
   MIRAGE: logoMirage,
+  "MIRAGE TIRES": logoMirage,
   SAFERICH: logoSaferich,
   WANLI: logoWanli,
   JKTYRE: logoJkTyre,
@@ -122,6 +176,70 @@ const CARD_BRAND_LOGOS = {
   DOUBLEKING: logoDoubleking,
   "DOUBLE KING": logoDoubleking,
   OVATION: logoOvation,
+  "OVATION TIRES": logoOvation,
+  PEGASUS: logoPegasus,
+  ACCELERA: logoAccelera,
+  AGATE: logoAgate,
+  ALFAMOTORS: logoAlfamotors,
+  ANSU: logoAnsu,
+  APLUS: logoAplus,
+  "A PLUS": logoAplus,
+  ARCRON: logoArcron,
+  ARDENT: logoArdent,
+  ATLAS: logoAtlas,
+  "ATLAS TIRES": logoAtlas,
+  BLACKARROW: logoBlackarrow,
+  "BLACK ARROW": logoBlackarrow,
+  BROADPEAK: logoBroadpeak,
+  "BROAD PEAK": logoBroadpeak,
+  CHUANSHI: logoChuanshi,
+  DIREZZA: logoDirezza,
+  DSTAR: logoDstar,
+  "D STAR": logoDstar,
+  DUNLOP: logoDunlop,
+  "DUNLOP TIRES": logoDunlop,
+  FALKEN: logoFalken,
+  "FALKEN TIRE": logoFalken,
+  FORCELAND: logoForceland,
+  FORERUNNER: logoForerunner,
+  FULLRUN: logoFullrun,
+  GITI: logoGiti,
+  GOPRO: logoGopro,
+  "GO PRO": logoGopro,
+  GREENTRAC: logoGreentrac,
+  GUTEROAD: logoGuteroad,
+  "GUTE ROAD": logoGuteroad,
+  HAIDA: logoHaida,
+  ILINK: logoIlink,
+  "I LINK": logoIlink,
+  KETER: logoKeter,
+  KPATOS: logoKpatos,
+  KUMHO: logoKumho,
+  "KUMHO TIRES": logoKumho,
+  KUSTOM: logoKustom,
+  LINGLONG: logoLinglong,
+  "LINGLONG TIRE": logoLinglong,
+  MASSIMO: logoMassimo,
+  "MASSIMO TYRES": logoMassimo,
+  MAXTREK: logoMaxtrek,
+  MAZZINI: logoMazzini,
+  "MICKEY THOMPSON": logoMickeythompson,
+  MICKEYTHOMPSON: logoMickeythompson,
+  MILEKING: logoMileking,
+  "MILE KING": logoMileking,
+  MINNELL: logoMinnell,
+  MINNEL: logoMinnell,
+  MRF: logoMrf,
+  NEXEN: logoNexen,
+  NOVAMAXX: logoNovamaxx,
+  "NOVA MAXX": logoNovamaxx,
+  ROADCLAW: logoRoadclaw,
+  "ROAD CLAW": logoRoadclaw,
+  SIERRA: logoSierra,
+  "SIERRA TIRES": logoSierra,
+  STARFIRE: logoStarfire,
+  "STARFIRE TIRES": logoStarfire,
+  SUMAXX: logoSumaxx,
 };
 
 function parseMedidaParts(medida) {
@@ -180,6 +298,77 @@ function availabilityLevel(stockValue) {
 function isRunFlat(item) {
   const text = `${item?.modelo || ""} ${item?.marca || ""}`.toUpperCase();
   return text.includes("RUN FLAT") || text.includes("RFT");
+}
+
+function normalizePerfBrandKey(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function normalizePerfModelKey(value) {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .replace(/\s+\d{2,3}[A-Z]$/, "");
+}
+
+function normalizePerfSizeKey(value) {
+  const raw = String(value || "").toUpperCase().trim().replace(/^P/, "");
+  const match = raw.match(/(\d{3})[\/\-](\d{2})[R\/\-]?(\d{2})/);
+  if (!match) return raw;
+  return `${match[1]}/${match[2]}R${match[3]}`;
+}
+
+const VERIFIED_WET_GRIP_KEYS = new Set([
+  "KPATOS|FM601|155/70R14",
+  "VINMAX|ECOTOUR HP3|175/70R13",
+  "PEGASUS|TOUR AS|175/70R13",
+  "TORNEL|TURBO|175/70R13",
+  "TORNEL|TURBO RADIAL TL|175/70R13",
+  "TORNEL|ASTRAL PLUS|175/70R13",
+  "ILINK|L-GRIP-55|175/70R13",
+  "MAXTREK|MAXIMUSS M1|175/70R13",
+  "ARCRON|OPTECO A1|175/70R13",
+]);
+
+function hasVerifiedWetGrip(item) {
+  const brand = normalizePerfBrandKey(item?.marca);
+  let model = normalizePerfModelKey(item?.modelo);
+  if (brand && model.startsWith(`${brand} `)) {
+    model = model.slice(brand.length + 1).trim();
+  }
+  const size = normalizePerfSizeKey(item?.medida);
+  return VERIFIED_WET_GRIP_KEYS.has(`${brand}|${model}|${size}`);
+}
+
+function isCommercialLoadTire(item) {
+  const full = `${item?.modelo || ""} ${item?.medida || ""} ${item?.marca || ""}`.toUpperCase();
+  return (
+    /\b(?:CARGO|VAN|COMMERCIAL|TRANSFORCE|TRASFORCE|DURAVIS|AGILIS|FLEET|LIGHT TRUCK)\b/.test(full) ||
+    /\b(?:6PR|8PR|10PR|12PR|14PR)\b/.test(full) ||
+    /\bLT\d{3}/.test(full) ||
+    /\b\d{3}(?:\/\d{2})?R\d{2}C\b/.test(full)
+  );
+}
+
+function getCardPerfIcons(item) {
+  // Separar campos con | para evitar que palabras de campos distintos se combinen
+  const full = ` ${String(item?.modelo || "").toUpperCase()} | ${String(item?.medida || "").toUpperCase()} | ${String(item?.marca || "").toUpperCase()} `;
+  const offRoad    = /\bA\/T\b|\bAT\b|ALL[- ]TERRAIN|\bM\/T\b|\bMT\b|MUD[- ]TERRAIN|WILDPEAK|GEOLANDER|KO2|\bKO\b|DUELER A\/T|DISCOVERER\s*AT|OPEN[- ]COUNTRY|GRABBER|WRANGLER\s*[AM]T|BAJA|OUTLAW|XTERRAIN|X-TERRAIN/.test(full);
+  const extremeMud = /\bM\/T\b|\bMT\b|MUD[- ]TERRAIN/.test(full);
+  const icons = [];
+  if (!offRoad) icons.push({ icon: iconClimaSeco, label: "Clima seco" });
+  if (!extremeMud && hasVerifiedWetGrip(item)) icons.push({ icon: iconLluvia, label: "Piso mojado" });
+  icons.push(                { icon: iconDeCarga,   label: "Índice de carga" });
+  if (!offRoad && !extremeMud) icons.push({ icon: iconSilencioso, label: "Bajo ruido" });
+  if (isRunFlat(item))       icons.push({ icon: iconRunFlat,    label: "Run Flat" });
+  if (offRoad)               icons.push({ icon: iconAllTerrain, label: "All Terrain" });
+  return icons
+    .filter(({ icon }) => {
+      if (icon === iconDeCarga) return isCommercialLoadTire(item);
+      return true;
+    })
+    .map((entry) => (entry.icon === iconDeCarga ? { ...entry, label: "Indice de carga" } : entry));
 }
 
 export default function Catalogo() {
@@ -589,13 +778,10 @@ export default function Catalogo() {
             const productName = String(it?.modelo || "").trim() || getProductTitle(it);
             return (
               <article className="catalog-card" key={skuKey}>
-              <div className="card-tags">
-                  {runFlat ? (
-                    <span className="card-tag card-tag--runflat">
-                      <span>Run Flat</span>
-                    </span>
-                  ) : null}
-                  <span className="card-tag card-tag--dry">Piso seco</span>
+              <div className="card-perf-icons">
+                  {getCardPerfIcons(it).map((a) => (
+                    <img key={a.label} src={a.icon} alt={a.label} title={a.label} />
+                  ))}
                 </div>
 
                 <Link
@@ -706,5 +892,3 @@ export default function Catalogo() {
     </main>
   );
 }
-
-
