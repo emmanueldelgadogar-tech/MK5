@@ -3,7 +3,7 @@ import "../styles/cuenta.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { API_BASE } from "../config";
-import { readCart, writeCart } from "../utils/catalogoHelpers";
+import { addToCart, readCart, writeCart } from "../utils/catalogoHelpers";
 import { trackEvent } from "../utils/metrics";
 
 const SAFE_PAYMENT_HOSTS = new Set([
@@ -102,9 +102,32 @@ export default function Checkout() {
   const [checkoutTracked, setCheckoutTracked] = useState(false);
   const [paymentResult, setPaymentResult] = useState(null);
 
+  /* ── Favoritos ── */
+  const [favProducts, setFavProducts] = useState([]);
+  const [favLoading, setFavLoading] = useState(false);
+
   useEffect(() => {
     setCart(readCart());
     setCartHydrated(true);
+
+    // Cargar favoritos desde localStorage y buscar detalles
+    const skus = (() => {
+      try { return JSON.parse(localStorage.getItem("mk5_favorites") || "[]"); }
+      catch { return []; }
+    })();
+    if (!skus.length) return;
+
+    setFavLoading(true);
+    Promise.all(
+      skus.map((sku) =>
+        fetch(`${API_BASE}/api/catalogo/item?sku=${encodeURIComponent(sku)}`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((d) => d?.item || null)
+          .catch(() => null)
+      )
+    ).then((results) => {
+      setFavProducts(results.filter(Boolean));
+    }).finally(() => setFavLoading(false));
   }, []);
 
   useEffect(() => {
@@ -481,6 +504,51 @@ export default function Checkout() {
               </button>
             </aside>
           </div>
+        )}
+
+        {/* ── Favoritos ── */}
+        {step === "carrito" && (favLoading || favProducts.length > 0) && (
+          <section className="checkout-favorites">
+            <h3 className="checkout-favorites__title">♥ Tus favoritos</h3>
+            {favLoading ? (
+              <p className="checkout-favorites__loading">Cargando favoritos...</p>
+            ) : (
+              <div className="checkout-favorites__grid">
+                {favProducts.map((p) => {
+                  const sku = String(p.sku || "").trim();
+                  const price = Number(p.precio || 0);
+                  return (
+                    <div key={sku} className="fav-card">
+                      <img
+                        className="fav-card__img"
+                        src={p.imagen || ""}
+                        alt={`${p.marca || ""} ${p.modelo || ""}`}
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
+                      <div className="fav-card__body">
+                        <p className="fav-card__brand">{p.marca}</p>
+                        <p className="fav-card__model">{p.modelo}</p>
+                        <p className="fav-card__size">{p.medida}</p>
+                        <strong className="fav-card__price">
+                          {price.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 2 })}
+                        </strong>
+                      </div>
+                      <button
+                        type="button"
+                        className="fav-card__add"
+                        onClick={() => {
+                          addToCart(p, 1);
+                          setCart(readCart());
+                        }}
+                      >
+                        + Agregar al carrito
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
 
         {/* ── PASO 2: DATOS Y PAGO ── */}

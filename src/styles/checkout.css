@@ -641,3 +641,91 @@
   cursor: not-allowed;
   transform: none;
 }
+
+/* ── Favoritos en carrito ── */
+.checkout-favorites{
+  max-width: 1120px;
+  margin: 28px auto 0;
+  padding: 0 8px;
+}
+.checkout-favorites__title{
+  font-size: 18px;
+  font-weight: 900;
+  color: #fff;
+  margin: 0 0 16px;
+}
+.checkout-favorites__loading{
+  color: #9ca3af;
+  font-size: 14px;
+}
+.checkout-favorites__grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.fav-card{
+  background: #1a1a1a;
+  border: 1px solid #2d2d2d;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.fav-card__img{
+  width: 100%;
+  height: 130px;
+  object-fit: contain;
+  background: #fff;
+  padding: 8px;
+}
+.fav-card__body{
+  padding: 10px 12px 6px;
+  flex: 1;
+}
+.fav-card__brand{
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+}
+.fav-card__model{
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+.fav-card__size{
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+.fav-card__price{
+  display: block;
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 900;
+  color: #e85d04;
+}
+.fav-card__add{
+  margin: 0 12px 12px;
+  padding: 8px;
+  background: transparent;
+  border: 2px solid #e85d04;
+  border-radius: 8px;
+  color: #e85d04;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .2s, color .2s;
+}
+.fav-card__add:hover{
+  background: #e85d04;
+  color: #fff;
+}
+@media (max-width: 600px){
+  .checkout-favorites__grid{
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

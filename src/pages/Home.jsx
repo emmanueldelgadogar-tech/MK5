@@ -13,17 +13,31 @@ import antareslogo from "../assets/logos/antares.png";
 import bridgestonelogo from "../assets/logos/bridgestone.png";
 import continentalLogo from "../assets/logos/continental.png";
 import hankookLogo from "../assets/logos/hankook.png";
-import cooperlogo from "../assets/logos/cooper.png";
+import cooperlogo from "../assets/logos/coopertires.png";
 import blackhawklogo from "../assets/logos/blackhawk.png";
 import laufennlogo from "../assets/logos/laufenn.png";
 import michelinlogo from "../assets/logos/michelin.png";
 import goodyearlogo from "../assets/logos/goodyear.png";
 import nuevafiltro from "../assets/logos/nuevafiltro.png";
-import goodrichlogo from "../assets/logos/goodrich.jpg";
+import goodrichlogo from "../assets/logos/bfgoodrich.png";
 import tornellogo from "../assets/logos/tornel.png";
-import pegasuslogo from "../assets/logos/pegasus.jpg";
+import pegasuslogo from "../assets/logos/pegasus.png";
 import vinmaxlogo from "../assets/logos/vinmax.png";
 import bannermsi from "../assets/logos/bannermsi.png";
+import acceleraLogo from "../assets/logos/accelera.png";
+import agateLogo from "../assets/logos/agate.png";
+import dunlopLogo from "../assets/logos/dunlop.png";
+import falkenLogo from "../assets/logos/falken.png";
+import kumhoLogo from "../assets/logos/kumho.png";
+import nexenLogo from "../assets/logos/nexen.png";
+import lingLongLogo from "../assets/logos/linglone.png";
+import maxtrekLogo from "../assets/logos/maxtrek.png";
+import mirageLogo from "../assets/logos/mirage.png";
+import minnellLogo from "../assets/logos/minnell.png";
+import kpatos from "../assets/logos/kpatos.png";
+import generalLogo from "../assets/logos/generaltire.png";
+import mileking from "../assets/logos/mileking.png";
+import sumaxxLogo from "../assets/logos/sumaxx.png";
 
 import bridgestonePodio from "../assets/Marcas/bridgestone podio.jpeg";
 import michelinPodio from "../assets/Marcas/michelin podio.jpg";
@@ -72,10 +86,24 @@ const MARCAS_DESTACADAS = [
   { key: "cooper", name: "Cooper", img: cooperlogo },
   { key: "blackhawk", name: "Blackhawk", img: blackhawklogo },
   { key: "laufenn", name: "Laufenn", img: laufennlogo },
-  { key: "goodrich", name: "Goodrich", img: goodrichlogo },
+  { key: "goodrich", name: "BF Goodrich", img: goodrichlogo },
   { key: "tornel", name: "Tornel", img: tornellogo },
   { key: "pegasus", name: "Pegasus", img: pegasuslogo },
   { key: "vinmax", name: "Vinmax", img: vinmaxlogo },
+  { key: "dunlop", name: "Dunlop", img: dunlopLogo },
+  { key: "kumho", name: "Kumho", img: kumhoLogo },
+  { key: "falken", name: "Falken", img: falkenLogo },
+  { key: "nexen", name: "Nexen", img: nexenLogo },
+  { key: "linglong", name: "Linglong", img: lingLongLogo },
+  { key: "maxtrek", name: "Maxtrek", img: maxtrekLogo },
+  { key: "mirage", name: "Mirage", img: mirageLogo },
+  { key: "general", name: "General Tire", img: generalLogo },
+  { key: "accelera", name: "Accelera", img: acceleraLogo },
+  { key: "agate", name: "Agate", img: agateLogo },
+  { key: "kpatos", name: "Kpatos", img: kpatos },
+  { key: "minnell", name: "Minnell", img: minnellLogo },
+  { key: "mileking", name: "Mileking", img: mileking },
+  { key: "sumaxx", name: "Sumaxx", img: sumaxxLogo },
 ];
 
 const PODIOS_DESTACADOS = [
