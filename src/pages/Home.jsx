@@ -3,7 +3,7 @@ import "../styles/pages.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_BASE } from "../config";
-import { formatMoney, getProductTitle, addToCart, getItemSku, buildProductPath } from "../utils/catalogoHelpers";
+import { formatMoney, getProductTitle, addToCart, getItemSku, buildProductPath, estimateListPrice } from "../utils/catalogoHelpers";
 import llantaPlaceholder from "../assets/llanta.png";
 
 import pirelliLogo from "../assets/logos/pirelli.png";
@@ -13,17 +13,31 @@ import antareslogo from "../assets/logos/antares.png";
 import bridgestonelogo from "../assets/logos/bridgestone.png";
 import continentalLogo from "../assets/logos/continental.png";
 import hankookLogo from "../assets/logos/hankook.png";
-import cooperlogo from "../assets/logos/cooper.png";
+import cooperlogo from "../assets/logos/coopertires.png";
 import blackhawklogo from "../assets/logos/blackhawk.png";
 import laufennlogo from "../assets/logos/laufenn.png";
 import michelinlogo from "../assets/logos/michelin.png";
 import goodyearlogo from "../assets/logos/goodyear.png";
 import nuevafiltro from "../assets/logos/nuevafiltro.png";
-import goodrichlogo from "../assets/logos/goodrich.jpg";
+import goodrichlogo from "../assets/logos/bfgoodrich.png";
 import tornellogo from "../assets/logos/tornel.png";
-import pegasuslogo from "../assets/logos/pegasus.jpg";
+import pegasuslogo from "../assets/logos/pegasus.png";
 import vinmaxlogo from "../assets/logos/vinmax.png";
 import bannermsi from "../assets/logos/bannermsi.png";
+import acceleraLogo from "../assets/logos/accelera.png";
+import agateLogo from "../assets/logos/agate.png";
+import dunlopLogo from "../assets/logos/dunlop.png";
+import falkenLogo from "../assets/logos/falken.png";
+import kumhoLogo from "../assets/logos/kumho.png";
+import nexenLogo from "../assets/logos/nexen.png";
+import lingLongLogo from "../assets/logos/linglone.png";
+import maxtrekLogo from "../assets/logos/maxtrek.png";
+import mirageLogo from "../assets/logos/mirage.png";
+import minnellLogo from "../assets/logos/minnell.png";
+import kpatos from "../assets/logos/kpatos.png";
+import generalLogo from "../assets/logos/generaltire.png";
+import mileking from "../assets/logos/mileking.png";
+import sumaxxLogo from "../assets/logos/sumaxx.png";
 
 import bridgestonePodio from "../assets/Marcas/bridgestone podio.jpeg";
 import michelinPodio from "../assets/Marcas/michelin podio.jpg";
@@ -58,6 +72,7 @@ import promoHeaderKumho from "../assets/promos header/promo kumho.jpg";
 import promoHeaderLaufenn from "../assets/promos header/promo laufenn.jpg";
 
 import AsistenteMK5 from "../components/AsistenteMK5";
+import GoogleMapsReviewsEmbed from "../components/GoogleMapsReviewsEmbed";
 
 const MARCAS_DESTACADAS = [
   { key: "pirelli", name: "Pirelli", img: pirelliLogo },
@@ -72,11 +87,37 @@ const MARCAS_DESTACADAS = [
   { key: "cooper", name: "Cooper", img: cooperlogo },
   { key: "blackhawk", name: "Blackhawk", img: blackhawklogo },
   { key: "laufenn", name: "Laufenn", img: laufennlogo },
-  { key: "goodrich", name: "Goodrich", img: goodrichlogo },
+  { key: "goodrich", name: "BF Goodrich", img: goodrichlogo },
   { key: "tornel", name: "Tornel", img: tornellogo },
   { key: "pegasus", name: "Pegasus", img: pegasuslogo },
   { key: "vinmax", name: "Vinmax", img: vinmaxlogo },
+  { key: "dunlop", name: "Dunlop", img: dunlopLogo },
+  { key: "kumho", name: "Kumho", img: kumhoLogo },
+  { key: "falken", name: "Falken", img: falkenLogo },
+  { key: "nexen", name: "Nexen", img: nexenLogo },
+  { key: "linglong", name: "Linglong", img: lingLongLogo },
+  { key: "maxtrek", name: "Maxtrek", img: maxtrekLogo },
+  { key: "mirage", name: "Mirage", img: mirageLogo },
+  { key: "general", name: "General Tire", img: generalLogo },
+  { key: "accelera", name: "Accelera", img: acceleraLogo },
+  { key: "agate", name: "Agate", img: agateLogo },
+  { key: "kpatos", name: "Kpatos", img: kpatos },
+  { key: "minnell", name: "Minnell", img: minnellLogo },
+  { key: "mileking", name: "Mileking", img: mileking },
+  { key: "sumaxx", name: "Sumaxx", img: sumaxxLogo },
 ];
+
+const BRAND_LOGO_MAP = {
+  ...Object.fromEntries(MARCAS_DESTACADAS.map(m => [m.key, m.img])),
+  'bf goodrich': goodrichlogo,
+  'bfgoodrich': goodrichlogo,
+  'general tire': generalLogo,
+  'general': generalLogo,
+  'ling long': lingLongLogo,
+  'linglong tire': lingLongLogo,
+  'cooper tires': cooperlogo,
+  'cooper tire': cooperlogo,
+};
 
 const PODIOS_DESTACADOS = [
   { key: "pirelli", name: "Pirelli", img: pirelliPodio, to: "/catalogo/pirelli" },
@@ -110,7 +151,10 @@ const PROMOS_MENSUALES = [
 function TopSellerCard({ item }) {
   const navigate = useNavigate();
   const price = Number(item?.precio || 0);
+  const listPrice = estimateListPrice(price);
   const productPath = buildProductPath(item);
+  const brandKey = (item?.marca || "").toLowerCase().trim();
+  const brandLogo = BRAND_LOGO_MAP[brandKey];
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -128,11 +172,12 @@ function TopSellerCard({ item }) {
 
   return (
     <Link className="ts-card" to={productPath} state={{ item }}>
-      <div className="ts-card__badge-msi">6 MSI</div>
+      <div className="ts-card__promo-ribbon">4x3 o 25% de descuento</div>
       <div className="ts-card__image-wrapper">
          <img src={item.imagen || llantaPlaceholder} alt={getProductTitle(item)} className="ts-card__image" onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }} />
       </div>
       <div className="ts-card__info">
+         {brandLogo && <img src={brandLogo} alt={item.marca} className="ts-card__brand-logo" />}
          <h4 className="ts-card__title">{getProductTitle(item)}</h4>
 
          <div className="ts-card__availability">
@@ -141,7 +186,11 @@ function TopSellerCard({ item }) {
          </div>
 
          <div className="ts-card__prices">
-            <strong className="ts-price-new">{formatMoney(price)}</strong>
+            <div className="ts-price-row">
+              <strong className="ts-price-new">{formatMoney(price)}</strong>
+              <span className="ts-price-old">{formatMoney(listPrice)}</span>
+              <span className="ts-discount">-25%</span>
+            </div>
             <small className="ts-price-note">Instalación, Válvula y Balanceo INCLUIDO</small>
          </div>
 
@@ -347,6 +396,8 @@ export default function Home() {
   const [alturaSel, setAlturaSel] = useState("");
   const [rinSel, setRinSel] = useState("");
 
+  const [tsIndex, setTsIndex] = useState(0);
+
   const DURATION = 5000;
   const PODIUM_DURATION = 4200;
   const [promoIndex, setPromoIndex] = useState(0);
@@ -409,6 +460,15 @@ export default function Home() {
     window.addEventListener("resize", updateVisible);
     return () => window.removeEventListener("resize", updateVisible);
   }, []);
+
+  // Auto-avance carousel llantas más compradas cada 8s
+  useEffect(() => {
+    if (topSellers.length <= 4) return;
+    const tick = setInterval(() => {
+      setTsIndex(i => (i + 1) % topSellers.length);
+    }, 8000);
+    return () => clearInterval(tick);
+  }, [topSellers]);
 
   // Carga inicial: anchos completos + top sellers
   useEffect(() => {
@@ -550,7 +610,7 @@ export default function Home() {
             </div>
 
             <div className="brandGrid brandGrid--compact">
-              {MARCAS_DESTACADAS.map((m) => (
+              {MARCAS_DESTACADAS.slice(0, 20).map((m) => (
                 <Link key={m.key} to={`/catalogo/${m.key}`} className="brandCard">
                   <img className="brandCard__img" src={m.img} alt={m.name} />
                 </Link>
@@ -598,47 +658,49 @@ export default function Home() {
             </div>
 
             <div className="ts-trackWrap">
-              <div className="ts-grid">
-                {topSellers.map((item) => (
-                  <TopSellerCard key={getItemSku(item)} item={item} />
+              <div className="ts-carousel">
+                {topSellers.length > 0 && Array.from({ length: Math.min(4, topSellers.length) }, (_, i) =>
+                  topSellers[(tsIndex + i) % topSellers.length]
+                ).map((item) => (
+                  <TopSellerCard key={`${tsIndex}-${getItemSku(item)}`} item={item} />
                 ))}
+              </div>
+              <div className="ts-nav">
+                <button
+                  type="button"
+                  className="ts-nav-btn"
+                  onClick={() => setTsIndex(i => (i - 1 + topSellers.length) % topSellers.length)}
+                  aria-label="Anterior"
+                >
+                  ‹
+                </button>
+                <div className="ts-nav-dots">
+                  {topSellers.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`ts-nav-dot${idx === tsIndex ? ' is-active' : ''}`}
+                      onClick={() => setTsIndex(idx)}
+                      aria-label={`Ir a llanta ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="ts-nav-btn"
+                  onClick={() => setTsIndex(i => (i + 1) % topSellers.length)}
+                  aria-label="Siguiente"
+                >
+                  ›
+                </button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ── Reviews / Testimonios ── */}
-      <section className="reviews-section">
-        <div className="reviews-section__head">
-          <h2>Lo que dicen nuestros clientes</h2>
-          <div className="reviews-section__score">
-            <span className="reviews-score-num">4.9</span>
-            <span className="reviews-stars">⭐⭐⭐⭐⭐</span>
-            <span className="reviews-count">+500 reseñas</span>
-          </div>
-        </div>
-        <div className="reviews-grid">
-          {[
-            { nombre:"Carlos M.", ini:"C", texto:"Excelente servicio, las llantas llegaron en 2 días perfectamente embaladas. La instalación en sucursal fue rapidísima. 100% recomendado.", via:"Google" },
-            { nombre:"Ana L.", ini:"A", texto:"Precios muy competitivos y excelente atención por WhatsApp. Me ayudaron a elegir la medida correcta para mi Jetta. Muy profesionales.", via:"Google" },
-            { nombre:"Roberto G.", ini:"R", texto:"Compré 4 llantas Pirelli y la experiencia fue perfecta. El asistente IA me recomendó exactamente lo que necesitaba. Volvería a comprar aquí.", via:"Google" },
-            { nombre:"Diego R.", ini:"D", texto:"La IA de MK5 me ayudó a encontrar las llantas para mi Toyota RAV4. Rápido, fácil y con mejor precio que otras tiendas. Muy recomendado.", via:"Google" },
-            { nombre:"Mariana V.", ini:"M", texto:"Ya es mi segunda compra en MK5. Siempre cumplen con los tiempos de entrega y el producto es 100% original. No compraría en otro lugar.", via:"Google" },
-            { nombre:"Luis H.", ini:"L", texto:"Me pareció muy completo el catálogo. Encontré llantas Continental para mi BMW que no encontraba en otras tiendas. Envío puntual y sin daños.", via:"Google" },
-          ].map((r) => (
-            <div key={r.nombre} className="review-card">
-              <div className="review-card__stars">⭐⭐⭐⭐⭐</div>
-              <p className="review-card__text">{r.texto}</p>
-              <div className="review-card__author">
-                <div className="review-author-avatar">{r.ini}</div>
-                <div>
-                  <div className="review-author-name">{r.nombre}</div>
-                  <div className="review-author-via">{r.via} ✓</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+
+      <section style={{ marginTop: 32 }}>
+        <GoogleMapsReviewsEmbed />
       </section>
 
       <div className="home-banner home-banner--full" style={{ marginTop: 40 }} aria-label="Promoción MSI">
@@ -650,4 +712,3 @@ export default function Home() {
     </main>
   );
 }
-
