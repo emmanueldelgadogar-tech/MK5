@@ -1,8 +1,41 @@
 const CART_KEY = "mk5_cart";
 const SKU_KEYS = ["sku", "SKU", "codigo", "codigo_sku", "clave"];
 
+const BRAND_NAME_NORMALIZATION = {
+  "M,ASSIMO": "MASSIMO",
+  "MASSIMO TYRES": "MASSIMO",
+  MINELL: "MINNELL",
+  MINNEL: "MINNELL",
+  PAGASUS: "PEGASUS",
+  LAUFEN: "LAUFENN",
+  "MICKY THOMSON": "MICKEY THOMPSON",
+  "MICKEY THOMSON": "MICKEY THOMPSON",
+  "MICKEY TOMSON": "MICKEY THOMPSON",
+  KUSTON: "KUSTOM",
+  "LING LONG": "LINGLONG",
+  "LINGLONG TIRE": "LINGLONG",
+  "COOPER TIRES": "COOPER",
+  COOPERTIRES: "COOPER",
+  "BF GOODRICH": "GOODRICH",
+  BFGOODRICH: "GOODRICH",
+  "GENERAL TIRE": "GENERAL",
+  GENERALTIRE: "GENERAL",
+};
+
+const MODEL_TEXT_NORMALIZATION = [
+  { pattern: /\bMICKY\s+THOMSON\b/gi, replacement: "Mickey Thompson" },
+  { pattern: /\bMICKY\s+THOMSOM\b/gi, replacement: "Mickey Thompson" },
+  { pattern: /\bMICK?EY\s+THOMS?ON\b/gi, replacement: "Mickey Thompson" },
+  { pattern: /\bMICKY\s+THOMSOM\b/gi, replacement: "Mickey Thompson" },
+  { pattern: /\bMICKEY\s+TOMSON\b/gi, replacement: "Mickey Thompson" },
+];
+
 function safeQty(v) {
   return Math.max(parseInt(v, 10) || 1, 1);
+}
+
+function safeStock(v) {
+  return Math.max(parseInt(v, 10) || 0, 0);
 }
 
 export function formatMoney(value) {
@@ -23,6 +56,21 @@ export function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+export function normalizeBrandName(value) {
+  const raw = String(value || "").trim();
+  const upper = raw.toUpperCase();
+  if (!upper) return raw;
+  return BRAND_NAME_NORMALIZATION[upper] || raw;
+}
+
+export function normalizeModelName(value) {
+  let text = String(value || "").trim();
+  for (const rule of MODEL_TEXT_NORMALIZATION) {
+    text = text.replace(rule.pattern, rule.replacement);
+  }
+  return text;
+}
+
 export function buildProductSlug(item) {
   const medidaSlug = String(item?.medida || "")
     .toLowerCase()
@@ -30,7 +78,9 @@ export function buildProductSlug(item) {
     .replace(/\//g, "-")
     .replace(/^(\d{3})-(\d{2})-(\d{2})$/, "$1-$2-r$3");
 
-  const chunks = ["llanta", medidaSlug, item?.marca, item?.modelo].filter(Boolean);
+  const canonicalBrand = normalizeBrandName(item?.marca);
+  const canonicalModel = normalizeModelName(item?.modelo);
+  const chunks = ["llanta", medidaSlug, canonicalBrand, canonicalModel].filter(Boolean);
   const slug = slugify(chunks.join(" "));
   return slug || "llanta";
 }
@@ -114,16 +164,24 @@ export function addToCart(item, qty = 1) {
       modelo: item?.modelo || "",
       medida: item?.medida || "",
       precio: Number(item?.precio || 0),
+      stock: safeStock(item?.stock),
     };
 
+    const maxStock = safeStock(item?.stock);
+
     if (idx >= 0) {
+      const nextQty = Math.max(parseInt(cart[idx]?.qty, 10) || 0, 0) + safeQty;
       cart[idx] = {
         ...cart[idx],
-        qty: Math.max(parseInt(cart[idx]?.qty, 10) || 0, 0) + safeQty,
+        qty: maxStock > 0 ? Math.min(nextQty, maxStock) : nextQty,
         snapshot: cart[idx]?.snapshot || snapshot,
       };
     } else {
-      cart.push({ sku, qty: safeQty, snapshot });
+      cart.push({
+        sku,
+        qty: maxStock > 0 ? Math.min(safeQty, maxStock) : safeQty,
+        snapshot,
+      });
     }
 
     writeCart(cart);
@@ -137,13 +195,13 @@ export function addToCart(item, qty = 1) {
 export function estimateListPrice(precio) {
   const value = Number(precio || 0);
   if (!value) return 0;
-  return value / 0.7;
+  return value / 0.75;
 }
 
 export function getProductTitle(item) {
-  const marca = String(item?.marca || "").trim();
+  const marca = normalizeBrandName(item?.marca);
   const medida = String(item?.medida || "").trim();
-  const modelo = String(item?.modelo || "").trim();
+  const modelo = normalizeModelName(item?.modelo);
 
   if (!modelo) return `Llanta ${medida} ${marca}`.replace(/\s+/g, " ").trim();
 

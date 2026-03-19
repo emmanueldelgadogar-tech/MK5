@@ -59,7 +59,7 @@ const SUCURSALES = [
   { nombre: "Santín",                 maps: "https://maps.app.goo.gl/Xes4Ss1SFCDrtR738",  q: "MK5+Llantas+Santin+Toluca+Estado+de+Mexico" },
   { nombre: "Tecnológico",            maps: "https://maps.app.goo.gl/H8dgzFQmrLPV9bp47",  q: "MK5+Llantas+Tecnologico+Toluca+Estado+de+Mexico" },
   { nombre: "Tollocan",               maps: "https://maps.app.goo.gl/NJMif1LE3cEvZb2b9",  q: "MK5+Llantas+Tollocan+Toluca+Estado+de+Mexico" },
-  { nombre: "Nueva Oxtotitlán",       maps: "https://maps.app.goo.gl/fizy5y5Axc53qvCS8",  q: "MK5+Llantas+Nueva+Oxtotitlan+Toluca+Estado+de+Mexico" },
+  { nombre: "Nueva Oxtotitlán",       maps: "https://maps.app.goo.gl/fizy5y5Axc53qvCS8",  q: "MK5+Llantas+Nueva+Oxtotitlan+Toluca+Estado+de+Mexico", embed: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3765.871934350331!2d-99.68947582403123!3d19.287934645283627!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x85cd89d12ebc02f9%3A0xc8cf2110ec54f8ce!2sLLANTERA%20MK5%20(Nueva%20Oxtotitlan)!5e0!3m2!1ses-419!2smx!4v1773695562009!5m2!1ses-419!2smx" },
   { nombre: "Morelos",                maps: "https://maps.app.goo.gl/DcJnqqqENyYwvV8r9",  q: "MK5+Llantas+Morelos+Toluca+Estado+de+Mexico" },
   { nombre: "Circunvalación",         maps: "https://maps.app.goo.gl/Npd5sQz1Xc9CebBP9",  q: "MK5+Llantas+Circunvalacion+Toluca+Estado+de+Mexico" },
   { nombre: "Hipico",                 maps: "https://maps.app.goo.gl/AipHBoxbJ81Lr3vV9",  q: "MK5+Llantas+Hipico+Toluca+Estado+de+Mexico" },
@@ -157,9 +157,10 @@ export default function Sucursales() {
                 {/* Mapa embed */}
                 <div className="map-placeholder">
                   <iframe
-                    src={`https://www.google.com/maps?q=${s.q}&output=embed&z=15`}
+                    src={s.embed || `https://www.google.com/maps?q=${s.q}&output=embed&z=15`}
                     title={`Mapa MK5 ${s.nombre}`}
                     loading="lazy"
+                    allowFullScreen
                     referrerPolicy="no-referrer-when-downgrade"
                   />
                 </div>

@@ -6,6 +6,8 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const OpenAI = require("openai");
 const crypto = require("crypto");
+const { Resend } = require("resend");
+const resend = new Resend(process.env.RESEND_API_KEY || "");
 
 const app = express();
 
@@ -31,6 +33,8 @@ if (String(process.env.ENFORCE_SSL || "").toLowerCase() === "true") {
 const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "https://mk5.com.mx",
+  "https://www.mk5.com.mx",
 ];
 
 const isDevLocalhost = (origin) =>
@@ -659,6 +663,16 @@ app.post("/api/payments/mercadopago/webhook", async (req, res) => {
       client.release();
     }
 
+    if (normalizedStatus === "paid") {
+      const oRow = await pool.query(
+        `SELECT customer_email, customer_name, total FROM orders WHERE id = $1`, [orderId]
+      );
+      const o = oRow.rows[0];
+      if (o?.customer_email) {
+        sendPaymentSuccessEmail(orderId, o.customer_email, o.customer_name || "Cliente", o.total).catch(() => {});
+      }
+    }
+
     res.status(200).json({ ok: true });
   } catch (e) {
     console.error("MP webhook error:", e.message);
@@ -717,6 +731,16 @@ app.post("/api/payments/paypal/webhook", async (req, res) => {
       throw e;
     } finally {
       client.release();
+    }
+
+    if (normalizedStatus === "paid") {
+      const oRow = await pool.query(
+        `SELECT customer_email, customer_name, total FROM orders WHERE id = $1`, [orderId]
+      );
+      const o = oRow.rows[0];
+      if (o?.customer_email) {
+        sendPaymentSuccessEmail(orderId, o.customer_email, o.customer_name || "Cliente", o.total).catch(() => {});
+      }
     }
 
     res.status(200).json({ ok: true });
@@ -863,6 +887,79 @@ async function getInventoryContext(message) {
   } catch (e) {
     console.error("Error fetching inventory:", e.message);
     return "";
+  }
+}
+
+async function ensureNewsletterTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      subscribed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+}
+
+async function sendOrderReceivedEmail(orderId, email, name, total) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[CORREO SIMULADO] Orden recibida #${orderId} → ${email}`);
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: "MK5 Llantera <ventas@mk5.mx>",
+      to: [email],
+      subject: `Tu pedido fue recibido - Orden #${orderId}`,
+      html: `
+        <div style="font-family:sans-serif;color:#333;max-width:520px;margin:auto">
+          <div style="background:#e85c00;padding:20px 24px;border-radius:8px 8px 0 0">
+            <h1 style="color:#fff;margin:0;font-size:22px">MK5 Llantera</h1>
+          </div>
+          <div style="background:#fff;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px">
+            <h2 style="color:#e85c00">¡Recibimos tu pedido, ${name || "cliente"}!</h2>
+            <p>Tu orden <strong>#${orderId}</strong> ha sido registrada por un total de <strong>$${Number(total).toFixed(2)} MXN</strong>.</p>
+            <p>En cuanto confirmemos tu pago te avisamos para iniciar el envío.</p>
+            <p>Si tienes dudas escríbenos por WhatsApp o a <a href="mailto:ventas@mk5.mx">ventas@mk5.mx</a>.</p>
+            <br/>
+            <p style="color:#888;font-size:13px">Gracias por confiar en MK5 Llantera.</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[RESEND] Correo orden recibida #${orderId} → ${email}`);
+  } catch (err) {
+    console.error(`[RESEND ERROR orden recibida]:`, err);
+  }
+}
+
+async function sendNewsletterWelcomeEmail(email) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[CORREO SIMULADO] Bienvenida newsletter → ${email}`);
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: "MK5 Llantera <ventas@mk5.mx>",
+      to: [email],
+      subject: "¡Bienvenido a las ofertas de MK5!",
+      html: `
+        <div style="font-family:sans-serif;color:#333;max-width:520px;margin:auto">
+          <div style="background:#e85c00;padding:20px 24px;border-radius:8px 8px 0 0">
+            <h1 style="color:#fff;margin:0;font-size:22px">MK5 Llantera</h1>
+          </div>
+          <div style="background:#fff;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px">
+            <h2 style="color:#e85c00">¡Ya estás suscrito!</h2>
+            <p>A partir de ahora recibirás las mejores promociones, descuentos y lanzamientos de MK5 Llantera directo en tu correo.</p>
+            <p>Visita nuestro catálogo en <a href="https://mk5.com.mx/catalogo">mk5.com.mx</a>.</p>
+            <br/>
+            <p style="color:#888;font-size:12px">Si no solicitaste esta suscripción ignora este mensaje.</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[RESEND] Bienvenida newsletter → ${email}`);
+  } catch (err) {
+    console.error(`[RESEND ERROR newsletter]:`, err);
   }
 }
 
@@ -1291,16 +1388,17 @@ async function buildPaymentPayload(method, order, lines = [], customer = {}, shi
 }
 
 function calcLineTotals({ marca, unitPrice, qty, stock }) {
-  const price = Number(unitPrice);
+  const promoPrice = Number(unitPrice);
   const q = Number(qty);
+  const listPrice = promoPrice > 0 ? promoPrice / 0.75 : 0;
 
-  const normalSubtotal = price * q;
+  const normalSubtotal = listPrice * q;
   let bestTotal = normalSubtotal;
 
   if (q >= 4 && Number(stock) >= 4) {
     // 4x3 Promotion applied to ANY brand when buying 4 or more
     const payUnits = q - Math.floor(q / 4);
-    bestTotal = price * payUnits;
+    bestTotal = listPrice * payUnits;
   } else if (q >= 1 && q <= 3) {
     // 25% Discount applied to ANY brand when buying 1 to 3 tires
     bestTotal = normalSubtotal * 0.75;
@@ -1379,7 +1477,7 @@ app.post("/api/checkout/create", async (req, res) => {
         modelo: row.modelo,
         medida: row.medida,
         qty: it.qty,
-        unit_price: Number(row.precio),
+        unit_price: Number(row.precio) / 0.75,
         line_total,
         line_discount,
       });
@@ -1471,6 +1569,11 @@ app.post("/api/checkout/create", async (req, res) => {
       }
       await client.query("COMMIT");
 
+      // Enviar correo de confirmación de orden (fire & forget)
+      if (customer.email) {
+        sendOrderReceivedEmail(orderId, customer.email, customer.name, total).catch(() => {});
+      }
+
       return res.json({
         ok: true,
         order: {
@@ -1529,6 +1632,28 @@ app.use("/api", (req, res) => {
   res.status(404).json({ ok: false, error: "not_found" });
 });
 
+// ===================== NEWSLETTER =====================
+app.post("/api/newsletter/subscribe", async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ ok: false, error: "email_invalido" });
+    }
+    const result = await pool.query(
+      `INSERT INTO newsletter_subscribers (email) VALUES ($1) ON CONFLICT (email) DO NOTHING RETURNING id`,
+      [email]
+    );
+    const isNew = result.rowCount > 0;
+    if (isNew) {
+      sendNewsletterWelcomeEmail(email).catch(() => {});
+    }
+    res.json({ ok: true, new: isNew });
+  } catch (e) {
+    console.error("newsletter subscribe error:", e.message);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
 // ===================== ERROR HANDLER =====================
 app.use((err, req, res, next) => {
   if (err && err.message === "CORS_BLOCKED") {
@@ -1540,8 +1665,8 @@ app.use((err, req, res, next) => {
 
 // ===================== LISTEN =====================
 const PORT = Number(process.env.PORT || 4000);
-app.listen(PORT, () => {
-  console.log("Backend activo en http://localhost:" + PORT);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor corriendo en puerto ${PORT}`);
   ensureAnalyticsTable()
     .then(() => console.log("Tabla analytics_events lista"))
     .catch((e) => console.error("No pude inicializar analytics_events:", e.message));
@@ -1554,4 +1679,7 @@ app.listen(PORT, () => {
   ensureCustomersTable()
     .then(() => console.log("Tabla customers lista"))
     .catch((e) => console.error("No pude inicializar customers:", e.message));
+  ensureNewsletterTable()
+    .then(() => console.log("Tabla newsletter_subscribers lista"))
+    .catch((e) => console.error("No pude inicializar newsletter_subscribers:", e.message));
 });

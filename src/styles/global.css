@@ -301,6 +301,14 @@ a { color: inherit; text-decoration: none; }
   text-decoration: none;
 }
 .footer__social a:hover{ background: rgba(255,91,0,.3); }
+.footer__social-link { color: #fff; transition: background .15s, transform .15s; }
+.footer__social-link:hover { transform: scale(1.12); }
+.footer__social-link--ig { color: #e1306c; }
+.footer__social-link--ig:hover { background: rgba(225,48,108,.2) !important; }
+.footer__social-link--fb { color: #1877f2; }
+.footer__social-link--fb:hover { background: rgba(24,119,242,.2) !important; }
+.footer__social-link--wa { color: #25d366; }
+.footer__social-link--wa:hover { background: rgba(37,211,102,.2) !important; }
 .footer__contact-item{
   display: flex;
   align-items: flex-start;

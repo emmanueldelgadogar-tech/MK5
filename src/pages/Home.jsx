@@ -1,4 +1,4 @@
-import "../styles/home.css";
+﻿import "../styles/home.css";
 import "../styles/pages.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -39,13 +39,13 @@ import generalLogo from "../assets/logos/generaltire.png";
 import mileking from "../assets/logos/mileking.png";
 import sumaxxLogo from "../assets/logos/sumaxx.png";
 
-import bridgestonePodio from "../assets/Marcas/bridgestone podio.jpeg";
-import michelinPodio from "../assets/Marcas/michelin podio.jpg";
-import goodyearPodio from "../assets/Marcas/goodyear podio.jpeg";
+import bridgestonePodio from "../assets/Marcas/Bridgestone podio.jpeg";
+import michelinPodio from "../assets/Marcas/Michelin podio.jpg";
+import goodyearPodio from "../assets/Marcas/Goodyear podio.jpeg";
 import continentalPodio from "../assets/Marcas/continental podio.jpg";
-import pirelliPodio from "../assets/Marcas/pirelli podio.jpg";
+import pirelliPodio from "../assets/Marcas/Pirelli podio.jpg";
 import hankookPodio from "../assets/Marcas/hankook podio.png";
-import firestonePodio from "../assets/Marcas/firestone podio.png";
+import firestonePodio from "../assets/Marcas/Firestone podio.png";
 import antaresPodio from "../assets/Marcas/podio antares.jpg";
 import blackhawkPodio from "../assets/Marcas/podio blackhawk.jpg";
 import cooperPodio from "../assets/Marcas/podio cooper.jpg";
@@ -56,20 +56,20 @@ import tornelPodio from "../assets/Marcas/podio tornel.jpg";
 import vinmaxPodio from "../assets/Marcas/podio vinmax.jpg";
 
 
-import promoMensualGoodyear from "../assets/promos mensuales/cuadraro goodyear.jpg";
-import promoMensualJK from "../assets/promos mensuales/cuadrado jk.jpg";
-import promoMensualKumho from "../assets/promos mensuales/cuadrado kumho.jpg";
-import promoMensualMaxtrek from "../assets/promos mensuales/cuadrado maxtrek.jpg";
-import promoMensualMinnell from "../assets/promos mensuales/cuadrado minnell.jpg";
-import promoMensualVinmax from "../assets/promos mensuales/cuadrado vinmax.jpg";
-import promoMensualVinmax2 from "../assets/promos mensuales/cuadrado vinmax 2.jpg";
-import promoMensualVinmax3 from "../assets/promos mensuales/cuadrado vinmax 3.jpg";
+import promoMensualGoodyear from "../assets/promos mensuales/promo-goodyear-mar-2026.jpg";
+import promoMensualJK from "../assets/promos mensuales/promo-jk-mar-2026.jpg";
+import promoMensualBridgestone from "../assets/promos mensuales/promo-bridgestone-mar-2026.jpg";
+import promoMensualMaxtrek from "../assets/promos mensuales/promo-maxtrek-mar-2026.jpg";
+import promoMensualMinnell from "../assets/promos mensuales/promo-minnell-mar-2026.jpg";
+import promoMensualVinmax from "../assets/promos mensuales/promo-vinmax-r13-mar-2026.jpg";
+import promoMensualVinmax2 from "../assets/promos mensuales/promo-vinmax-r14a-mar-2026.jpg";
+import promoMensualVinmax3 from "../assets/promos mensuales/promo-vinmax-r14b-mar-2026.jpg";
 
-import promoHeaderAntares from "../assets/promos header/promo antares.jpg";
-import promoHeaderJK1 from "../assets/promos header/promo jk.jpg";
-import promoHeaderJK2 from "../assets/promos header/promo jk 2.jpg";
-import promoHeaderKumho from "../assets/promos header/promo kumho.jpg";
-import promoHeaderLaufenn from "../assets/promos header/promo laufenn.jpg";
+import promoHeaderAntares from "../assets/promos header/promo-antares-mar-2026.jpg";
+import promoHeaderJK from "../assets/promos header/promo-jk-mar-2026.jpg";
+import promoHeaderVinmax from "../assets/promos header/promo-vinmax-mar-2026.jpg";
+import promoHeaderKumho from "../assets/promos header/promo-kumho-mar-2026.jpg";
+import promoHeaderLaufenn from "../assets/promos header/promo-laufenn-mar-2026.jpg";
 
 import AsistenteMK5 from "../components/AsistenteMK5";
 import GoogleMapsReviewsEmbed from "../components/GoogleMapsReviewsEmbed";
@@ -140,7 +140,7 @@ const PODIOS_DESTACADOS = [
 const PROMOS_MENSUALES = [
   { id: "goodyear", name: "Goodyear", img: promoMensualGoodyear, to: "/catalogo/goodyear" },
   { id: "jk", name: "JK", img: promoMensualJK, to: "/catalogo/jk" },
-  { id: "kumho", name: "Kumho", img: promoMensualKumho, to: "/catalogo/kumho" },
+  { id: "bridgestone-promo", name: "Bridgestone", img: promoMensualBridgestone, to: "/catalogo/bridgestone" },
   { id: "maxtrek", name: "Maxtrek", img: promoMensualMaxtrek, to: "/catalogo/maxtrek" },
   { id: "minnell", name: "Minnell", img: promoMensualMinnell, to: "/catalogo/minnell" },
   { id: "vinmax", name: "Vinmax", img: promoMensualVinmax, to: "/catalogo/vinmax" },
@@ -208,9 +208,9 @@ function AiAssistantBox({ onAskAssistant }) {
 
   const examples = useMemo(
     () => [
-      "Busco llanta 215/55/16…",
-      "Llantas para Nissan March 2018…",
-      "Busco llantas para Ford Fiesta 2015…",
+      "Busco llanta 215/55/16...",
+      "Llantas para Nissan March 2018...",
+      "Busco llantas para Ford Fiesta 2015...",
       "Quiero llantas económicas para un Aveo 2015",
       "¿Qué llantas me recomiendas para un Honda Civic?",
     ],
@@ -398,47 +398,27 @@ export default function Home() {
 
   const [tsIndex, setTsIndex] = useState(0);
 
-  const DURATION = 5000;
   const PODIUM_DURATION = 4200;
   const [promoIndex, setPromoIndex] = useState(0);
-  const [promoProgress, setPromoProgress] = useState(0);
   const [podiumIndex, setPodiumIndex] = useState(0);
   const [podiumVisibleCount, setPodiumVisibleCount] = useState(5);
 
   const promos = useMemo(
     () => [
-      { id: "antares", src: promoHeaderAntares, alt: "Promo Antares", to: "/catalogo/antares", fit: "cover" },
-      { id: "jk1", src: promoHeaderJK1, alt: "Promo JK", to: "/catalogo?q=JK", fit: "cover" },
-      { id: "jk2", src: promoHeaderJK2, alt: "Promo JK 2", to: "/catalogo?q=JK", fit: "cover" },
-      { id: "kumho", src: promoHeaderKumho, alt: "Promo Kumho", to: "/catalogo?q=KUMHO", fit: "cover" },
-      { id: "laufenn", src: promoHeaderLaufenn, alt: "Promo Laufenn", to: "/catalogo/laufenn", fit: "cover" },
+      { id: "antares", src: promoHeaderAntares, alt: "Promo Antares", to: "/catalogo/antares" },
+      { id: "jk",      src: promoHeaderJK,      alt: "Promo JK Tyre", to: "/catalogo/jk" },
+      { id: "vinmax",  src: promoHeaderVinmax,  alt: "Promo Vinmax",  to: "/catalogo/vinmax" },
+      { id: "kumho",   src: promoHeaderKumho,   alt: "Promo Kumho",   to: "/catalogo/kumho" },
+      { id: "laufenn", src: promoHeaderLaufenn, alt: "Promo Laufenn", to: "/catalogo/laufenn" },
     ],
     []
   );
-
-  const promoActiva = promos[promoIndex];
 
   const podiumVisible = useMemo(() => {
     if (!PODIOS_DESTACADOS.length) return [];
     const count = Math.min(Math.max(podiumVisibleCount, 1), PODIOS_DESTACADOS.length);
     return Array.from({ length: count }, (_, offset) => PODIOS_DESTACADOS[(podiumIndex + offset) % PODIOS_DESTACADOS.length]);
   }, [podiumIndex, podiumVisibleCount]);
-
-  useEffect(() => {
-    if (!promos.length) return;
-    setPromoProgress(0);
-    const start = Date.now();
-    const tick = setInterval(() => {
-      const p = ((Date.now() - start) / DURATION) * 100;
-      if (p >= 100) {
-        clearInterval(tick);
-        setPromoIndex((i) => (i + 1) % promos.length);
-      } else {
-        setPromoProgress(p);
-      }
-    }, 80);
-    return () => clearInterval(tick);
-  }, [promoIndex, promos]);
 
   useEffect(() => {
     if (PODIOS_DESTACADOS.length <= 1) return;
@@ -460,6 +440,14 @@ export default function Home() {
     window.addEventListener("resize", updateVisible);
     return () => window.removeEventListener("resize", updateVisible);
   }, []);
+
+  // Auto-avance carrusel header cada 5s
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setPromoIndex(i => (i + 1) % promos.length);
+    }, 5000);
+    return () => clearInterval(tick);
+  }, [promos.length]);
 
   // Auto-avance carousel llantas más compradas cada 8s
   useEffect(() => {
@@ -539,15 +527,21 @@ export default function Home() {
 
           <div className="home-right">
             <div className="promo-card">
-              <Link className="promo-viewport" to={promoActiva?.to || "/catalogo"} aria-label="Abrir promo">
-                <img
-                  src={promoActiva?.src}
-                  className={`promo-main ${promoActiva?.fit === "contain" ? "is-contain" : "is-cover"}`}
-                  alt={promoActiva?.alt || "Promoción"}
-                  loading="eager"
-                  decoding="async"
-                />
-              </Link>
+              <div className="promo-viewport" aria-label="Promociones destacadas">
+                <Link
+                  to={promos[promoIndex].to}
+                  className="promo-slide"
+                  aria-label={promos[promoIndex].alt}
+                >
+                  <img
+                    src={promos[promoIndex].src}
+                    className="promo-main is-cover"
+                    alt={promos[promoIndex].alt}
+                    loading="eager"
+                    decoding="async"
+                  />
+                </Link>
+              </div>
 
               <div className="promo-dots">
                 {promos.map((p, idx) => (
@@ -559,10 +553,6 @@ export default function Home() {
                     aria-label={`Ver ${p.alt}`}
                   />
                 ))}
-              </div>
-
-              <div className="promo-progress" aria-hidden="true">
-                <div className="promo-progress__bar" style={{ width: `${promoProgress}%` }} />
               </div>
             </div>
           </div>
@@ -712,3 +702,4 @@ export default function Home() {
     </main>
   );
 }
+

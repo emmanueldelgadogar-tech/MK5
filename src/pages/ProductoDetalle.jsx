@@ -44,12 +44,12 @@ const REVIEWS_DB = [
 /* ── Vehículos compatibles por medida (mercado mexicano, modelos 2010+) ── */
 const VEHICULOS_POR_MEDIDA = {
   // ── Compactos / subcompactos ──
-  "155/65R14": ["Hyundai Atos 2010-2015", "Kia Picanto 2010-2011"],
-  "155/70R13": ["Chevrolet Spark 2010-2018", "Chevrolet Matiz 2010", "Hyundai Atos", "Kia Picanto 2010"],
-  "165/70R13": ["Chevrolet Spark 2010-2012", "Nissan March 2011"],
+  "155/65R14": ["Hyundai Atos 2010-2015", "Kia Picanto 2011-2017", "Dodge i10 2011-2014", "Suzuki Alto 2010-2013"],
+  "155/70R13": ["Chevrolet Spark 2010-2017", "Chevrolet Matiz 2010-2015", "Hyundai Atos 2010-2015", "Kia Picanto 2010-2011", "Dodge i10 2011-2014"],
+  "165/70R13": ["Chevrolet Spark 2010-2013", "Nissan March 2011-2014", "Suzuki Swift 2010-2014", "Toyota Yaris 2010-2012"],
   "175/65R14": ["Nissan March 2011-2020", "Chevrolet Spark 2013+", "Hyundai Grand i10 2015+", "Kia Picanto 2012-2017", "Toyota Yaris 2011-2014"],
   "175/65R15": ["Toyota Yaris 2015-2020", "Hyundai Grand i10 2018+", "Kia Picanto 2018+", "Ford Figo 2015+"],
-  "175/70R13": ["Nissan Tsuru 2010-2017", "VW Sedan (Vocho)", "Chevrolet Spark 2010"],
+  "175/70R13": ["Nissan Tsuru 2010-2017", "Chevrolet Chevy C2 2010-2012", "Chevrolet Spark 2010-2012", "Dodge Attitude 2010-2014"],
   "185/55R15": ["Ford Fiesta 2013-2018", "Mazda 2 2011-2014", "VW Polo 2010-2017"],
   "185/60R14": ["Chevrolet Aveo 2010-2017", "Kia Rio 2010-2017", "Hyundai Accent 2010-2016", "Nissan Tiida 2010-2015"],
   "185/60R15": ["VW Polo 2012-2019", "Ford Fiesta 2013-2018", "Chevrolet Beat 2018+", "Nissan March 2016+", "Hyundai Grand i10 2015+"],
@@ -62,7 +62,7 @@ const VEHICULOS_POR_MEDIDA = {
     "Ford Fiesta 2014-2018", "Mazda 2 2015+", "VW Gol 2013+",
   ],
   "195/50R15": ["Honda Civic 2010-2015", "Mazda 3 2010-2013"],
-  "195/55R15": ["VW Golf A4 2010-2012", "Mazda 3 2011"],
+  "195/55R15": ["VW Golf A4 2010-2012", "Mazda 3 2010-2013", "Seat Ibiza Sport 2010-2014"],
   "195/55R16": ["VW Golf VII 2013+", "Chevrolet Sonic 2017+", "Mazda 2 2016+"],
   "195/60R15": ["Toyota Yaris 2015-2022", "Nissan Tiida 2014+", "Chevrolet Beat 2018-2023", "Kia Rio 2018+"],
   "195/65R15": [
@@ -88,7 +88,7 @@ const VEHICULOS_POR_MEDIDA = {
     "Hyundai Sonata 2011-2015", "Kia Optima 2011-2015",
     "Ford Fusion 2013-2016", "Chevrolet Malibu 2013-2016", "Mazda 6 2010-2013",
   ],
-  "205/65R15": ["Nissan Sentra B15 2010+", "Toyota Corolla 2010"],
+  "205/65R15": ["Nissan Sentra B15 2010-2012", "Toyota Corolla 2010-2013", "Chevrolet Cruze 2010-2012"],
   "205/65R16": ["Nissan X-Trail 2014-2017", "Hyundai Tucson 2011-2016", "Kia Sportage 2011-2016"],
   "215/45R17": [
     "Honda Civic Si 2012+", "Toyota Corolla SE 2017+",
@@ -269,6 +269,25 @@ import iconLluvia from "../assets/icons/lluvia.png";
 import iconSilencioso from "../assets/icons/manejo_silencioso.png";
 import iconRunFlat from "../assets/icons/run_flat.png";
 import iconAllTerrain from "../assets/icons/all_terrain.png";
+import audiAutoLogo from "../assets/logos-autos/audi.png";
+import bmwAutoLogo from "../assets/logos-autos/bmw.png";
+import chevroletAutoLogo from "../assets/logos-autos/chevrolet.png";
+import dodgeAutoLogo from "../assets/logos-autos/dodge.png";
+import fordAutoLogo from "../assets/logos-autos/ford.png";
+import gmcAutoLogo from "../assets/logos-autos/gmc.png";
+import hondaAutoLogo from "../assets/logos-autos/honda.png";
+import hyundaiAutoLogo from "../assets/logos-autos/hyundai.png";
+import jeepAutoLogo from "../assets/logos-autos/jeep.png";
+import kiaAutoLogo from "../assets/logos-autos/kia.png";
+import mazdaAutoLogo from "../assets/logos-autos/mazda.png";
+import mercedesAutoLogo from "../assets/logos-autos/mercedes.png";
+import mitsubishiAutoLogo from "../assets/logos-autos/mitsubishi.png";
+import nissanAutoLogo from "../assets/logos-autos/nissan.png";
+import peugeotAutoLogo from "../assets/logos-autos/peugeot.png";
+import seatAutoLogo from "../assets/logos-autos/seat.png";
+import suzukiAutoLogo from "../assets/logos-autos/suzuki.png";
+import toyotaAutoLogo from "../assets/logos-autos/toyota.png";
+import volkswagenAutoLogo from "../assets/logos-autos/volkswagen.png";
 import logoContinental from "../assets/logos/continental.png";
 import logoPirelli from "../assets/logos/pirelli.png";
 import logoMichelin from "../assets/logos/michelin.png";
@@ -308,6 +327,7 @@ import {
   estimateListPrice,
   formatMoney,
   getProductTitle,
+  normalizeBrandName,
 } from "../utils/catalogoHelpers";
 import { trackEvent } from "../utils/metrics";
 import GoogleMapsReviewsEmbed from "../components/GoogleMapsReviewsEmbed";
@@ -696,7 +716,13 @@ const BRAND_PROFILES = {
 };
 
 const MEXICO_VEHICLE_OVERRIDES = {
-  "155/70R13": ["Chevrolet Spark", "Chevrolet Matiz", "Hyundai Atos", "Kia Picanto"],
+  "155/70R13": [
+    "Chevrolet Spark 2010-2017",
+    "Chevrolet Matiz 2010-2015",
+    "Hyundai Atos 2010-2015",
+    "Kia Picanto 2010-2011",
+    "Dodge i10 2011-2014",
+  ],
 };
 
 const MEXICO_VEHICLE_ALIASES = {
@@ -727,6 +753,29 @@ const MEXICO_BRAND_PRIORITY = [
 ];
 
 const MEXICO_ALLOWED_BRANDS = new Set(MEXICO_BRAND_PRIORITY);
+
+const VEHICLE_BRAND_LOGOS = {
+  AUDI: audiAutoLogo,
+  BMW: bmwAutoLogo,
+  CHEVROLET: chevroletAutoLogo,
+  DODGE: dodgeAutoLogo,
+  FORD: fordAutoLogo,
+  GMC: gmcAutoLogo,
+  HONDA: hondaAutoLogo,
+  HYUNDAI: hyundaiAutoLogo,
+  JEEP: jeepAutoLogo,
+  KIA: kiaAutoLogo,
+  MAZDA: mazdaAutoLogo,
+  MERCEDES: mercedesAutoLogo,
+  MITSUBISHI: mitsubishiAutoLogo,
+  NISSAN: nissanAutoLogo,
+  PEUGEOT: peugeotAutoLogo,
+  SEAT: seatAutoLogo,
+  SUZUKI: suzukiAutoLogo,
+  TOYOTA: toyotaAutoLogo,
+  VOLKSWAGEN: volkswagenAutoLogo,
+  VW: volkswagenAutoLogo,
+};
 
 function getVerifiedTireSpec(item) {
   const brand = normalizeBrandKey(item?.marca);
@@ -784,8 +833,9 @@ function getVehicleBrandMeta(vehicle) {
   };
   const brandLabel = labelMap[brandKey] || brandKey;
   const model = raw.slice(brandKey.length).trim() || raw;
+  const logo = VEHICLE_BRAND_LOGOS[brandKey] || null;
 
-  return { brandKey, brandLabel, model };
+  return { brandKey, brandLabel, model, logo };
 }
 
 function getMexicoMarketVehicles(medidaKey, vehicles) {
@@ -886,25 +936,25 @@ function getProductDescription(item) {
   const usageSuffix = verifiedSpec?.usageNote ? ` ${verifiedSpec.usageNote}` : "";
 
   if (runFlat)
-    return `${marca} ${modelo} — Tecnología Run Flat: puedes seguir rodando hasta 80 km con llanta desinflada. Ideal para vehículos BMW, Mercedes y autos de lujo sin aro de repuesto.${brandSuffix}`;
+    return `${marca} ${modelo} — Tecnología Run Flat: puedes seguir rodando hasta 80 km con llanta desinflada. Ideal para vehículos BMW, Mercedes y autos de lujo sin aro de repuesto.${usageSuffix}`;
 
   if (extremeMud)
-    return `${marca} ${modelo} en medida ${medida}. Llanta Mud Terrain de máximo agarre en lodo, barro y terrenos extremos. Perfecta para expediciones, 4x4 y uso intensivo off-road.${brandSuffix}`;
+    return `${marca} ${modelo} en medida ${medida}. Llanta Mud Terrain de máximo agarre en lodo, barro y terrenos extremos. Perfecta para expediciones, 4x4 y uso intensivo off-road.${usageSuffix}`;
 
   if (offRoad && isTruck)
-    return `${marca} ${modelo} en medida ${medida}. Llanta All Terrain para camionetas y pickups. Excelente tracción en terracería, grava y caminos rurales, sin sacrificar comodidad en carretera.${brandSuffix}`;
+    return `${marca} ${modelo} en medida ${medida}. Llanta All Terrain para camionetas y pickups. Excelente tracción en terracería, grava y caminos rurales, sin sacrificar comodidad en carretera.${usageSuffix}`;
 
   if (offRoad)
-    return `${marca} ${modelo} en medida ${medida}. Llanta All Terrain para uso mixto ciudad-campo. Banda de rodamiento reforzada para terracería, brechas y carretera con óptimo control en todo terreno.${brandSuffix}`;
+    return `${marca} ${modelo} en medida ${medida}. Llanta All Terrain para uso mixto ciudad-campo. Banda de rodamiento reforzada para terracería, brechas y carretera con óptimo control en todo terreno.${usageSuffix}`;
 
   if (isTruck)
-    return `${marca} ${modelo} en medida ${medida}. Llanta para pickup y camioneta. Diseñada para soportar alta carga, resistir el calor y ofrecer estabilidad a alta velocidad en carretera. Larga vida útil y bajo costo por kilómetro.${brandSuffix}`;
+    return `${marca} ${modelo} en medida ${medida}. Llanta para pickup y camioneta. Diseñada para soportar alta carga, resistir el calor y ofrecer estabilidad a alta velocidad en carretera. Larga vida útil y bajo costo por kilómetro.${usageSuffix}`;
 
   if (isSUV)
-    return `${marca} ${modelo} en medida ${medida}. Llanta para SUV y crossover con excelente agarre en mojado y seco. Cómoda en autopista y confiable en ciudad, con baja resistencia a la rodadura para mejor rendimiento de combustible.${brandSuffix}`;
+    return `${marca} ${modelo} en medida ${medida}. Llanta para SUV y crossover con excelente agarre en mojado y seco. Cómoda en autopista y confiable en ciudad, con baja resistencia a la rodadura para mejor rendimiento de combustible.${usageSuffix}`;
 
   if (isHighPerf)
-    return `${marca} ${modelo} en medida ${medida}. Llanta de alto rendimiento para conducción deportiva. Máxima adherencia en curvas, respuesta precisa a la dirección y frenada corta en seco y mojado.${brandSuffix}`;
+    return `${marca} ${modelo} en medida ${medida}. Llanta de alto rendimiento para conducción deportiva. Máxima adherencia en curvas, respuesta precisa a la dirección y frenada corta en seco y mojado.${usageSuffix}`;
 
   if (brandProfile || verifiedSpec) {
     const parts = [
@@ -1052,7 +1102,8 @@ export default function ProductoDetalle() {
 
   const stock = Math.max(Number(item.stock || 0), 1);
   const oldPrice = estimateListPrice(item.precio);
-  const brandKey = String(item.marca || "").trim().toUpperCase();
+  const canonicalBrand = normalizeBrandName(item.marca);
+  const brandKey = String(canonicalBrand || "").trim().toUpperCase();
   const brandLogo = BRAND_LOGOS[brandKey] || null;
   const mk5Price = Number(item.precio || 0);
   const ahorro = oldPrice - mk5Price;
@@ -1061,7 +1112,7 @@ export default function ProductoDetalle() {
   const verifiedSpec = getVerifiedTireSpec(item);
   const brandProfile = getBrandProfile(item);
 
-  const searchText = `${item.marca || ""} ${item.modelo || ""} ${item.medida || ""}`.trim();
+  const searchText = `${canonicalBrand || ""} ${item.modelo || ""} ${item.medida || ""}`.trim();
   const mlUrl = `https://listado.mercadolibre.com.mx/${encodeURIComponent(searchText)}`;
   const amzUrl = `https://www.amazon.com.mx/s?k=${encodeURIComponent(searchText)}`;
 
@@ -1217,9 +1268,9 @@ export default function ProductoDetalle() {
           <div className="product-brand-row">
             <span className="product-brand-pill">
               {brandLogo ? (
-                <img src={brandLogo} alt={item.marca || "Marca"} />
+                <img src={brandLogo} alt={canonicalBrand || "Marca"} />
               ) : (
-                <span>{item.marca || "Marca"}</span>
+                <span>{canonicalBrand || "Marca"}</span>
               )}
             </span>
             <div className="product-perf-icons product-perf-icons--sm" aria-label="Atributos de desempeño">
@@ -1491,7 +1542,7 @@ export default function ProductoDetalle() {
             <div className="detail-section">
               <h3>Vehiculos compatibles con esta llanta*</h3>
               <p className="vehicle-copy">
-                A continuación se muestra una lista de vehículos compatibles con la medida de llantas {key || item.medida || ""}. Le pueden quedar según el año y versión del vehículo. Sin embargo, la lista no cubre todos los vehículos con los que puede ser compatible esta medida.
+                A continuacion se muestra una lista de vehiculos compatibles con la medida de llantas {key || item.medida || ""}. Le pueden quedar segun el a?o y version del vehiculo. Sin embargo, la lista no cubre todos los vehiculos con los que puede ser compatible esta medida.
               </p>
               {vehiculos.length > 0 ? (
                 <div className="vehicle-links-grid">
@@ -1504,7 +1555,17 @@ export default function ProductoDetalle() {
                         className={`vehicle-link vehicle-link--${vehicleMeta.brandKey.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                       >
                         <span className="vehicle-link__brandmark" aria-hidden="true">
-                          {vehicleMeta.brandLabel}
+                          {vehicleMeta.logo ? (
+                            <img
+                              src={vehicleMeta.logo}
+                              alt=""
+                              className="vehicle-link__brandlogo"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            vehicleMeta.brandLabel
+                          )}
                         </span>
                         <span className="vehicle-link__text">
                           <small>{vehicleMeta.brandLabel}</small>
@@ -1523,7 +1584,7 @@ export default function ProductoDetalle() {
                 <div className="compat-assistant__copy">
                   <span className="compat-assistant__eyebrow">Consulta rapida</span>
                   <h4>Quieres saber si tu auto es compatible con esta llanta?</h4>
-                  <p>Escribe marca, modelo y año y te mando la pregunta lista al asistente IA con la medida {key || item.medida || ""}.</p>
+                  <p>Escribe marca, modelo y a?o y te mando la pregunta lista al asistente IA con la medida {key || item.medida || ""}.</p>
                 </div>
                 <form
                   className="compat-assistant__form"
@@ -1544,7 +1605,7 @@ export default function ProductoDetalle() {
                 </form>
               </div>
               <div className="vehicle-note">
-                <strong>INFORMACION IMPORTANTE:</strong> La medida puede variar dependiendo de la version de su vehiculo, le recomendamos utilizar el manual de propietario o verificar la medida de su llanta fisicamente, ya que no tenemos devoluciones ni cambios por errores de medida.
+                <strong>INFORMACION IMPORTANTE:</strong> La medida puede variar dependiendo de la version de su vehiculo, le recomendamos utilizar el manual del propietario o verificar la medida de su llanta fisicamente, ya que no tenemos devoluciones ni cambios por errores de medida.
               </div>
             </div>
           );

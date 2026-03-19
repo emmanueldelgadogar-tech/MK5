@@ -3,7 +3,7 @@ import "../styles/cuenta.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { API_BASE } from "../config";
-import { readCart, writeCart } from "../utils/catalogoHelpers";
+import { addToCart, estimateListPrice, readCart, writeCart } from "../utils/catalogoHelpers";
 import { trackEvent } from "../utils/metrics";
 
 const SAFE_PAYMENT_HOSTS = new Set([
@@ -60,6 +60,37 @@ function safeQty(v) {
   return Math.max(parseInt(v, 10) || 1, 1);
 }
 
+function safeStock(v) {
+  return Math.max(parseInt(v, 10) || 0, 0);
+}
+
+function clampQtyToStock(qty, stock) {
+  const nextQty = safeQty(qty);
+  const maxStock = safeStock(stock);
+  return maxStock > 0 ? Math.min(nextQty, maxStock) : nextQty;
+}
+
+function getPromoTotals(unitPromoPrice, qty) {
+  const listUnit = estimateListPrice(unitPromoPrice);
+  const safeLineQty = safeQty(qty);
+  const subtotal = listUnit * safeLineQty;
+  let promoTotal = subtotal;
+
+  if (safeLineQty >= 4) {
+    const payUnits = safeLineQty - Math.floor(safeLineQty / 4);
+    promoTotal = listUnit * payUnits;
+  } else {
+    promoTotal = subtotal * 0.75;
+  }
+
+  return {
+    listUnit,
+    subtotal,
+    promoTotal,
+    discount: subtotal - promoTotal,
+  };
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
@@ -102,9 +133,32 @@ export default function Checkout() {
   const [checkoutTracked, setCheckoutTracked] = useState(false);
   const [paymentResult, setPaymentResult] = useState(null);
 
+  /* ── Favoritos ── */
+  const [favProducts, setFavProducts] = useState([]);
+  const [favLoading, setFavLoading] = useState(false);
+
   useEffect(() => {
     setCart(readCart());
     setCartHydrated(true);
+
+    // Cargar favoritos desde localStorage y buscar detalles
+    const skus = (() => {
+      try { return JSON.parse(localStorage.getItem("mk5_favorites") || "[]"); }
+      catch { return []; }
+    })();
+    if (!skus.length) return;
+
+    setFavLoading(true);
+    Promise.all(
+      skus.map((sku) =>
+        fetch(`${API_BASE}/api/catalogo/item?sku=${encodeURIComponent(sku)}`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((d) => d?.item || null)
+          .catch(() => null)
+      )
+    ).then((results) => {
+      setFavProducts(results.filter(Boolean));
+    }).finally(() => setFavLoading(false));
   }, []);
 
   useEffect(() => {
@@ -154,7 +208,21 @@ export default function Checkout() {
       const d   = detailsBySku[row.sku] || null;
       const snap = row?.snapshot || null;
       const unit = Number(d?.precio || snap?.precio || 0);
-      return { ...row, detail: d, snapshot: snap, unit, line: unit * row.qty };
+      const stock = safeStock(d?.stock ?? snap?.stock);
+      const qty = clampQtyToStock(row.qty, stock);
+      const promo = getPromoTotals(unit, qty);
+      return {
+        ...row,
+        qty,
+        detail: d,
+        snapshot: snap,
+        unit,
+        stock,
+        listUnit: promo.listUnit,
+        line: promo.subtotal,
+        promoTotal: promo.promoTotal,
+        discount: promo.discount,
+      };
     });
   }, [cart, detailsBySku]);
 
@@ -205,29 +273,22 @@ export default function Checkout() {
   const subtotal = useMemo(() => lines.reduce((s, l) => s + l.line, 0), [lines]);
   
   const estimatedDiscount = useMemo(() => {
-    let totalDiscount = 0;
-    for (const l of lines) {
-      if (l.qty >= 4) {
-        // 4x3 Promo (pay for 3 out of every 4)
-        const payUnits = l.qty - Math.floor(l.qty / 4);
-        const normalSubtotal = l.unit * l.qty;
-        const promoSubtotal = l.unit * payUnits;
-        totalDiscount += (normalSubtotal - promoSubtotal);
-      } else if (l.qty >= 1 && l.qty <= 3) {
-        // 25% Promo for 1 to 3 tires
-        const normalSubtotal = l.unit * l.qty;
-        totalDiscount += normalSubtotal * 0.25;
-      }
-    }
-    return totalDiscount;
+    return lines.reduce((totalDiscount, l) => totalDiscount + l.discount, 0);
   }, [lines]);
 
   const estimatedShipping = 0; // Ready for dynamic updates based on zip
   const estimatedTotal   = subtotal - estimatedDiscount + estimatedShipping;
-  const envioGratis      = ESTADOS_ENVIO_GRATIS.has(shipping.state);
+  const envioGratis      = true;
 
   function updateQty(sku, qty) {
-    setCart((prev) => prev.map((x) => (x.sku === sku ? { ...x, qty: safeQty(qty) } : x)));
+    setCart((prev) =>
+      prev.map((x) => {
+        if (x.sku !== sku) return x;
+        const detail = detailsBySku[sku] || null;
+        const stock = safeStock(detail?.stock ?? x?.snapshot?.stock);
+        return { ...x, qty: clampQtyToStock(qty, stock) };
+      })
+    );
   }
   function removeSku(sku) {
     setCart((prev) => prev.filter((x) => x.sku !== sku));
@@ -249,11 +310,23 @@ export default function Checkout() {
         return;
       }
       setDetailsBySku((prev) => ({ ...prev, [sku]: exact }));
+      const nextQty = clampQtyToStock(qty, exact?.stock);
+      const snapshot = {
+        precio: Number(exact?.precio || 0),
+        medida: exact?.medida || "",
+        marca: exact?.marca || "",
+        modelo: exact?.modelo || "",
+        stock: safeStock(exact?.stock),
+      };
       setCart((prev) => {
         const i = prev.findIndex((x) => x.sku === sku);
-        if (i === -1) return [...prev, { sku, qty }];
+        if (i === -1) return [...prev, { sku, qty: nextQty, snapshot }];
         const next = [...prev];
-        next[i] = { ...next[i], qty: next[i].qty + qty };
+        next[i] = {
+          ...next[i],
+          qty: clampQtyToStock((next[i].qty || 0) + nextQty, exact?.stock),
+          snapshot: next[i]?.snapshot || snapshot,
+        };
         return next;
       });
       setSkuInput("");
@@ -332,7 +405,7 @@ export default function Checkout() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: cart.map((x) => ({ sku: x.sku, qty: x.qty })),
+          items: lines.map((x) => ({ sku: x.sku, qty: x.qty })),
           customer: {
             ...customer,
             create_account: createAccount,
@@ -355,7 +428,7 @@ export default function Checkout() {
       }
       trackEvent("purchase", {
         amount: Number(data.order?.total || 0),
-        qty: cart.reduce((acc, row) => acc + (parseInt(row?.qty, 10) || 0), 0),
+        qty: lines.reduce((acc, row) => acc + (parseInt(row?.qty, 10) || 0), 0),
         source: "checkout",
       });
       setCart([]);
@@ -427,7 +500,7 @@ export default function Checkout() {
                         <p>Medida: {line.detail?.medida || line.snapshot?.medida || "—"}</p>
                       </div>
                       <div className="checkout-item__actions">
-                        <input type="number" min="1" value={line.qty}
+                        <input type="number" min="1" max={line.stock || undefined} value={line.qty}
                           onChange={(e) => updateQty(line.sku, e.target.value)} />
                         <span>{money(line.line)}</span>
                         <button type="button" onClick={() => removeSku(line.sku)}>Quitar</button>
@@ -465,7 +538,7 @@ export default function Checkout() {
                 <b>{money(estimatedTotal)}</b>
               </div>
 
-              <div className="checkout-coupon-box">
+              <div className="checkout-coupon-box is-disabled">
                 <input type="text" placeholder="Código de cupón" />
                 <button type="button" className="btn-secondary">Aplicar</button>
               </div>
@@ -481,6 +554,51 @@ export default function Checkout() {
               </button>
             </aside>
           </div>
+        )}
+
+        {/* ── Favoritos ── */}
+        {step === "carrito" && (favLoading || favProducts.length > 0) && (
+          <section className="checkout-favorites">
+            <h3 className="checkout-favorites__title">♥ Tus favoritos</h3>
+            {favLoading ? (
+              <p className="checkout-favorites__loading">Cargando favoritos...</p>
+            ) : (
+              <div className="checkout-favorites__grid">
+                {favProducts.map((p) => {
+                  const sku = String(p.sku || "").trim();
+                  const price = Number(p.precio || 0);
+                  return (
+                    <div key={sku} className="fav-card">
+                      <img
+                        className="fav-card__img"
+                        src={p.imagen || ""}
+                        alt={`${p.marca || ""} ${p.modelo || ""}`}
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
+                      <div className="fav-card__body">
+                        <p className="fav-card__brand">{p.marca}</p>
+                        <p className="fav-card__model">{p.modelo}</p>
+                        <p className="fav-card__size">{p.medida}</p>
+                        <strong className="fav-card__price">
+                          {price.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 2 })}
+                        </strong>
+                      </div>
+                      <button
+                        type="button"
+                        className="fav-card__add"
+                        onClick={() => {
+                          addToCart(p, 1);
+                          setCart(readCart());
+                        }}
+                      >
+                        + Agregar al carrito
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
 
         {/* ── PASO 2: DATOS Y PAGO ── */}
@@ -640,7 +758,7 @@ export default function Checkout() {
                           ? `${line.snapshot.marca} ${line.snapshot.modelo}`.trim() || line.sku
                           : line.sku}
                     </span>
-                    <b>{money(line.line)}</b>
+                    <b>{money(line.promoTotal)}</b>
                   </li>
                 ))}
               </ul>

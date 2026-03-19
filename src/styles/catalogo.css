@@ -133,12 +133,24 @@
   flex-shrink: 0;
 }
 .fchk__logo{
-  height: 22px;
-  width: auto;
-  max-width: 52px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   flex-shrink: 0;
   display: block;
+  padding: 3px 6px;
+}
+.fchk__logoWrap{
+  width: 96px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 8px;
+  overflow: hidden;
 }
 .fchk__dot{
   width: 8px;
@@ -147,7 +159,7 @@
   background: #d1d5db;
   flex-shrink: 0;
 }
-.fchk span{
+.fchk__brand{
   font-size: 13px;
   color:#111;
   flex: 1;
@@ -156,35 +168,49 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.fchk--with-logo{
+  justify-content: flex-start;
+}
+.fchk--with-logo .fchk__logoWrap{
+  width: 96px;
+  height: 34px;
+}
+.fchk--with-logo .fchk__brand{
+  display: none;
+}
 
 /* Pills para Ancho / Alto / Rin */
 .fpills{
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   padding: 4px 0 2px;
 }
 .fpill{
-  padding: 5px 11px;
-  border-radius: 999px;
-  border: 1.5px solid #e5e7eb;
-  background: #f8f9fa;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #d1d5db;
+  background: #fff;
   color: #374151;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 800;
+  letter-spacing: .3px;
   cursor: pointer;
-  transition: all .12s ease;
+  transition: all .15s ease;
   line-height: 1;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
 .fpill:hover{
   border-color: #ff5b00;
   color: #ff5b00;
-  background: rgba(255,91,0,.06);
+  background: rgba(255,91,0,.05);
+  box-shadow: 0 2px 6px rgba(255,91,0,.15);
 }
 .fpill.is-active{
   background: #ff5b00;
   border-color: #ff5b00;
   color: #fff;
+  box-shadow: 0 2px 8px rgba(255,91,0,.35);
 }
 
 /* Chips de filtros activos (encima del grid) */
@@ -257,9 +283,30 @@
 .catalogHead{
   display:flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+}
+.catalogHead small{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255,91,0,.1);
+  color: #d44600;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .4px;
+  white-space: nowrap;
+}
+.catalogHead small::before{
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff5b00;
 }
 .catalogError{ color: crimson; }
 
@@ -303,41 +350,53 @@
   margin: -10px -10px 8px;
   padding: 8px 10px;
 }
-
-.card-tags{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.card-tag{
+.product-discount-ribbon{
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
+  justify-content: center;
+  background: linear-gradient(135deg, #ff234c, #ff6a00);
+  color: #fff;
   font-weight: 900;
-  line-height: 1;
+  font-size: 12px;
+  letter-spacing: .2px;
+  border-radius: 999px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 18px rgba(255, 71, 71, .22);
 }
 
-.card-tag img{
-  width: 14px;
-  height: 14px;
+/* ── Iconos de desempeño en tarjeta ── */
+.card-perf-icons{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.card-perf-icons img{
+  width: 28px;
+  height: 28px;
   object-fit: contain;
   display: block;
 }
 
-.card-tag--runflat{
-  background: #0b0b0b;
-  color: #fff;
+/* ── Iconos pequeños en product-summary (detalle) ── */
+.product-brand-row{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
 }
-
-.card-tag--dry{
-  background: #f3f4f6;
-  color: #111;
-  border: 1px solid #e5e7eb;
+.product-perf-icons--sm{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 0;
+}
+.perf-icon-item--sm img{
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
 }
 
 .card-image{
@@ -822,7 +881,8 @@
   margin-bottom: 8px;
 }
 .product-brand-pill img{
-  max-height: 20px;
+  max-height: 28px;
+  max-width: 100px;
   width: auto;
   object-fit: contain;
   display:block;
@@ -858,6 +918,19 @@
 .product-price span{
   font-weight: 800;
   font-size: 14px;
+}
+.product-price-legend{
+  margin: -2px 0 12px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+.card-price-note{
+  margin: -6px 0 10px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 .product-benefits{
   display:grid;
@@ -944,6 +1017,59 @@
   font-size: 22px;
   color: #b90f11;
 }
+.side-card--inventory{
+  padding: 14px;
+  border: 1px solid rgba(249, 115, 22, .18);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(253, 186, 116, .28), transparent 36%),
+    linear-gradient(180deg, #fff 0%, #fff7ed 100%);
+}
+.side-card__top{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.side-card__eyebrow,
+.side-card__status{
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.side-card__eyebrow{
+  background: #111827;
+  color: #fff;
+}
+.side-card__status{
+  background: #dcfce7;
+  color: #166534;
+}
+.side-card__bars{
+  margin: 10px 0;
+}
+.side-card__meta{
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.side-card__meta span{
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.75);
+  font-size: 12px;
+  font-weight: 800;
+  color: #374151;
+}
 
 /* ============================================
    DETAIL-BOTTOM — tarjeta unificada
@@ -967,88 +1093,359 @@
   color: #111;
 }
 
+.product-story-card{
+  margin-top: 16px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid #ff5b00;
+}
+.product-story-card__chips{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.product-story-card__chips span{
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #111827;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+}
+.product-story-card p{
+  margin: 0;
+  color: #374151;
+  line-height: 1.6;
+  font-size: 13.5px;
+}
+.product-story-card p + p{
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e5e7eb;
+}
+
 /* ---- Similar products mini-grid ---- */
+.similar-head{
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.similar-head h3{
+  margin: 0;
+}
+.similar-head p{
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
 .similares-grid{
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 14px;
 }
 .similar-card{
   display: flex;
   flex-direction: column;
-  background: #f8f9fa;
+  background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: 18px;
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  transition: transform .15s, box-shadow .15s;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, .06);
+  transition: transform .18s, box-shadow .18s, border-color .18s;
 }
 .similar-card:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,.1);
+  transform: translateY(-4px);
+  box-shadow: 0 18px 32px rgba(15, 23, 42, .14);
+  border-color: rgba(249, 115, 22, .4);
+}
+.similar-card__badges{
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 12px 0;
+}
+.similar-card__badge{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.similar-card__badge--offer{
+  background: #84cc16;
+  color: #fff;
+}
+.similar-card__badge--stock{
+  background: #ecfccb;
+  color: #3f6212;
+}
+.similar-card__media{
+  padding: 12px 12px 0;
+  background:
+    radial-gradient(circle at top, rgba(255, 237, 213, .9), transparent 58%),
+    linear-gradient(180deg, #fff 0%, #fffaf5 100%);
+}
+.similar-card__logo{
+  width: auto;
+  max-width: 120px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+  margin-bottom: 8px;
 }
 .similar-card__img{
   width: 100%;
-  height: 100px;
+  height: 170px;
   object-fit: contain;
-  background: #fff;
-  padding: 8px;
+  display: block;
 }
 .similar-card__body{
-  padding: 8px 10px;
+  padding: 14px 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
 }
 .similar-card__brand{
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
   color: #6b7280;
   text-transform: uppercase;
 }
 .similar-card__model{
   margin: 0;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 900;
   color: #111;
   line-height: 1.2;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+  min-height: 60px;
 }
 .similar-card__size{
   margin: 0;
-  font-size: 12px;
-  color: #555;
-  font-weight: 700;
+  font-size: 14px;
+  color: #f97316;
+  font-weight: 900;
 }
 .similar-card__price{
-  font-size: 16px;
+  font-size: 24px;
   font-weight: 950;
   color: #ff5b00;
   margin-top: 2px;
 }
-
-/* ---- Vehicle compatibility chips ---- */
-.vehicles-grid{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.vehicle-chip{
+.similar-card__cta{
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 6px 12px;
+  justify-content: center;
+  margin-top: 4px;
+  min-height: 40px;
+  border-radius: 12px;
+  background: #111827;
+  color: #fff;
   font-size: 13px;
-  font-weight: 700;
-  color: #111;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* ---- Vehicle compatibility chips ---- */
+.vehicle-copy{
+  margin: 0 0 18px;
+  color: #1d4ed8;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.vehicle-links-grid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+.vehicle-link{
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 86px;
+  padding: 10px 12px;
+  text-decoration: none;
+  color: #1d4ed8;
+  font-weight: 900;
+  font-size: 14px;
+  text-transform: uppercase;
+  border-radius: 14px;
+  border: 1px solid #dbeafe;
+  background: #fff;
+  transition: color .15s ease, background .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.vehicle-link:hover{
+  background: #eff6ff;
+  color: #1e3a8a;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(30, 64, 175, .08);
+}
+.vehicle-link__brandmark{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 56px;
+  border-radius: 18px;
+  background: #fff;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+.vehicle-link__brandlogo{
+  width: 78px;
+  height: 34px;
+  object-fit: contain;
+  object-position: center;
+}
+.vehicle-link__text{
+  display: grid;
+  gap: 4px;
+}
+.vehicle-link__text small{
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.vehicle-link__text strong{
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.1;
+}
+.vehicle-link--ford .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--nissan .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--vw .vehicle-link__brandmark,
+.vehicle-link--volkswagen .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--seat .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--renault .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--fiat .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--toyota .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--honda .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--chevrolet .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-link--mazda .vehicle-link__brandmark,
+.vehicle-link--bmw .vehicle-link__brandmark,
+.vehicle-link--audi .vehicle-link__brandmark,
+.vehicle-link--ram .vehicle-link__brandmark,
+.vehicle-link--gmc .vehicle-link__brandmark,
+.vehicle-link--jeep .vehicle-link__brandmark{
+  background: #fff;
+}
+.vehicle-note{
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.vehicle-note strong{
+  color: #1e3a8a;
+}
+.compat-assistant{
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+  gap: 16px;
+  align-items: center;
+  margin-top: 22px;
+  padding: 18px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(253, 186, 116, .28), transparent 34%),
+    linear-gradient(135deg, #111827 0%, #1f2937 100%);
+  color: #fff;
+}
+.compat-assistant__eyebrow{
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.compat-assistant__copy h4{
+  margin: 10px 0 8px;
+  font-size: 24px;
+  line-height: 1.15;
+}
+.compat-assistant__copy p{
+  margin: 0;
+  color: rgba(255,255,255,.82);
+  line-height: 1.5;
+}
+.compat-assistant__form{
+  display: grid;
+  gap: 10px;
+}
+.compat-assistant__form input{
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 14px;
+  font-size: 15px;
+  color: #111827;
+}
+.compat-assistant__form button{
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: #f97316;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.compat-assistant__form button:hover{
+  filter: brightness(.97);
 }
 
 /* ============================================
@@ -1144,9 +1541,246 @@
   margin-top: 2px;
 }
 
+/* ── Iconos de desempeño ── */
+.product-perf-icons{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.perf-icon-item{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+}
+.perf-icon-item img{
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+.perf-icon-item span{
+  font-size: 11px;
+  font-weight: 700;
+  color: #4b5563;
+  max-width: 60px;
+  line-height: 1.2;
+}
+
+/* ── Botón favoritos ── */
+.product-title-row{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.product-title-row h1{
+  flex: 1;
+  margin: 0;
+}
+.btn-favorite{
+  flex-shrink: 0;
+  background: none;
+  border: 2px solid #e5e7eb;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: #d1d5db;
+  transition: color .2s, border-color .2s, transform .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+}
+.btn-favorite:hover{ color: #ef4444; border-color: #ef4444; transform: scale(1.1); }
+.btn-favorite.is-fav{ color: #ef4444; border-color: #ef4444; }
+
+/* ── Escribir reseña ── */
+.write-review{
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid #e5e7eb;
+}
+.write-review h4{
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #111;
+}
+.review-sent-msg{
+  background: #dcfce7;
+  color: #15803d;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.write-review__form{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.write-review__stars{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.write-review__star{
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #d1d5db;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color .15s, transform .1s;
+}
+.write-review__star.active{ color: #f59e0b; }
+.write-review__star:hover{ transform: scale(1.2); }
+.write-review__rating-label{
+  font-size: 13px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-left: 6px;
+}
+.write-review__input,
+.write-review__textarea{
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #111;
+  outline: none;
+  transition: border-color .2s;
+  resize: vertical;
+}
+.write-review__input:focus,
+.write-review__textarea:focus{
+  border-color: #e85d04;
+}
+.write-review__submit{
+  align-self: flex-start;
+  padding: 10px 24px;
+  font-size: 14px;
+}
+.write-review__submit:disabled{
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* ── Google Reviews section ── */
+.google-reviews-section{ background: #fafafa; }
+.google-reviews-head{
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.google-logo{
+  height: 38px;
+  width: auto;
+}
+.google-reviews-rating{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.google-reviews-avg{
+  font-size: 28px;
+  font-weight: 950;
+  color: #111;
+  line-height: 1;
+}
+.google-reviews-stars span{
+  font-size: 20px;
+  color: #f59e0b;
+}
+.google-reviews-count{
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 700;
+}
+.google-reviews-list{
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.google-review-card{
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.google-review-card__top{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.google-review-avatar{
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 900;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.google-review-author{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #111;
+}
+.google-review-date{
+  margin: 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+.google-review-stars{ display: flex; gap: 1px; }
+.google-review-text{
+  margin: 0;
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
 @media (max-width: 700px){
-  .reviews-list{
+  .reviews-list,
+  .google-reviews-list{
     grid-template-columns: 1fr;
+  }
+  .vehicle-links-grid{
+    grid-template-columns: 1fr;
+  }
+  .vehicle-link{
+    grid-template-columns: 76px 1fr;
+    min-height: 78px;
+  }
+  .vehicle-link__brandmark{
+    width: 76px;
+    height: 56px;
+    font-size: 15px;
+  }
+  .vehicle-link__text strong{
+    font-size: 16px;
+  }
+  .compat-assistant{
+    grid-template-columns: 1fr;
+  }
+  .compat-assistant__copy h4{
+    font-size: 20px;
   }
 }
 
@@ -1156,6 +1790,16 @@
   }
   .detail-section{
     padding: 16px 14px;
+  }
+  .similar-card__img{
+    height: 140px;
+  }
+  .similar-card__model{
+    font-size: 15px;
+    min-height: 54px;
+  }
+  .similar-card__price{
+    font-size: 20px;
   }
 }
 
@@ -1215,6 +1859,12 @@
 .spec-row b{
   font-size: 17px;
 }
+.spec-source-note{
+  display: block;
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 12px;
+}
 
 .spec-grid{
   display:grid;
@@ -1252,15 +1902,14 @@
   font-weight: 800;
 }
 .market-logo{
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .3px;
+  font-size: 0;
+  overflow: hidden;
 }
 .market-logo.ml{
   background: #ffe500;
