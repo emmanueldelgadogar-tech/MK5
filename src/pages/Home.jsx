@@ -70,6 +70,7 @@ import promoHeaderJK from "../assets/promos header/promo-jk-mar-2026.jpg";
 import promoHeaderVinmax from "../assets/promos header/promo-vinmax-mar-2026.jpg";
 import promoHeaderKumho from "../assets/promos header/promo-kumho-mar-2026.jpg";
 import promoHeaderLaufenn from "../assets/promos header/promo-laufenn-mar-2026.jpg";
+import promo4x3 from "../assets/promos header/promo-4x3-mar-2026.jpg";
 
 import AsistenteMK5 from "../components/AsistenteMK5";
 import GoogleMapsReviewsEmbed from "../components/GoogleMapsReviewsEmbed";
@@ -139,7 +140,7 @@ const PODIOS_DESTACADOS = [
 
 const PROMOS_MENSUALES = [
   { id: "goodyear", name: "Goodyear", img: promoMensualGoodyear, to: "/catalogo/goodyear" },
-  { id: "jk", name: "JK", img: promoMensualJK, to: "/catalogo/jk" },
+  { id: "jk", name: "JK", img: promoMensualJK, to: "/catalogo/tornel" },
   { id: "bridgestone-promo", name: "Bridgestone", img: promoMensualBridgestone, to: "/catalogo/bridgestone" },
   { id: "maxtrek", name: "Maxtrek", img: promoMensualMaxtrek, to: "/catalogo/maxtrek" },
   { id: "minnell", name: "Minnell", img: promoMensualMinnell, to: "/catalogo/minnell" },
@@ -400,16 +401,18 @@ export default function Home() {
 
   const PODIUM_DURATION = 4200;
   const [promoIndex, setPromoIndex] = useState(0);
+  const [promoHovered, setPromoHovered] = useState(false);
   const [podiumIndex, setPodiumIndex] = useState(0);
   const [podiumVisibleCount, setPodiumVisibleCount] = useState(5);
 
   const promos = useMemo(
     () => [
-      { id: "antares", src: promoHeaderAntares, alt: "Promo Antares", to: "/catalogo/antares" },
-      { id: "jk",      src: promoHeaderJK,      alt: "Promo JK Tyre", to: "/catalogo/jk" },
-      { id: "vinmax",  src: promoHeaderVinmax,  alt: "Promo Vinmax",  to: "/catalogo/vinmax" },
-      { id: "kumho",   src: promoHeaderKumho,   alt: "Promo Kumho",   to: "/catalogo/kumho" },
-      { id: "laufenn", src: promoHeaderLaufenn, alt: "Promo Laufenn", to: "/catalogo/laufenn" },
+      { id: "4x3",     src: promo4x3,           alt: "Promo 4x3 + Envío Gratis", to: "/catalogo" },
+      { id: "antares", src: promoHeaderVinmax,  alt: "Promo Antares",  to: "/catalogo/antares" },
+      { id: "jk",      src: promoHeaderLaufenn,  alt: "Promo JK Tyre",  to: "/catalogo/tornel" },
+      { id: "vinmax",  src: promoHeaderKumho,   alt: "Promo Vinmax",   to: "/catalogo/vinmax" },
+      { id: "kumho",   src: promoHeaderJK,      alt: "Promo Kumho",    to: "/catalogo/kumho" },
+      { id: "laufenn", src: promoHeaderAntares, alt: "Promo Laufenn",  to: "/catalogo/laufenn" },
     ],
     []
   );
@@ -441,13 +444,14 @@ export default function Home() {
     return () => window.removeEventListener("resize", updateVisible);
   }, []);
 
-  // Auto-avance carrusel header cada 5s
+  // Auto-avance carrusel header cada 5s (pausa si hover)
   useEffect(() => {
+    if (promoHovered) return;
     const tick = setInterval(() => {
       setPromoIndex(i => (i + 1) % promos.length);
     }, 5000);
     return () => clearInterval(tick);
-  }, [promos.length]);
+  }, [promos.length, promoHovered]);
 
   // Auto-avance carousel llantas más compradas cada 8s
   useEffect(() => {
@@ -526,31 +530,55 @@ export default function Home() {
           </div>
 
           <div className="home-right">
-            <div className="promo-card">
-              <div className="promo-viewport" aria-label="Promociones destacadas">
-                <Link
-                  to={promos[promoIndex].to}
-                  className="promo-slide"
-                  aria-label={promos[promoIndex].alt}
-                >
-                  <img
-                    src={promos[promoIndex].src}
-                    className="promo-main is-cover"
-                    alt={promos[promoIndex].alt}
-                    loading="eager"
-                    decoding="async"
-                  />
-                </Link>
+            <div
+              style={{ height: "100%", display: "flex", flexDirection: "column", background: "#fff" }}
+              onMouseEnter={() => setPromoHovered(true)}
+              onMouseLeave={() => setPromoHovered(false)}
+            >
+              <div style={{ position: "relative", flex: "1 1 auto", overflow: "hidden" }}>
+                {promos.map((p, idx) => {
+                  const isActive = idx === promoIndex;
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => navigate(p.to)}
+                      style={{
+                        position: idx === 0 ? "relative" : "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: idx === 0 ? "auto" : "100%",
+                        visibility: isActive ? "visible" : "hidden",
+                        pointerEvents: isActive ? "auto" : "none",
+                        zIndex: isActive ? 2 : 1,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <img
+                        src={p.src}
+                        alt={p.alt}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      />
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="promo-dots">
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "10px 0" }}>
                 {promos.map((p, idx) => (
                   <button
                     key={p.id}
                     type="button"
-                    className={`dot ${idx === promoIndex ? "is-active" : ""}`}
                     onClick={() => setPromoIndex(idx)}
                     aria-label={`Ver ${p.alt}`}
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 999,
+                      border: 0,
+                      cursor: "pointer",
+                      background: idx === promoIndex ? "#111" : "#ddd",
+                    }}
                   />
                 ))}
               </div>

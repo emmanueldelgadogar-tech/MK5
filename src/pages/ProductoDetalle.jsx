@@ -238,6 +238,22 @@ const VEHICULOS_POR_MEDIDA = {
   "275/65R18": ["Ford F-250 2011+", "RAM 2500 2011+", "Toyota Tundra Platinum 2014+", "Chevrolet Silverado HD 2015+"],
   "285/50R20": ["Ford F-150 Raptor 2017+", "RAM 1500 TRX 2021+", "GMC Sierra AT4 2019+"],
   "285/65R18": ["Ford F-250 2011+", "RAM 2500 2011+", "Chevrolet Silverado HD 2015+", "Nissan Titan XD 2016+"],
+  // ── Medidas adicionales populares México 2017+ ──
+  "185/55R16": ["VW Polo 2018+", "Seat Ibiza 2018+", "Kia Rio 2018+"],
+  "195/50R16": ["VW Polo GTI 2018+", "Seat Ibiza FR 2018+", "Honda Fit 2018-2020"],
+  "205/50R16": ["VW Jetta 2019+", "Nissan Sentra 2017-2019", "Chevrolet Cruze 2017+"],
+  "215/45R18": ["Mazda 3 2019+", "Honda Civic Si 2017+", "Hyundai Elantra N 2022+"],
+  "215/55R16": ["Nissan Sentra 2020+", "VW Jetta 2019+", "Chevrolet Cavalier 2018+", "MG 5 2021+"],
+  "215/60R17": ["Kia Seltos 2020+", "Hyundai Creta 2022+", "MG ZS 2019+", "Toyota Sienna 2017+"],
+  "225/40R18": ["Honda Civic Turbo 2017+", "VW Golf GTI 2018+", "Mazda 3 Turbo 2021+"],
+  "225/55R19": ["Toyota RAV4 2019+", "Hyundai Tucson 2022+", "Kia Sportage 2022+", "Mazda CX-50 2023+"],
+  "235/45R18": ["Mazda CX-30 2020+", "Honda CR-V 2023+", "Toyota Corolla Cross 2022+"],
+  "235/50R19": ["Ford Edge 2019+", "Chevrolet Blazer 2019+", "Jeep Cherokee 2019+"],
+  "245/40R18": ["Ford Mustang 2018+", "VW Jetta GLI 2019+", "Nissan Altima SR 2019+"],
+  "245/45R19": ["Ford Mustang 2018+", "Mazda 6 Turbo 2018+"],
+  "255/50R19": ["Chevrolet Blazer 2019+", "Ford Edge ST 2019+", "Jeep Grand Cherokee 2022+"],
+  "255/55R20": ["Chevrolet Tahoe 2021+", "GMC Yukon 2021+", "Ford Expedition 2018+"],
+  "265/60R20": ["RAM 1500 2019+", "Chevrolet Tahoe 2021+", "Ford Expedition 2018+"],
   "285/70R17": [
     "Ford F-250 2011+", "RAM 2500 2011+", "Toyota Tundra 2010+",
     "Nissan Titan 2010+", "Jeep Gladiator 2020+", "Chevrolet Silverado HD 2015+",
@@ -316,6 +332,9 @@ import logoLinglong from "../assets/logos/linglone.png";
 import logoMinnel from "../assets/logos/minnell.png";
 import logoMickey from "../assets/logos/mickeytomson.png";
 import logoMK5mini from "../assets/logos/mini-logo.png";
+import logoMLCompare from "../assets/logos/mercadolibre.jpg";
+import logoAMZCompare from "../assets/logos/amazon.jpg";
+import logoMK5Compare from "../assets/logos/mk5-compare.jpg";
 import logoMileking from "../assets/logos/mileking.png";
 import logoSumaxx from "../assets/logos/sumaxx.png";
 import logoAccelera from "../assets/logos/accelera.png";
@@ -1623,20 +1642,13 @@ export default function ProductoDetalle() {
                 <div className={`compare-row ${isMk5 ? "is-mk5" : ""}`} key={row.canal}>
                   <div className={`market-logo ${row.logo.toLowerCase()}`}>
                     {row.logo === "ML" && (
-                      <svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="40" height="40" rx="8" fill="#ffe600"/>
-                        <text x="20" y="26" textAnchor="middle" fontWeight="900" fontSize="14" fontFamily="Arial" fill="#2968c8">ML</text>
-                      </svg>
+                      <img src={logoMLCompare} alt="Mercado Libre" style={{width:36,height:36,objectFit:"contain",borderRadius:8}} />
                     )}
                     {row.logo === "AMZ" && (
-                      <svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="40" height="40" rx="8" fill="#fff"/>
-                        <text x="20" y="22" textAnchor="middle" fontWeight="900" fontSize="18" fontFamily="Arial" fill="#111">a</text>
-                        <path d="M10 29 Q20 34 30 29" stroke="#f59e0b" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-                      </svg>
+                      <img src={logoAMZCompare} alt="Amazon" style={{width:36,height:36,objectFit:"contain",borderRadius:8}} />
                     )}
                     {row.logo === "MK5" && (
-                      <img src={logoMK5mini} alt="MK5" style={{width:30,height:30,objectFit:"contain",filter:"brightness(0) invert(1)"}} />
+                      <img src={logoMK5Compare} alt="MK5" style={{width:36,height:36,objectFit:"cover",borderRadius:8}} />
                     )}
                   </div>
                   <span>{row.canal}</span>

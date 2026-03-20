@@ -1,5 +1,5 @@
 /* Botón flotante de WhatsApp — visible en todas las páginas */
-const WA_NUMBER = "525512345678"; // ← Cambia este número
+const WA_NUMBER = "527291136254";
 const WA_MSG = "Hola, me interesa información sobre llantas";
 
 export default function WhatsAppButton() {

@@ -129,7 +129,7 @@ export default function MetodosPago() {
           <p>Escríbenos por WhatsApp y te ayudamos en minutos.</p>
         </div>
         <a
-          href="https://wa.me/525512345678"
+          href="https://wa.me/527291136254?text=Hola%2C%20tengo%20una%20duda%20sobre%20m%C3%A9todos%20de%20pago"
           target="_blank"
           rel="noreferrer"
           className="cta-band__btn"

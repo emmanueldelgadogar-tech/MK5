@@ -28,8 +28,8 @@ const SECCIONES = [
   {
     titulo: "4. Envíos y entregas",
     contenido: [
-      "Los envíos se realizan a toda la República Mexicana. El tiempo estimado de entrega es de 2 a 5 días hábiles dependiendo de la ubicación.",
-      "El envío a domicilio es gratuito en pedidos de más de $1,500 MXN. Para pedidos menores, se aplicará una cuota de envío que se mostrará en el proceso de pago.",
+      "Los envíos se realizan a toda la República Mexicana. El tiempo estimado de entrega es de 48 a 72 horas hábiles dependiendo de la ubicación.",
+      "El envío a domicilio es gratuito en la mayoría de los estados. Para Baja California, Baja California Sur y Campeche se aplica un costo de envío de $150 MXN.",
       "MK5 Llantas no es responsable por retrasos causados por la paquetería, fenómenos naturales o circunstancias ajenas a nuestro control.",
     ],
   },
@@ -71,7 +71,7 @@ const SECCIONES = [
   {
     titulo: "10. Ley aplicable y jurisdicción",
     contenido: [
-      "Estos Términos y Condiciones se rigen por las leyes de los Estados Unidos Mexicanos. Cualquier controversia será sometida a los tribunales competentes de la Ciudad de México, renunciando las partes a cualquier otro fuero que pudiera corresponderles.",
+      "Estos Términos y Condiciones se rigen por las leyes de los Estados Unidos Mexicanos. Cualquier controversia será sometida a los tribunales competentes de Toluca, Estado de México, renunciando las partes a cualquier otro fuero que pudiera corresponderles.",
     ],
   },
 ];
@@ -104,15 +104,15 @@ export default function Terminos() {
         </p>
         <div className="info-row">
           <span className="info-row__icon">📧</span>
-          <span>legal@mk5llantas.com</span>
+          <span>ventas@mk5.mx</span>
         </div>
         <div className="info-row">
           <span className="info-row__icon">💬</span>
-          <span>WhatsApp: +52 55 1234 5678</span>
+          <span>WhatsApp: +52 729 113 6254</span>
         </div>
         <div className="info-row">
           <span className="info-row__icon">📍</span>
-          <span>Ciudad de México, México</span>
+          <span>Toluca, Estado de México</span>
         </div>
       </div>
     </main>

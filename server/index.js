@@ -593,7 +593,9 @@ app.get("/api/checkout/payment-methods", (req, res) => {
   });
 });
 
-app.post("/api/payments/mercadopago/webhook", async (req, res) => {
+// Accept both GET (IPN) and POST (Webhooks) from Mercado Pago
+app.all("/api/payments/mercadopago/webhook", async (req, res) => {
+  if (req.method !== "GET" && req.method !== "POST") return res.status(405).end();
   try {
     const topic =
       String(req.query.type || req.query.topic || req.body?.type || req.body?.topic || "").toLowerCase();
@@ -1113,7 +1115,7 @@ async function createMercadoPagoPreference({ order, lines, customer, shipping })
     description: `SKU ${l.sku}`,
     quantity: Number(l.qty),
     currency_id: "MXN",
-    unit_price: Number(l.unit_price),
+    unit_price: round2(Number(l.line_total) / Number(l.qty)),
   }));
 
   const body = {
@@ -1487,8 +1489,10 @@ app.post("/api/checkout/create", async (req, res) => {
     const totalLines = round2(lines.reduce((s, l) => s + l.line_total, 0));
     const discount = round2(subtotal - totalLines);
     
-    // Base shipping rule: free for now, but ready for future dynamic value injected from UI zip codes
-    const shipping_cost = 0; 
+    // Shipping: $150 for Baja California, Baja California Sur, Campeche; free everywhere else
+    const ESTADOS_ENVIO_150 = new Set(["Baja California","Baja California Sur","Campeche"]);
+    const shippingState = (shipping.state || "").trim();
+    const shipping_cost = ESTADOS_ENVIO_150.has(shippingState) ? 150 : 0;
     const total = round2(totalLines + shipping_cost);
 
     const client = await pool.connect();

@@ -115,8 +115,9 @@ const BRAND_SLUG_TO_DB = {
   pirelli: "PIRELLI",
   tornel: "TORNEL",
   antares: "ANTARES",
-  // si quieres hero por marca, agrega:
-  // pirelli: "PIRELLI",
+  jk: "TORNEL",
+  "jk tyre": "TORNEL",
+  jktyre: "TORNEL",
 };
 
 function slugToDbMarca(slug) {
@@ -260,6 +261,10 @@ const BRAND_CANONICAL_MAP = {
   MINELL: "MINNELL",
   MINNEL: "MINNELL",
   PAGASUS: "PEGASUS",
+  EUZKADY: "EUZKADI",
+  JK: "TORNEL",
+  JKTYRE: "TORNEL",
+  "JK TYRE": "TORNEL",
   LAUFEN: "HANKOOK",
   LAUFENN: "HANKOOK",
   "MICKY THOMSON": "MICKEY THOMPSON",
@@ -276,6 +281,8 @@ const BRAND_CANONICAL_MAP = {
 };
 
 const BRAND_FILTER_GROUPS = {
+  EUZKADI: ["EUZKADI", "EUZKADY"],
+  TORNEL: ["TORNEL", "JK", "JKTYRE", "JK TYRE"],
   HANKOOK: ["HANKOOK", "LAUFENN", "LAUFEN"],
   MASSIMO: ["MASSIMO", "M,ASSIMO", "MASSIMO TYRES"],
   MINNELL: ["MINNELL", "MINELL", "MINNEL"],

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import "../styles/pages.css";
 
-const WA = "https://wa.me/525512345678?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n%20o%20reclamaci%C3%B3n%20de%20garant%C3%ADa";
+const WA = "https://wa.me/527291136254?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n%20o%20reclamaci%C3%B3n%20de%20garant%C3%ADa";
 
 export default function Devoluciones() {
   return (
@@ -64,7 +64,7 @@ export default function Devoluciones() {
       <div className="static-section">
         <h2>¿Cómo hacer una devolución o reclamación?</h2>
         {[
-          ["1️⃣","Contáctanos por WhatsApp","Escríbenos a +52 55 1234 5678 con tu número de pedido y descripción del problema."],
+          ["1️⃣","Contáctanos por WhatsApp","Escríbenos al 729 113 6254 con tu número de pedido y descripción del problema."],
           ["2️⃣","Envía evidencia fotográfica","Toma fotos claras del defecto o daño y envíanoslas por WhatsApp."],
           ["3️⃣","Evaluamos tu caso","En menos de 24 horas hábiles te respondemos con la solución."],
           ["4️⃣","Resolución","Reposición del producto, cambio o reembolso según corresponda."],

@@ -3,7 +3,7 @@ import "../styles/pages.css";
 
 const VALORES = [
   { icon: "🏆", title: "Calidad garantizada", desc: "Solo trabajamos con marcas certificadas y productos 100% originales." },
-  { icon: "🚀", title: "Envío rápido", desc: "Entrega en 24–48 horas en toda la República Mexicana." },
+  { icon: "🚀", title: "Envío rápido", desc: "Entrega en 48–72 horas en toda la República Mexicana." },
   { icon: "💬", title: "Soporte real", desc: "Atención personalizada por WhatsApp con expertos en llantas." },
   { icon: "💰", title: "Mejor precio", desc: "Precios competitivos y hasta 18 meses sin intereses." },
   { icon: "🛠️", title: "Instalación incluida", desc: "Instalación y balanceo gratis en nuestra sucursal." },
@@ -13,6 +13,8 @@ const VALORES = [
 const MARCAS_ALIADAS = [
   "Pirelli","Michelin","Continental","Bridgestone","Goodyear",
   "Hankook","Cooper","Firestone","Tornel","Laufenn",
+  "Euzkadi","Kumho","Falken","Nexen","Dunlop",
+  "Vinmax","Antares","Blackhawk","Maxtrek","Pegasus",
 ];
 
 export default function Nosotros() {
@@ -32,11 +34,11 @@ export default function Nosotros() {
       {/* Stats */}
       <div className="stats-row">
         <div className="stat-box">
-          <div className="stat-box__num">500+</div>
+          <div className="stat-box__num">1,200+</div>
           <div className="stat-box__label">Modelos disponibles</div>
         </div>
         <div className="stat-box">
-          <div className="stat-box__num">15+</div>
+          <div className="stat-box__num">30+</div>
           <div className="stat-box__label">Marcas aliadas</div>
         </div>
         <div className="stat-box">
@@ -58,9 +60,9 @@ export default function Nosotros() {
           solo una tienda: somos tu equipo de confianza para que manejes seguro.
         </p>
         <p>
-          Operamos de forma 100% online para mantenerte los costos bajos y pasarte el ahorro
-          directamente. Nuestro catálogo incluye más de 500 modelos de las mejores marcas
-          globales con stock nacional disponible.
+          Operamos desde Toluca, Estado de México, combinando nuestra sucursal física con tienda
+          en línea para mantenerte los costos bajos y pasarte el ahorro directamente. Nuestro
+          catálogo incluye más de 1,200 modelos de las mejores marcas globales con stock nacional disponible.
         </p>
       </div>
 
@@ -112,7 +114,7 @@ export default function Nosotros() {
           ["1️⃣","Busca tu medida","Usa el buscador, el asistente IA o los filtros del catálogo para encontrar tu llanta."],
           ["2️⃣","Agrega al carrito","Selecciona cantidad y agrega al carrito. Puedes comprar 1, 2 o 4 llantas."],
           ["3️⃣","Elige cómo pagar","Tarjeta, MSI, MercadoPago, PayPal, OXXO o transferencia bancaria."],
-          ["4️⃣","Recibe o instala","Envío a domicilio en 24–48 h, o recoge e instala gratis en sucursal."],
+          ["4️⃣","Recibe o instala","Envío a domicilio en 48–72 h, o recoge e instala gratis en sucursal."],
         ].map(([num, title, desc]) => (
           <div key={title} style={{display:"flex",gap:12,marginBottom:14}}>
             <span style={{fontSize:24,lineHeight:1.2,flexShrink:0}}>{num}</span>
@@ -128,7 +130,7 @@ export default function Nosotros() {
       <div className="cta-band">
         <div>
           <h3>¿Listo para encontrar tus llantas?</h3>
-          <p>Más de 500 modelos con envío gratis y garantía incluida.</p>
+          <p>Más de 1,200 modelos con envío gratis y garantía incluida.</p>
         </div>
         <Link to="/catalogo" className="cta-band__btn">Ver catálogo →</Link>
       </div>

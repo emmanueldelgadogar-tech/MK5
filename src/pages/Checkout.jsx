@@ -32,7 +32,15 @@ const ESTADOS_ENVIO_GRATIS = new Set([
   "San Luis Potosí","Nuevo León","Nayarit","Durango","Colima",
   "Tlaxcala","Zacatecas","Puebla","Aguascalientes","Guanajuato",
   "Morelos","Querétaro","Hidalgo","Ciudad de México","Estado de México",
+  "Jalisco","Michoacán","Oaxaca","Guerrero","Chiapas","Tabasco",
+  "Veracruz","Tamaulipas","Sinaloa","Chihuahua","Coahuila",
+  "Quintana Roo","Yucatán",
 ]);
+
+const ESTADOS_ENVIO_150 = new Set([
+  "Baja California","Baja California Sur","Campeche",
+]);
+const COSTO_ENVIO_ESTADOS = 150;
 
 const ORDER_STEPS = [
   { key: "received",    label: "Pedido recibido",  icon: "" },
@@ -276,9 +284,9 @@ export default function Checkout() {
     return lines.reduce((totalDiscount, l) => totalDiscount + l.discount, 0);
   }, [lines]);
 
-  const estimatedShipping = 0; // Ready for dynamic updates based on zip
+  const estimatedShipping = ESTADOS_ENVIO_150.has(shipping.state) ? COSTO_ENVIO_ESTADOS : 0;
   const estimatedTotal   = subtotal - estimatedDiscount + estimatedShipping;
-  const envioGratis      = true;
+  const envioGratis      = estimatedShipping === 0;
 
   function updateQty(sku, qty) {
     setCart((prev) =>
@@ -435,6 +443,11 @@ export default function Checkout() {
       setDetailsBySku({});
       writeCart([]);
       setStep("confirmado");
+      // Auto-redirect to payment provider (Mercado Pago)
+      const providerUrl = data.order?.payment?.provider_url;
+      if (providerUrl && typeof providerUrl === "string" && providerUrl.startsWith("https://")) {
+        window.location.href = providerUrl;
+      }
     } catch {
       setError("Tuvimos un problema de conexión. Intenta de nuevo.");
     } finally {
@@ -681,7 +694,7 @@ export default function Checkout() {
                 <div className={`envio-indicator ${envioGratis ? "envio-indicator--free" : "envio-indicator--paid"}`}>
                   {envioGratis
                     ? "¡Envío GRATIS a tu estado!"
-                    : "Envío con costo adicional — consulta el total al confirmar."}
+                    : `Envío $${COSTO_ENVIO_ESTADOS} MXN a ${shipping.state}`}
                 </div>
               )}
 
@@ -769,8 +782,8 @@ export default function Checkout() {
               {shipping.state && (
                 <div className="checkout-summary__row">
                   <span>Envío</span>
-                  <b style={{ color: envioGratis ? "#4ade80" : "inherit" }}>
-                    {envioGratis ? "¡GRATIS!" : "Con costo"}
+                  <b style={{ color: envioGratis ? "#4ade80" : "#e85c00" }}>
+                    {envioGratis ? "¡GRATIS!" : money(estimatedShipping)}
                   </b>
                 </div>
               )}
