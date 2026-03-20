@@ -2053,16 +2053,20 @@
 
 /* ===== MOBILE CATALOG ===== */
 @media (max-width: 768px) {
-  .catalogo.catalogoWide {
+  .main.catalogo.catalogoWide {
     display: flex !important;
     flex-direction: column !important;
+    width: 100% !important;
+    padding: 8px !important;
   }
-  .filters {
+  .main.catalogo.catalogoWide .filters.filters-ecom {
     position: static !important;
     width: 100% !important;
+    max-width: 100% !important;
     max-height: none !important;
     overflow: visible !important;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    top: auto !important;
   }
   .filters-ecom {
     max-height: none !important;
