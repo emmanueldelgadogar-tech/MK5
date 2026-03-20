@@ -8,6 +8,7 @@ export default function Header() {
   const [q, setQ] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [userLogged, setUserLogged] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     function refreshCartCount() {
@@ -101,7 +102,10 @@ export default function Header() {
           </button>
         </form>
 
-        <nav className="nav">
+        <button className="nav__hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menú">
+          <span/><span/><span/>
+        </button>
+        <nav className={`nav ${menuOpen ? "nav--open" : ""}`} onClick={() => setMenuOpen(false)}>
           <NavLink to="/" className="nav__link">Inicio</NavLink>
           <NavLink to="/catalogo" className="nav__link">Catálogo</NavLink>
           <NavLink to="/nosotros" className="nav__link">Nosotros</NavLink>

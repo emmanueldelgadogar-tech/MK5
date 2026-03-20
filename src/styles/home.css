@@ -1275,3 +1275,29 @@
   background: #ff5b00;
   color: #fff;
 }
+
+/* ===== MOBILE HOME ===== */
+@media (max-width: 768px) {
+  .home-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .home-layout > :nth-child(2) {
+    border-left: 0 !important;
+    border-top: 1px solid rgba(0,0,0,.10);
+  }
+  .home-grid2 {
+    grid-template-columns: 1fr !important;
+  }
+  .home-shell {
+    padding-top: 8px !important;
+  }
+  .monthly-promos__grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .ts-carousel {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .podium-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

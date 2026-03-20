@@ -2050,3 +2050,22 @@
   font-size: 0.9rem;
   color: #666;
 }
+
+/* ===== MOBILE CATALOG ===== */
+@media (max-width: 768px) {
+  .catalogo.catalogoWide {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .filters {
+    position: static !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin-bottom: 16px;
+  }
+  .filters-ecom {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
