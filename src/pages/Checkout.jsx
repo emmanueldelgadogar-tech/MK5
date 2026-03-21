@@ -131,9 +131,10 @@ export default function Checkout() {
   ]);
   const [paymentMethod, setPaymentMethod] = useState("mercado_pago");
 
-  const [customer, setCustomer] = useState({ name: "", phone: "", email: "" });
-  const [shipping, setShipping] = useState({ address: "", city: "", state: "", zip: "", colonia: "" });
+  const [customer, setCustomer] = useState({ name: "", lastName: "", phone: "", email: "" });
+  const [shipping, setShipping] = useState({ address: "", numExt: "", numInt: "", city: "", state: "", zip: "", colonia: "" });
   const [colonias, setColonias] = useState([]);
+  const [zipLoading, setZipLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(true);
   const [createAccount, setCreateAccount] = useState(false);
   const [accountPassword, setAccountPassword] = useState("");
@@ -350,27 +351,32 @@ export default function Checkout() {
     }
   }
 
-  async function handleZipBlur() {
-    const rawZip = shipping.zip.trim();
+  async function lookupZip(zip) {
+    const rawZip = (zip || "").trim();
     if (!/^\d{5}$/.test(rawZip)) return;
-
+    setZipLoading(true);
     try {
       const res = await fetch(`https://api.zippopotam.us/mx/${rawZip}`);
-      if (!res.ok) return;
+      if (!res.ok) { setZipLoading(false); return; }
       const data = await res.json();
       const places = data.places || [];
       if (places.length > 0) {
         const colList = places.map(p => p["place name"]).filter(Boolean);
         setColonias(colList);
+        // Map zippopotam state names to ESTADOS_MX
+        const stateRaw = places[0]["state"] || "";
+        const stateMatch = ESTADOS_MX.find(e => e.toLowerCase() === stateRaw.toLowerCase() || stateRaw.toLowerCase().includes(e.toLowerCase().replace("estado de ", ""))) || stateRaw;
         setShipping(prev => ({
           ...prev,
-          city: places[0]["place name"] || prev.city,
-          state: places[0]["state"] || prev.state,
+          city: prev.city || "",
+          state: stateMatch,
           colonia: colList[0] || prev.colonia,
         }));
       }
     } catch (e) {
       console.error("Error fetching zipcode info:", e);
+    } finally {
+      setZipLoading(false);
     }
   }
 
@@ -422,11 +428,16 @@ export default function Checkout() {
         body: JSON.stringify({
           items: lines.map((x) => ({ sku: x.sku, qty: x.qty })),
           customer: {
-            ...customer,
+            name: `${customer.name} ${customer.lastName}`.trim(),
+            phone: customer.phone,
+            email: customer.email,
             create_account: createAccount,
             password: createAccount ? accountPassword : undefined,
           },
-          shipping,
+          shipping: {
+            ...shipping,
+            address: `${shipping.address}${shipping.numExt ? " #" + shipping.numExt : ""}${shipping.numInt ? " Int. " + shipping.numInt : ""}${shipping.colonia ? ", Col. " + shipping.colonia : ""}`,
+          },
           payment: { method: paymentMethod },
         }),
       });
@@ -635,18 +646,17 @@ export default function Checkout() {
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g,"");
                       setShipping((p) => ({ ...p, zip: val }));
-                      if (val.length === 5) {
-                        setTimeout(() => handleZipBlur(), 100);
-                      }
+                      if (val.length === 5) lookupZip(val);
                     }}
                     required />
                   {fieldErrors.zip && <span className="field-error">{fieldErrors.zip}</span>}
+                  {zipLoading && <small style={{color:"#f59e0b"}}>Buscando...</small>}
                 </label>
 
                 <label>
                   Estado
                   <input type="text" value={shipping.state} readOnly
-                    style={{ background: "#f3f4f6", cursor: "default" }}
+                    style={{ background: "#f3f4f6", cursor: "default", color: shipping.state ? "#111" : "#999" }}
                     placeholder="Se llena con tu CP" />
                 </label>
               </div>
@@ -654,7 +664,7 @@ export default function Checkout() {
               {colonias.length > 0 && (
                 <label>
                   Colonia *
-                  <select value={shipping.colonia}
+                  <select value={shipping.colonia} className="checkout-select"
                     onChange={(e) => setShipping((p) => ({ ...p, colonia: e.target.value }))}>
                     {colonias.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -662,47 +672,31 @@ export default function Checkout() {
               )}
 
               <label className={fieldErrors.address ? "has-error" : ""}>
-                Calle y número *
+                Calle *
                 <input type="text" value={shipping.address} autoComplete="street-address"
-                  placeholder="Calle Benito Juárez #123"
+                  placeholder="Av. Benito Juárez"
                   onChange={(e) => setShipping((p) => ({ ...p, address: e.target.value }))} required />
                 {fieldErrors.address && <span className="field-error">{fieldErrors.address}</span>}
               </label>
 
-              <label className={fieldErrors.city ? "has-error" : ""}>
-                Municipio / Ciudad *
-                <input type="text" value={shipping.city} autoComplete="address-level2"
-                  onChange={(e) => setShipping((p) => ({ ...p, city: e.target.value }))} required />
-                {fieldErrors.city && <span className="field-error">{fieldErrors.city}</span>}
-              </label>
-
-              <h2 style={{ marginTop: 16 }}>2. Datos de contacto</h2>
-
-              <div className="checkout-form-grid">
-                <label className={fieldErrors.name ? "has-error" : ""}>
-                  Nombre completo *
-                  <input type="text" value={customer.name} autoComplete="name"
-                    onChange={(e) => setCustomer((p) => ({ ...p, name: e.target.value }))} required />
-                  {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
+              <div className="checkout-form-grid checkout-form-grid--3">
+                <label>
+                  No. exterior *
+                  <input type="text" value={shipping.numExt} placeholder="#123"
+                    onChange={(e) => setShipping((p) => ({ ...p, numExt: e.target.value }))} />
                 </label>
-
-                <label className={fieldErrors.phone ? "has-error" : ""}>
-                  Teléfono (10 dígitos) *
-                  <input type="tel" value={customer.phone} autoComplete="tel"
-                    maxLength={10} placeholder="7291234567"
-                    onChange={(e) => setCustomer((p) => ({ ...p, phone: e.target.value.replace(/\D/g,"") }))}
-                    required />
-                  {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
+                <label>
+                  No. interior
+                  <input type="text" value={shipping.numInt} placeholder="Depto 4"
+                    onChange={(e) => setShipping((p) => ({ ...p, numInt: e.target.value }))} />
+                </label>
+                <label className={fieldErrors.city ? "has-error" : ""}>
+                  Ciudad / Municipio *
+                  <input type="text" value={shipping.city} autoComplete="address-level2"
+                    onChange={(e) => setShipping((p) => ({ ...p, city: e.target.value }))} required />
+                  {fieldErrors.city && <span className="field-error">{fieldErrors.city}</span>}
                 </label>
               </div>
-
-              <label className={fieldErrors.email ? "has-error" : ""}>
-                Correo electrónico *
-                <input type="email" value={customer.email} autoComplete="email"
-                  placeholder="correo@ejemplo.com"
-                  onChange={(e) => setCustomer((p) => ({ ...p, email: e.target.value }))} required />
-                {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
-              </label>
 
               {/* Indicador de envío */}
               {shipping.state && (
@@ -713,7 +707,45 @@ export default function Checkout() {
                 </div>
               )}
 
-              <h2 style={{ marginTop: 16 }}>3. Método de pago</h2>
+              <h2 style={{ marginTop: 20 }}>2. Datos de contacto</h2>
+
+              <div className="checkout-form-grid">
+                <label className={fieldErrors.name ? "has-error" : ""}>
+                  Nombre *
+                  <input type="text" value={customer.name} autoComplete="given-name"
+                    placeholder="Juan"
+                    onChange={(e) => setCustomer((p) => ({ ...p, name: e.target.value }))} required />
+                  {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
+                </label>
+
+                <label>
+                  Apellidos *
+                  <input type="text" value={customer.lastName} autoComplete="family-name"
+                    placeholder="Pérez López"
+                    onChange={(e) => setCustomer((p) => ({ ...p, lastName: e.target.value }))} required />
+                </label>
+              </div>
+
+              <div className="checkout-form-grid">
+                <label className={fieldErrors.phone ? "has-error" : ""}>
+                  Teléfono (10 dígitos) *
+                  <input type="tel" value={customer.phone} autoComplete="tel"
+                    maxLength={10} placeholder="7291234567"
+                    onChange={(e) => setCustomer((p) => ({ ...p, phone: e.target.value.replace(/\D/g,"") }))}
+                    required />
+                  {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
+                </label>
+
+                <label className={fieldErrors.email ? "has-error" : ""}>
+                  Correo electrónico *
+                  <input type="email" value={customer.email} autoComplete="email"
+                    placeholder="correo@ejemplo.com"
+                    onChange={(e) => setCustomer((p) => ({ ...p, email: e.target.value }))} required />
+                  {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
+                </label>
+              </div>
+
+              <h2 style={{ marginTop: 20 }}>3. Método de pago</h2>
               <div className="checkout-pay-grid">
                 {paymentMethods.map((m) => (
                   <label key={m.id} className={`checkout-pay-option ${paymentMethod === m.id ? "is-selected" : ""}`}>

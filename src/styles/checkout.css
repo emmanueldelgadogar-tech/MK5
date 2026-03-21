@@ -205,6 +205,14 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+.checkout-form-grid--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+@media (max-width: 640px) {
+  .checkout-form-grid--3 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 
 .checkout-pay-grid {
   display: grid;
