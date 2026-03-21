@@ -105,6 +105,9 @@ export default function Header() {
         <button className="nav__hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menú">
           <span/><span/><span/>
         </button>
+
+        {menuOpen && <div className="nav__overlay" onClick={() => setMenuOpen(false)} />}
+
         <nav className={`nav ${menuOpen ? "nav--open" : ""}`} onClick={() => setMenuOpen(false)}>
           <NavLink to="/" className="nav__link">Inicio</NavLink>
           <NavLink to="/catalogo" className="nav__link">Catálogo</NavLink>
@@ -117,16 +120,18 @@ export default function Header() {
               <circle cx="12" cy="7" r="4"/>
             </svg>
           </NavLink>
-          <NavLink to="/checkout" className="nav__link nav__link--cart" aria-label="Carrito">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
-              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-            </svg>
-            {cartCount > 0 && (
-              <span className="nav__cartBadge">{cartCount}</span>
-            )}
-          </NavLink>
         </nav>
+
+        {/* Carrito siempre visible (fuera del drawer) */}
+        <NavLink to="/checkout" className="nav__link nav__link--cart" aria-label="Carrito">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          </svg>
+          {cartCount > 0 && (
+            <span className="nav__cartBadge">{cartCount}</span>
+          )}
+        </NavLink>
       </div>
 
       {/* ── Barra de beneficios ── */}

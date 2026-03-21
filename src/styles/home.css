@@ -1285,19 +1285,47 @@
     border-left: 0 !important;
     border-top: 1px solid rgba(0,0,0,.10);
   }
+  /* Carrusel primero, IA después en móvil */
+  .home-left { order: 2; }
+  .home-right { order: 1; }
+
   .home-grid2 {
     grid-template-columns: 1fr !important;
   }
   .home-shell {
-    padding-top: 8px !important;
+    padding-top: 4px !important;
   }
   .monthly-promos__grid {
     grid-template-columns: 1fr 1fr !important;
   }
   .ts-carousel {
     grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
   }
+  .ts-card { font-size: 12px; }
+  .ts-card__title { font-size: 11px !important; }
+  .ts-btn { font-size: 10px !important; padding: 6px 8px !important; }
+
   .podium-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
+  .podium-card { border-radius: 10px !important; }
+
+  /* Brands grid compacto */
+  .brandGrid.brandGrid--compact {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 6px !important;
+  }
+  .brandCard__img { height: 36px !important; }
+
+  /* AI box compacto */
+  .card--ai { padding: 12px !important; }
+  .aiRobotWrap { transform: scale(0.7); }
+  .aiBubbles { display: none !important; }
+  .aiTextarea { min-height: 60px !important; font-size: 14px !important; }
+  .aiBtn { font-size: 14px !important; }
+
+  /* Búsqueda manual compacta */
+  .card--manual { padding: 12px !important; }
+  .measure-guide img { max-height: 180px !important; }
 }
