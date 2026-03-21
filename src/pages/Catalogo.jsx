@@ -486,6 +486,7 @@ export default function Catalogo() {
 
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [total, setTotal] = useState(0);
 
   const [items, setItems] = useState([]);
@@ -696,7 +697,8 @@ export default function Catalogo() {
 
   return (
     <main className="main catalogo catalogoWide">
-      <aside className="filters filters-ecom">
+      {mobileFiltersOpen && <div className="filters-overlay" onClick={() => setMobileFiltersOpen(false)} />}
+      <aside className={`filters filters-ecom ${mobileFiltersOpen ? "filters--open" : ""}`}>
         <div className="filters-ecom__top">
           <h2>Filtros</h2>
           {totalSel > 0 && (
@@ -790,11 +792,16 @@ export default function Catalogo() {
             </div>
           </Accordion>
 
-          <button className="filters-ecom__apply" type="submit" disabled={loading}>
+          <button className="filters-ecom__apply" type="submit" disabled={loading} onClick={() => setMobileFiltersOpen(false)}>
             {loading ? "Cargando..." : `Aplicar (${totalSel})`}
           </button>
         </form>
       </aside>
+
+      <button className="filters-fab" type="button" onClick={() => setMobileFiltersOpen(true)}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>
+        Filtrar
+      </button>
 
       <section className="results">
         {marcaFixedUpper && brandMeta && (
