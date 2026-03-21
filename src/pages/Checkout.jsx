@@ -132,7 +132,8 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("mercado_pago");
 
   const [customer, setCustomer] = useState({ name: "", phone: "", email: "" });
-  const [shipping, setShipping] = useState({ address: "", city: "", state: "", zip: "" });
+  const [shipping, setShipping] = useState({ address: "", city: "", state: "", zip: "", colonia: "" });
+  const [colonias, setColonias] = useState([]);
   const [acceptTerms, setAcceptTerms] = useState(true);
   const [createAccount, setCreateAccount] = useState(false);
   const [accountPassword, setAccountPassword] = useState("");
@@ -259,7 +260,10 @@ export default function Checkout() {
             reference: row.reference, provider_url: row.provider_url,
           },
         });
-        setStep("confirmado");
+        // Only show "confirmed" if payment was successful or pending
+        if (payment === "success" || payment === "pending") {
+          setStep("confirmado");
+        }
         setPaymentResult(payment);
       } catch { /* ignore */ }
     }
@@ -352,14 +356,17 @@ export default function Checkout() {
 
     try {
       const res = await fetch(`https://api.zippopotam.us/mx/${rawZip}`);
-      if (!res.ok) return; // Silent fail if not found
+      if (!res.ok) return;
       const data = await res.json();
-      const place = data.places?.[0];
-      if (place) {
+      const places = data.places || [];
+      if (places.length > 0) {
+        const colList = places.map(p => p["place name"]).filter(Boolean);
+        setColonias(colList);
         setShipping(prev => ({
           ...prev,
-          city: place["place name"] || prev.city,
-          state: place["state"] || prev.state
+          city: places[0]["place name"] || prev.city,
+          state: places[0]["state"] || prev.state,
+          colonia: colList[0] || prev.colonia,
         }));
       }
     } catch (e) {
@@ -618,7 +625,58 @@ export default function Checkout() {
         {step === "datos" && (
           <div className="checkout-grid">
             <form className="checkout-card" onSubmit={confirmOrder}>
-              <h2>1. Datos de contacto</h2>
+              <h2>1. Dirección de envío</h2>
+
+              <div className="checkout-form-grid">
+                <label className={fieldErrors.zip ? "has-error" : ""}>
+                  Código postal *
+                  <input type="text" value={shipping.zip} autoComplete="postal-code"
+                    maxLength={5} placeholder="50000"
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g,"");
+                      setShipping((p) => ({ ...p, zip: val }));
+                      if (val.length === 5) {
+                        setTimeout(() => handleZipBlur(), 100);
+                      }
+                    }}
+                    required />
+                  {fieldErrors.zip && <span className="field-error">{fieldErrors.zip}</span>}
+                </label>
+
+                <label>
+                  Estado
+                  <input type="text" value={shipping.state} readOnly
+                    style={{ background: "#f3f4f6", cursor: "default" }}
+                    placeholder="Se llena con tu CP" />
+                </label>
+              </div>
+
+              {colonias.length > 0 && (
+                <label>
+                  Colonia *
+                  <select value={shipping.colonia}
+                    onChange={(e) => setShipping((p) => ({ ...p, colonia: e.target.value }))}>
+                    {colonias.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </label>
+              )}
+
+              <label className={fieldErrors.address ? "has-error" : ""}>
+                Calle y número *
+                <input type="text" value={shipping.address} autoComplete="street-address"
+                  placeholder="Calle Benito Juárez #123"
+                  onChange={(e) => setShipping((p) => ({ ...p, address: e.target.value }))} required />
+                {fieldErrors.address && <span className="field-error">{fieldErrors.address}</span>}
+              </label>
+
+              <label className={fieldErrors.city ? "has-error" : ""}>
+                Municipio / Ciudad *
+                <input type="text" value={shipping.city} autoComplete="address-level2"
+                  onChange={(e) => setShipping((p) => ({ ...p, city: e.target.value }))} required />
+                {fieldErrors.city && <span className="field-error">{fieldErrors.city}</span>}
+              </label>
+
+              <h2 style={{ marginTop: 16 }}>2. Datos de contacto</h2>
 
               <div className="checkout-form-grid">
                 <label className={fieldErrors.name ? "has-error" : ""}>
@@ -631,7 +689,7 @@ export default function Checkout() {
                 <label className={fieldErrors.phone ? "has-error" : ""}>
                   Teléfono (10 dígitos) *
                   <input type="tel" value={customer.phone} autoComplete="tel"
-                    maxLength={10} placeholder="5512345678"
+                    maxLength={10} placeholder="7291234567"
                     onChange={(e) => setCustomer((p) => ({ ...p, phone: e.target.value.replace(/\D/g,"") }))}
                     required />
                   {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
@@ -646,50 +704,7 @@ export default function Checkout() {
                 {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
               </label>
 
-              <h2 style={{ marginTop: 16 }}>2. Dirección de envío</h2>
-
-              <label className={fieldErrors.address ? "has-error" : ""}>
-                Calle y número *
-                <input type="text" value={shipping.address} autoComplete="street-address"
-                  placeholder="Calle Benito Juárez #123"
-                  onChange={(e) => setShipping((p) => ({ ...p, address: e.target.value }))} required />
-                {fieldErrors.address && <span className="field-error">{fieldErrors.address}</span>}
-              </label>
-
-              <div className="checkout-form-grid">
-                <label className={fieldErrors.city ? "has-error" : ""}>
-                  Municipio / Ciudad *
-                  <input type="text" value={shipping.city} autoComplete="address-level2"
-                    onChange={(e) => setShipping((p) => ({ ...p, city: e.target.value }))} required />
-                  {fieldErrors.city && <span className="field-error">{fieldErrors.city}</span>}
-                </label>
-
-                <label className={fieldErrors.zip ? "has-error" : ""}>
-                  Código postal *
-                  <input type="text" value={shipping.zip} autoComplete="postal-code"
-                    maxLength={5} placeholder="50000"
-                    onChange={(e) => setShipping((p) => ({ ...p, zip: e.target.value.replace(/\\D/g,"") }))}
-                    onBlur={handleZipBlur}
-                    required />
-                  {fieldErrors.zip && <span className="field-error">{fieldErrors.zip}</span>}
-                </label>
-              </div>
-
-              {/* Dropdown de estado tipo Shopify */}
-              <label className={fieldErrors.state ? "has-error" : ""}>
-                Estado *
-                <select value={shipping.state} autoComplete="address-level1"
-                  onChange={(e) => setShipping((p) => ({ ...p, state: e.target.value }))}
-                  className="checkout-select" required>
-                  <option value="">— Selecciona tu estado —</option>
-                  {ESTADOS_MX.map((est) => (
-                    <option key={est} value={est}>{est}</option>
-                  ))}
-                </select>
-                {fieldErrors.state && <span className="field-error">{fieldErrors.state}</span>}
-              </label>
-
-              {/* Indicador de envío gratis */}
+              {/* Indicador de envío */}
               {shipping.state && (
                 <div className={`envio-indicator ${envioGratis ? "envio-indicator--free" : "envio-indicator--paid"}`}>
                   {envioGratis

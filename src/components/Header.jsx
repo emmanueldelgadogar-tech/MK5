@@ -7,6 +7,7 @@ export default function Header() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [cartCount, setCartCount] = useState(0);
+  const [cartBounce, setCartBounce] = useState(false);
   const [userLogged, setUserLogged] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -18,6 +19,10 @@ export default function Header() {
           (acc, row) => acc + Math.max(parseInt(row?.qty, 10) || 0, 0),
           0
         );
+        if (total > cartCount) {
+          setCartBounce(true);
+          setTimeout(() => setCartBounce(false), 600);
+        }
         setCartCount(total);
       } catch {
         setCartCount(0);
@@ -123,13 +128,13 @@ export default function Header() {
         </nav>
 
         {/* Carrito siempre visible (fuera del drawer) */}
-        <NavLink to="/checkout" className="nav__link nav__link--cart" aria-label="Carrito">
+        <NavLink to="/checkout" className={`nav__link nav__link--cart ${cartBounce ? "cart-bounce" : ""}`} aria-label="Carrito">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
             <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
           </svg>
           {cartCount > 0 && (
-            <span className="nav__cartBadge">{cartCount}</span>
+            <span className={`nav__cartBadge ${cartBounce ? "badge-pop" : ""}`}>{cartCount}</span>
           )}
         </NavLink>
       </div>
