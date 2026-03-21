@@ -16,10 +16,15 @@ export default function IA() {
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto-scroll al fondo cuando hay nuevos mensajes
+  // Auto-scroll al fondo cuando hay nuevos mensajes (solo dentro del chat, no la página)
   useEffect(() => {
     if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+      const container = chatEndRef.current.closest(".ia-chat-messages, .ia-messages, .chat-body");
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      } else {
+        chatEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
     }
   }, [messages, loading]);
 

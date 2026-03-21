@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "../config";
 import {
+  addToCart,
   buildProductPath,
   estimateListPrice,
   formatMoney,
@@ -580,6 +581,9 @@ export default function Catalogo() {
     const p = parseMedidaParts(medidaUrl);
     if (!p) return;
 
+    // Clear cache so filters apply immediately
+    sessionStorage.removeItem("mk5_catalogo_results");
+    sessionStorage.removeItem("mk5_catalogo_filters");
     setAnchosSel(new Set([p.ancho]));
     setAltosSel(new Set([p.alto]));
     setRinesSel(new Set([p.rin]));
@@ -960,13 +964,30 @@ export default function Catalogo() {
                     </div>
                   </div>
 
-                  <button
-                    className="btn-secondary"
-                    type="button"
-                    onClick={() => navigate(buildProductPath(it), { state: { item: it } })}
-                  >
-                    Seleccionar
-                  </button>
+                  <div className="card-actions">
+                    <button
+                      className="btn-add-cart"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(it, qtyFor(skuKey));
+                        alert("Agregado al carrito: " + getProductTitle(it));
+                      }}
+                    >
+                      Agregar al carrito
+                    </button>
+                    <button
+                      className="btn-buy-now"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(it, qtyFor(skuKey));
+                        navigate("/checkout");
+                      }}
+                    >
+                      Comprar ahora
+                    </button>
+                  </div>
                 </div>
               </article>
             )

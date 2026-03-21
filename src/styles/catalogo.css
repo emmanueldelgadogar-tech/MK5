@@ -2062,6 +2062,45 @@
   display: none;
 }
 
+/* ===== Card action buttons ===== */
+.card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.btn-add-cart {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #ff5b00;
+  border-radius: 10px;
+  background: #fff;
+  color: #ff5b00;
+  font-weight: 900;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-add-cart:hover {
+  background: #ff5b00;
+  color: #fff;
+}
+.btn-buy-now {
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: #ff5b00;
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-buy-now:hover {
+  background: #e04e00;
+}
+
 @media (max-width: 768px) {
   .main.catalogo.catalogoWide {
     display: flex !important;
