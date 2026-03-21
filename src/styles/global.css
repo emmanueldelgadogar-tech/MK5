@@ -487,7 +487,7 @@ a { color: inherit; text-decoration: none; }
   /* Main content no overflow */
   .main { overflow-x: hidden; }
   body { overflow-x: hidden; }
-}
+
   /* Overlay para cerrar drawer */
   .nav__overlay {
     position: fixed;
