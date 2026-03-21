@@ -701,6 +701,7 @@ export default function Catalogo() {
       <aside className={`filters filters-ecom ${mobileFiltersOpen ? "filters--open" : ""}`}>
         <div className="filters-ecom__top">
           <h2>Filtros</h2>
+          <button type="button" className="filters-ecom__close" onClick={() => setMobileFiltersOpen(false)} aria-label="Cerrar filtros">&times;</button>
           {totalSel > 0 && (
             <button type="button" className="filters-ecom__clear" onClick={limpiar}>
               Limpiar ({totalSel})
