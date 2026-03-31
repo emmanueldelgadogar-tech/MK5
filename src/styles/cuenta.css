@@ -29,7 +29,7 @@
   font-weight: 900;
   font-size: 14px;
   text-decoration: none;
-  background: linear-gradient(135deg, #ff6a2a, #ff5202);
+  background: linear-gradient(135deg, #eb6b30, #eb6b30);
   color: #fff;
   border: none;
   cursor: pointer;
@@ -73,7 +73,7 @@
   transition: background .15s, color .15s;
 }
 .cuenta-tab.is-active {
-  background: #ff5202;
+  background: #eb6b30;
   color: #fff;
 }
 
@@ -105,7 +105,7 @@
   outline: none;
   transition: border-color .15s;
 }
-.cuenta-form input:focus { border-color: #ff5202; }
+.cuenta-form input:focus { border-color: #eb6b30; }
 .cuenta-form label.has-error input { border-color: #dc2626; }
 
 /* Password wrap */
@@ -148,7 +148,7 @@
   height: 46px;
   border: none;
   border-radius: 10px;
-  background: linear-gradient(135deg, #ff6a2a, #ff5202);
+  background: linear-gradient(135deg, #eb6b30, #eb6b30);
   color: #fff;
   font-weight: 900;
   font-size: 15px;
@@ -163,7 +163,7 @@
 .cuenta-link {
   background: none;
   border: none;
-  color: #ff5202;
+  color: #eb6b30;
   font-weight: 800;
   cursor: pointer;
   padding: 0;
@@ -197,13 +197,13 @@
   color: #111;
   outline: none;
 }
-.rastrear-input:focus { border-color: #ff5202; }
+.rastrear-input:focus { border-color: #eb6b30; }
 .rastrear-btn {
   height: 46px;
   border: none;
   border-radius: 10px;
   padding: 0 22px;
-  background: linear-gradient(135deg, #ff6a2a, #ff5202);
+  background: linear-gradient(135deg, #eb6b30, #eb6b30);
   color: #fff;
   font-weight: 900;
   font-size: 14px;
@@ -252,7 +252,7 @@
   transition: border-color .3s, background .3s;
 }
 .otv-step.is-done .otv-icon    { background: #dcfce7; border-color: #4ade80; }
-.otv-step.is-current .otv-icon { background: #fff7ed; border-color: #ff6a2a; animation: pulse-otv 1.8s ease-in-out infinite; }
+.otv-step.is-current .otv-icon { background: #fff7ed; border-color: #eb6b30; animation: pulse-otv 1.8s ease-in-out infinite; }
 @keyframes pulse-otv {
   0%,100% { box-shadow: 0 0 0 0 rgba(255,106,42,.3); }
   50%      { box-shadow: 0 0 0 8px rgba(255,106,42,0); }
@@ -283,7 +283,7 @@
   margin-top: 4px;
 }
 .otv-badge {
-  background: #ff5202;
+  background: #eb6b30;
   color: #fff;
   border-radius: 999px;
   padding: 3px 10px;
@@ -322,7 +322,7 @@
 }
 .rastrear-pay-link {
   display: inline-block;
-  background: linear-gradient(135deg,#ff6a2a,#ff5202);
+  background: linear-gradient(135deg,#eb6b30,#eb6b30);
   color: #fff;
   padding: 10px 16px;
   border-radius: 10px;
@@ -368,7 +368,7 @@
   transition: border-color .3s, background .3s;
 }
 .order-timeline__step.is-done    .order-timeline__icon { background: rgba(74,222,128,.15); border-color: #4ade80; }
-.order-timeline__step.is-current .order-timeline__icon { background: rgba(255,106,42,.15); border-color: #ff6a2a; animation: pulse-step 1.8s ease-in-out infinite; }
+.order-timeline__step.is-current .order-timeline__icon { background: rgba(255,106,42,.15); border-color: #eb6b30; animation: pulse-step 1.8s ease-in-out infinite; }
 @keyframes pulse-step {
   0%,100% { box-shadow: 0 0 0 0 rgba(255,106,42,.3); }
   50%      { box-shadow: 0 0 0 8px rgba(255,106,42,0); }

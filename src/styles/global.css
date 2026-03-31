@@ -1,6 +1,6 @@
 /* ===== GLOBAL RESET ===== */
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, Arial, sans-serif; }
-body { background: #ff5202; color: #111; }
+body { background: #f4f5f7; color: #111; }
 a { color: inherit; text-decoration: none; }
 
 /* Contenedor general (para secciones, NO para header) */
@@ -222,7 +222,7 @@ a { color: inherit; text-decoration: none; }
   justify-content: center;
   min-width: 18px;
   height: 18px;
-  background: #ff5b00;
+  background: #eb6b30;
   color: #fff;
   font-size: 10px;
   font-weight: 900;
@@ -250,7 +250,7 @@ a { color: inherit; text-decoration: none; }
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .8px;
-  color: #ff5b00;
+  color: #eb6b30;
   margin-bottom: 14px;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255,255,255,.07);
@@ -275,7 +275,7 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   gap: 6px;
 }
-.footer-col ul li a:hover{ color: #ff5b00; }
+.footer-col ul li a:hover{ color: #eb6b30; }
 .footer__logo{
   height: 30px;
   width: auto;
@@ -515,4 +515,21 @@ a { color: inherit; text-decoration: none; }
 @media (min-width: 769px) {
   .nav__hamburger { display: none; }
   .nav__overlay { display: none; }
+}
+
+@media (max-width: 480px) {
+  /* Topbar compacto */
+  .header__topbar { height: 20px; }
+  .header__topbar-inner { height: 20px; font-size: 8.5px; }
+
+  /* Botones táctiles más grandes */
+  .nav__link--cart { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+
+  /* Footer compacto */
+  .footer__main { padding: 28px 14px 16px; }
+  .footer__bottom { padding: 12px 14px; font-size: 11px; }
+
+  /* WhatsApp más arriba para no tapar el FAB del catálogo */
+  .whatsapp-float { bottom: 80px; right: 14px; width: 50px; height: 50px; }
+  .whatsapp-float svg { width: 26px; height: 26px; }
 }

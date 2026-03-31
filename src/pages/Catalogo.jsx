@@ -69,7 +69,7 @@ import logoDirezza from "../assets/logos/direzza.png";
 import logoDstar from "../assets/logos/dstar.png";
 import logoDunlop from "../assets/logos/dunlop.png";
 import logoFalken from "../assets/logos/falken.png";
-import logoForceland from "../assets/logos/forceland.png";
+import logoForceland from "../assets/logos/forceland_new.jpg";
 import logoForerunner from "../assets/logos/forerunner.png";
 import logoFullrun from "../assets/logos/fullrun.png";
 import logoGiti from "../assets/logos/giti.png";
@@ -86,7 +86,7 @@ import logoLinglong from "../assets/logos/linglone.png";
 import logoMassimo from "../assets/logos/massimo.png";
 import logoMaxtrek from "../assets/logos/maxtrek.png";
 import logoMazzini from "../assets/logos/mazzini.png";
-import logoMickeythompson from "../assets/logos/mickeytomson.png";
+import logoMickeythompson from "../assets/logos/mickeythompson.jpg";
 import logoMileking from "../assets/logos/mileking.png";
 import logoMinnell from "../assets/logos/minnell.png";
 import logoMrf from "../assets/logos/mrf.png";
@@ -310,7 +310,8 @@ function expandCatalogBrandFilter(brand) {
 function parseMedidaParts(medida) {
   if (!medida) return null;
   const s = String(medida || "").toUpperCase().trim();
-  const match = s.match(/^(\d{3})[\/-](\d{2})[R\/-]?(\d{2})$/);
+  // Acepta: 215/55/17  215-55-17  215 55 17  215.5517  21555R17  215/55R17
+  const match = s.match(/^(\d{3})[\/\-\.\s]*(\d{2})[R\/\-\.\s]*(\d{2})$/);
   if (!match) return null;
 
   const ancho = parseInt(match[1], 10);
@@ -351,13 +352,11 @@ function Accordion({ title, children, defaultOpen = true }) {
   );
 }
 
-function availabilityLevel(stockValue) {
-  const stock = Number(stockValue || 0);
-  if (stock >= 100) return 5;
-  if (stock >= 50) return 4;
-  if (stock >= 20) return 3;
-  if (stock >= 10) return 2;
-  return 1;
+function stockInfo(stockValue) {
+  const s = Number(stockValue || 0);
+  if (s < 15) return { filled: 1, color: "red" };
+  if (s < 50) return { filled: 2, color: "yellow" };
+  return { filled: 3, color: "green" };
 }
 
 function isRunFlat(item) {
@@ -611,10 +610,17 @@ export default function Catalogo() {
         );
         params.set("marcas", expandedBrands.join(","));
       }
-      if (medidaUrl) params.set("medida", medidaUrl);
-      if (anchosSel.size) params.set("anchos", Array.from(anchosSel).join(","));
-      if (altosSel.size) params.set("altos", Array.from(altosSel).join(","));
-      if (rinesSel.size) params.set("rines", Array.from(rinesSel).join(","));
+      // Merge medidaUrl into filter sets so first API call already has correct values
+      const anchosFinal = new Set(anchosSel);
+      const altosFinal  = new Set(altosSel);
+      const rinesFinal  = new Set(rinesSel);
+      if (medidaUrl) {
+        const mp = parseMedidaParts(medidaUrl);
+        if (mp) { anchosFinal.add(mp.ancho); altosFinal.add(mp.alto); rinesFinal.add(mp.rin); }
+      }
+      if (anchosFinal.size) params.set("anchos", Array.from(anchosFinal).join(","));
+      if (altosFinal.size)  params.set("altos",  Array.from(altosFinal).join(","));
+      if (rinesFinal.size)  params.set("rines",  Array.from(rinesFinal).join(","));
 
       params.set("sort", "price_asc");
 
@@ -926,22 +932,19 @@ export default function Catalogo() {
                       ) : (
                         <strong className="card-brand-stock__name">{canonicalBrand || "Marca"}</strong>
                       )}
-                    <span className="card-brand-stock__qty">+{Math.max(Number(it.stock || 0), 1)} PZS. EN STOCK</span>
-                  </div>
-
-                  <div className="card-stock">
-                    <div className="stock-line">
-                      <span>Nacional</span>
-                      <div className="stock-bars">
-                        {[0, 1, 2, 3, 4].map((bar) => (
-                          <i
-                            key={bar}
-                            className={bar < availabilityLevel(it.stock) ? "is-on" : ""}
-                          />
-                        ))}
-                      </div>
-                      <span>+ {Math.max(Number(it.stock || 0), 1)}</span>
-                    </div>
+                    {(() => {
+                      const { filled, color } = stockInfo(it.stock);
+                      return (
+                        <div className="stock-indicator">
+                          <span className="stock-indicator__label">Stock {Math.max(Number(it.stock || 0), 1)} pzas</span>
+                          <div className="stock-indicator__bars">
+                            {[1, 2, 3].map(n => (
+                              <i key={n} className={n <= filled ? `is-on stock-bar--${color}` : ""} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="card-price">

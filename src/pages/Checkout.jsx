@@ -1,7 +1,7 @@
 import "../styles/checkout.css";
 import "../styles/cuenta.css";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { API_BASE } from "../config";
 import { addToCart, estimateListPrice, readCart, writeCart } from "../utils/catalogoHelpers";
 import { trackEvent } from "../utils/metrics";
@@ -109,6 +109,7 @@ function isValidPhone(phone) {
 
 export default function Checkout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [step, setStep] = useState("carrito");
   const [cart, setCart] = useState([]);
   const [cartHydrated, setCartHydrated] = useState(false);
@@ -125,7 +126,6 @@ export default function Checkout() {
 
   const [paymentMethods, setPaymentMethods] = useState([
     { id: "mercado_pago", label: "Mercado Pago",  description: "Tarjeta, meses sin intereses, wallet" },
-    { id: "paypal",       label: "PayPal",         description: "Pago seguro con cuenta PayPal" },
     { id: "oxxo_pay",    label: "OXXO Pay",        description: "Paga en tienda con referencia" },
     { id: "transferencia",label: "Transferencia",  description: "SPEI / transferencia bancaria" },
   ]);
@@ -243,6 +243,11 @@ export default function Checkout() {
     if (!payment || !orderParam) return;
 
     async function loadPaymentStatus() {
+      // Siempre redirigir a /gracias si hay payment+order en la URL
+      if (payment === "success" || payment === "pending" || payment === "failure") {
+        navigate(`/gracias?order=${orderParam}&payment=${payment}`, { replace: true });
+        return;
+      }
       try {
         // Recuperar email guardado al completar el checkout (mismo dispositivo)
         const savedEmail = localStorage.getItem(`mk5_order_${orderParam}_email`) || "";
@@ -261,10 +266,6 @@ export default function Checkout() {
             reference: row.reference, provider_url: row.provider_url,
           },
         });
-        // Only show "confirmed" if payment was successful or pending
-        if (payment === "success" || payment === "pending") {
-          setStep("confirmado");
-        }
         setPaymentResult(payment);
       } catch { /* ignore */ }
     }
@@ -363,12 +364,12 @@ export default function Checkout() {
       if (places.length > 0) {
         const colList = places.map(p => p["place name"]).filter(Boolean);
         setColonias(colList);
-        // Map zippopotam state names to ESTADOS_MX
         const stateRaw = places[0]["state"] || "";
         const stateMatch = ESTADOS_MX.find(e => e.toLowerCase() === stateRaw.toLowerCase() || stateRaw.toLowerCase().includes(e.toLowerCase().replace("estado de ", ""))) || stateRaw;
+        const cityRaw = places[0]["place name"] || "";
         setShipping(prev => ({
           ...prev,
-          city: prev.city || "",
+          city: prev.city || cityRaw,
           state: stateMatch,
           colonia: colList[0] || prev.colonia,
         }));
@@ -460,11 +461,15 @@ export default function Checkout() {
       setCart([]);
       setDetailsBySku({});
       writeCart([]);
-      setStep("confirmado");
-      // Auto-redirect to payment provider (Mercado Pago)
       const providerUrl = data.order?.payment?.provider_url;
-      if (providerUrl && typeof providerUrl === "string" && providerUrl.startsWith("https://")) {
+      const orderMethod = data.order?.payment?.method || paymentMethod;
+      const isOxxo = orderMethod === "oxxo_pay";
+      // Redirect to payment provider (MP/PayPal) — return URL lands on /gracias
+      if (!isOxxo && providerUrl && typeof providerUrl === "string" && providerUrl.startsWith("https://")) {
         window.location.href = providerUrl;
+      } else {
+        // For OXXO / transferencia: go directly to /gracias
+        navigate(`/gracias?order=${orderId}&method=${encodeURIComponent(orderMethod)}`);
       }
     } catch {
       setError("Tuvimos un problema de conexión. Intenta de nuevo.");
@@ -474,6 +479,43 @@ export default function Checkout() {
   }
 
   const activeStep = order ? getActiveStep(order.status) : 0;
+
+  // Google Customer Reviews opt-in
+  useEffect(() => {
+    if (step !== "confirmado" || !order) return;
+
+    const email =
+      customer.email ||
+      localStorage.getItem(`mk5_order_${order.id}_email`) ||
+      "";
+    if (!email) return;
+
+    const deliveryDate = new Date();
+    deliveryDate.setDate(deliveryDate.getDate() + 5);
+    const estimated = deliveryDate.toISOString().split("T")[0];
+
+    function triggerSurvey() {
+      if (!window.gapi) return;
+      window.gapi.load("surveyoptin", function () {
+        window.gapi.surveyoptin.render({
+          merchant_id: 5592952377,
+          order_id: String(order.id),
+          email: email,
+          delivery_country: "MX",
+          estimated_delivery_date: estimated,
+        });
+      });
+    }
+
+    if (window.gapi) {
+      triggerSurvey();
+    } else {
+      const iv = setInterval(() => {
+        if (window.gapi) { clearInterval(iv); triggerSurvey(); }
+      }, 300);
+      return () => clearInterval(iv);
+    }
+  }, [step, order]);
 
   return (
     <main className="checkout-page">
@@ -888,10 +930,37 @@ export default function Checkout() {
             {order?.payment?.reference && (
               <p className="checkout-payment-ref">Referencia: <b>{order.payment.reference}</b></p>
             )}
-            {isSafePaymentUrl(order?.payment?.provider_url) && (
-              <a className="checkout-pay-link" href={order.payment.provider_url} target="_blank" rel="noreferrer">
-                Ir a pagar ahora
-              </a>
+            {paymentResult === "failure" && (
+              <div className="checkout-retry-block">
+                <p className="checkout-payment-help" style={{ color: "#e55" }}>
+                  El pago no se completó. Tu pedido sigue guardado — puedes reintentar el pago.
+                </p>
+                {isSafePaymentUrl(order?.payment?.provider_url) && (
+                  <a className="checkout-pay-link" href={order.payment.provider_url}>
+                    Reintentar pago
+                  </a>
+                )}
+              </div>
+            )}
+            {paymentResult !== "failure" && (
+              order?.payment?.method === "oxxo_pay" ? (
+                isSafePaymentUrl(order?.payment?.provider_url) ? (
+                  <div className="checkout-oxxo-block">
+                    <p className="checkout-oxxo-hint">Abre tu voucher y muéstralo en caja en cualquier OXXO:</p>
+                    <a className="checkout-pay-link" href={order.payment.provider_url} target="_blank" rel="noreferrer">
+                      Ver voucher OXXO / Código de barras
+                    </a>
+                  </div>
+                ) : (
+                  <p className="checkout-payment-help">Generando tu voucher OXXO… Si no aparece en unos segundos, contacta a soporte con tu número de orden.</p>
+                )
+              ) : (
+                isSafePaymentUrl(order?.payment?.provider_url) && (
+                  <a className="checkout-pay-link" href={order.payment.provider_url} target="_blank" rel="noreferrer">
+                    Ir a pagar ahora
+                  </a>
+                )
+              )
             )}
 
             <div className="checkout-actions" style={{ justifyContent: "center", marginTop: 20 }}>

@@ -56,7 +56,15 @@ export default function Header() {
     e.preventDefault();
     const query = q.trim();
     if (!query) return;
-    navigate(`/catalogo?q=${encodeURIComponent(query)}`);
+    // Detectar medida de llanta en cualquier formato: 215/55/17 215-55-17 215 55 17 215.5517 21555R17
+    const medidaMatch = query.replace(/\s+/g, " ").toUpperCase()
+      .match(/^(\d{3})[\/\-\.\s]*(\d{2})[R\/\-\.\s]*(\d{2})$/);
+    if (medidaMatch) {
+      const medida = `${medidaMatch[1]}/${medidaMatch[2]}/${medidaMatch[3]}`;
+      navigate(`/catalogo?medida=${encodeURIComponent(medida)}`);
+    } else {
+      navigate(`/catalogo?q=${encodeURIComponent(query)}`);
+    }
     setQ("");
   };
 

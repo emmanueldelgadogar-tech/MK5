@@ -5,4 +5,4 @@ Allow: /
 Disallow: /metricas
 Disallow: /api/
 
-Sitemap: https://mk5llantas.com/sitemap.xml
+Sitemap: https://mk5.com.mx/sitemap.xml

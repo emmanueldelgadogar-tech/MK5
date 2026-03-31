@@ -131,7 +131,7 @@
 .ia-suggestion:hover {
   background: rgba(255,82,2,.15);
   border-color: rgba(255,82,2,.4);
-  color: #ff5202;
+  color: #eb6b30;
 }
 
 /* ================== MESSAGES ================== */
@@ -174,7 +174,7 @@
 }
 
 .ia-msg--user .ia-msg__bubble {
-  background: #ff5202;
+  background: #eb6b30;
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -193,7 +193,7 @@
 
 /* Link genérico generado por markdown [texto](url) */
 .ia-link {
-  color: #ff5202;
+  color: #eb6b30;
   font-weight: 700;
   text-decoration: none;
   border-bottom: 1px solid rgba(255, 82, 2, .4);
@@ -201,7 +201,7 @@
 }
 .ia-link:hover {
   color: #ff7a3a;
-  border-bottom-color: #ff5202;
+  border-bottom-color: #eb6b30;
 }
 
 /* Link de medida clickeable dentro del chat */
@@ -209,7 +209,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #ff5202;
+  color: #eb6b30;
   font-weight: 700;
   text-decoration: none;
   background: rgba(255, 82, 2, .1);
@@ -223,7 +223,7 @@
 .ia-medida-link:hover {
   background: rgba(255, 82, 2, .2);
   border-color: rgba(255, 82, 2, .5);
-  color: #ff6a2a;
+  color: #eb6b30;
   text-decoration: none;
 }
 
@@ -245,7 +245,7 @@
   background: rgba(255, 82, 2, .12);
   border: 1px solid rgba(255, 82, 2, .3);
   border-radius: 999px;
-  color: #ff5202;
+  color: #eb6b30;
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
@@ -254,9 +254,9 @@
 }
 
 .ia-ver-llantas__btn:hover {
-  background: #ff5202;
+  background: #eb6b30;
   color: #fff;
-  border-color: #ff5202;
+  border-color: #eb6b30;
   transform: translateY(-1px);
   text-decoration: none;
 }
@@ -326,7 +326,7 @@
   height: 48px;
   border-radius: 14px;
   border: 0;
-  background: #ff5202;
+  background: #eb6b30;
   color: #fff;
   cursor: pointer;
   display: flex;
@@ -369,7 +369,7 @@
 .ia-action-btn:hover {
   background: rgba(255,82,2,.12);
   border-color: rgba(255,82,2,.35);
-  color: #ff5202;
+  color: #eb6b30;
 }
 
 .ia-action-btn--secondary {

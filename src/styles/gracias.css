@@ -1,0 +1,209 @@
+.gracias-page {
+  min-height: 80vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px 60px;
+  background: #f4f5f7;
+}
+
+.gracias-container {
+  width: 100%;
+  max-width: 560px;
+}
+
+.gracias-loading {
+  text-align: center;
+  padding: 60px;
+  color: #666;
+}
+
+/* ── Hero ── */
+.gracias-hero {
+  text-align: center;
+  background: #fff;
+  border-radius: 16px;
+  padding: 36px 28px 28px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  margin-bottom: 20px;
+}
+
+.gracias-hero__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 auto 16px;
+}
+
+.gracias-hero--success .gracias-hero__icon { background: #dcfce7; color: #16a34a; }
+.gracias-hero--failure .gracias-hero__icon { background: #fee2e2; color: #dc2626; }
+.gracias-hero--pending .gracias-hero__icon { background: #fff7ed; color: #eb6b30; }
+
+.gracias-hero__title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #111;
+  margin: 0 0 8px;
+}
+
+.gracias-hero__sub {
+  font-size: 15px;
+  color: #555;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.gracias-hero__folio {
+  font-size: 14px;
+  color: #888;
+  margin: 0;
+}
+
+.gracias-hero__folio b { color: #111; }
+
+/* ── Timeline ── */
+.gracias-timeline {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px 16px 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.gracias-timeline__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.gracias-timeline__dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  border: 2px solid #e5e7eb;
+  margin-bottom: 6px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.gracias-timeline__step.is-done .gracias-timeline__dot {
+  background: #eb6b30;
+  border-color: #eb6b30;
+}
+
+.gracias-timeline__step.is-current .gracias-timeline__dot {
+  background: #fff;
+  border-color: #eb6b30;
+  box-shadow: 0 0 0 3px rgba(235, 107, 48, 0.2);
+}
+
+.gracias-timeline__label {
+  font-size: 11px;
+  color: #aaa;
+  text-align: center;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.gracias-timeline__step.is-done .gracias-timeline__label,
+.gracias-timeline__step.is-current .gracias-timeline__label {
+  color: #111;
+}
+
+.gracias-timeline__line {
+  position: absolute;
+  top: 7px;
+  left: 60%;
+  right: -40%;
+  height: 2px;
+  background: #e5e7eb;
+  z-index: -1;
+}
+
+.gracias-timeline__line.is-done { background: #eb6b30; }
+
+/* ── Meta ── */
+.gracias-meta {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  margin-bottom: 20px;
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+  color: #555;
+  flex-wrap: wrap;
+}
+
+.gracias-meta b { color: #111; }
+
+/* ── Action blocks ── */
+.gracias-action-block {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.gracias-action-block p {
+  font-size: 14px;
+  color: #555;
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+/* ── Buttons ── */
+.gracias-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gracias-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s, transform 0.1s;
+  flex: 1;
+  min-width: 140px;
+  text-align: center;
+}
+
+.gracias-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.gracias-btn:active { transform: translateY(0); }
+
+.gracias-btn--primary   { background: #eb6b30; color: #fff; }
+.gracias-btn--secondary { background: #eb6b30; color: #fff; }
+.gracias-btn--ghost     { background: transparent; border: 2px solid #e5e7eb; color: #333; }
+
+@media (max-width: 480px) {
+  .gracias-page { padding: 24px 12px 48px; }
+  .gracias-hero { padding: 28px 16px 20px; }
+  .gracias-hero__title { font-size: 20px; }
+  .gracias-timeline { padding: 20px 8px 16px; }
+  .gracias-timeline__label { font-size: 10px; }
+  .gracias-actions { flex-direction: column; }
+  .gracias-btn { flex: none; width: 100%; }
+}

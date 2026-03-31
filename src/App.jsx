@@ -29,6 +29,7 @@ import Devoluciones from "./pages/Devoluciones";
 import MiCuenta from "./pages/MiCuenta";
 import RastrearPedido from "./pages/RastrearPedido";
 import Privacidad from "./pages/Privacidad";
+import Gracias from "./pages/Gracias";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/terminos" element={<Terminos />} />
         <Route path="/devoluciones" element={<Devoluciones />} />
         <Route path="/mi-cuenta" element={<MiCuenta />} />
+        <Route path="/gracias" element={<Gracias />} />
         <Route path="/rastrear-pedido" element={<RastrearPedido />} />
         <Route path="/privacidad" element={<Privacidad />} />
         <Route path="*" element={<NotFound />} />

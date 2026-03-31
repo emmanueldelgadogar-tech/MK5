@@ -49,6 +49,11 @@ export default function IA() {
 
       if (data && data.ok && data.reply) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      } else if (data?.error === "ia_limit") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Has alcanzado el límite de 10 consultas por día. Vuelve mañana o contáctanos por WhatsApp para ayudarte. 😊" },
+        ]);
       } else {
         setMessages((prev) => [
           ...prev,

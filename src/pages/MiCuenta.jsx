@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import "../styles/pages.css";
 import "../styles/cuenta.css";
 import { API_BASE } from "../config";
+import AdminPanel from "./AdminPanel";
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -35,25 +36,40 @@ export default function MiCuenta() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [showPass, setShowPass] = useState(false);
 
-  // Verifica sesión real contra el servidor (JWT cookie)
+  // Verifica sesión usando token almacenado en localStorage
   useEffect(() => {
     async function checkSession() {
       try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: "include" });
+        const stored = localStorage.getItem("mk5_user");
+        if (!stored) { setSessionLoading(false); return; }
+        const cached = JSON.parse(stored);
+        if (!cached?.session_token) {
+          // Sesión antigua sin token — limpiar
+          localStorage.removeItem("mk5_user");
+          window.dispatchEvent(new Event("mk5-user-updated"));
+          setSessionLoading(false);
+          return;
+        }
+        // Verificar token contra el servidor
+        const res = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: { "Authorization": `Bearer ${cached.session_token}` },
+        });
         if (res.ok) {
           const data = await res.json();
           if (data?.ok && data?.user) {
-            setUser(data.user);
-            localStorage.setItem("mk5_user", JSON.stringify(data.user));
+            const updated = { ...cached, ...data.user };
+            setUser(updated);
+            localStorage.setItem("mk5_user", JSON.stringify(updated));
             window.dispatchEvent(new Event("mk5-user-updated"));
           }
-        } else {
-          // Sesión inválida o expirada — limpiar caché local
+        } else if (res.status === 401 || res.status === 403) {
+          // Token expirado o inválido
           localStorage.removeItem("mk5_user");
           window.dispatchEvent(new Event("mk5-user-updated"));
         }
+        // Para otros errores del servidor (500, 503…) conservar sesión en caché
       } catch {
-        // Sin conexión: intentar con caché local
+        // Sin conexión: usar caché local
         try {
           const stored = localStorage.getItem("mk5_user");
           if (stored) setUser(JSON.parse(stored));
@@ -124,7 +140,13 @@ export default function MiCuenta() {
       }
 
       const src = data.user || data;
-      const userData = { id: src.id, name: src.name, email: src.email };
+      const userData = {
+        id: src.id,
+        name: src.name,
+        email: src.email,
+        is_admin: src.is_admin || false,
+        session_token: src.session_token || null,
+      };
       localStorage.setItem("mk5_user", JSON.stringify(userData));
       window.dispatchEvent(new Event("mk5-user-updated"));
       setUser(userData);
@@ -146,7 +168,26 @@ export default function MiCuenta() {
     );
   }
 
-  // Usuario ya logueado
+  // Usuario admin → panel completo
+  if (user?.is_admin) {
+    return (
+      <main className="static-page" style={{ paddingBottom: 0 }}>
+        <div className="static-hero cuenta-hero" style={{ paddingBottom: 12 }}>
+          <div className="static-hero__badge">⚙️ Administrador</div>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {user.name || user.email}
+            <button type="button" onClick={logout} className="cuenta-action-btn cuenta-action-btn--danger"
+              style={{ fontSize: 12, padding: "6px 14px", marginTop: 0 }}>
+              Cerrar sesión
+            </button>
+          </h1>
+        </div>
+        <AdminPanel />
+      </main>
+    );
+  }
+
+  // Usuario ya logueado (cliente normal)
   if (user) {
     return (
       <main className="static-page">
