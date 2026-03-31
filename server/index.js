@@ -7,7 +7,7 @@ const rateLimit = require("express-rate-limit");
 const OpenAI = require("openai");
 const crypto = require("crypto");
 const { Resend } = require("resend");
-const resend = new Resend(process.env.RESEND_API_KEY || "");
+const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
 
 const app = express();
 
@@ -15,7 +15,13 @@ const app = express();
 app.set("trust proxy", 1);
 
 // ===================== SECURITY + PARSERS =====================
-app.use(helmet());
+app.use(helmet({
+  hsts: process.env.NODE_ENV === "production"
+    ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+    : false,
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  contentSecurityPolicy: false,
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -54,7 +60,40 @@ const corsOptions = {
 app.options(/.*/, cors(corsOptions));
 app.use(cors(corsOptions));
 
+// Bloquear requests sin Origin en producción
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === "production") {
+    const origin = req.headers["origin"];
+    const isWebhook = req.path.startsWith("/webhooks/");
+    if (!origin && !isWebhook) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+  }
+  next();
+});
+
+
 // ===================== RATE LIMIT =====================
+const authRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: "Demasiados intentos, espera un minuto." },
+  standardHeaders: true, legacyHeaders: false,
+});
+const assistantRateLimit = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 10,
+  message: { ok: false, error: "ia_limit", message: "Has usado tus 10 consultas del día. Vuelve mañana." },
+  standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip,
+});
+const webhookRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: "Demasiadas solicitudes de webhook." },
+  standardHeaders: true, legacyHeaders: false,
+});
+
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
@@ -166,14 +205,34 @@ function verifyPassword(password, fullHash) {
 
 // ===================== HELPERS =====================
 const requireAdmin = (req, res, next) => {
-  const reqKey = req.headers["x-admin-key"] || req.query.key || req.query.admin_key;
-  if (process.env.NODE_ENV === "production" || process.env.ADMIN_API_KEY) {
-    if (!reqKey || reqKey !== process.env.ADMIN_API_KEY) {
-      return res.status(403).json({ ok: false, error: "forbidden" });
-    }
+  if (req.headers["x-admin-key"] === process.env.ADMIN_KEY) return next();
+  const auth = req.headers["authorization"] || "";
+  if (auth.startsWith("Bearer ")) {
+    const payload = verifyToken(auth.slice(7));
+    if (payload && payload.is_admin) return next();
   }
-  next();
+  return res.status(403).json({ error: "Forbidden" });
 };
+
+
+function signToken(payload) {
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', process.env.ADMIN_KEY || 'mk5-secret-fallback')
+    .update(data).digest('base64url');
+  return data + '.' + sig;
+}
+function verifyToken(token) {
+  try {
+    const dot = (token || '').lastIndexOf('.');
+    if (dot < 1) return null;
+    const data = token.slice(0, dot);
+    const sig  = token.slice(dot + 1);
+    const expected = crypto.createHmac('sha256', process.env.ADMIN_KEY || 'mk5-secret-fallback')
+      .update(data).digest('base64url');
+    if (sig !== expected) return null;
+    return JSON.parse(Buffer.from(data, 'base64url').toString());
+  } catch { return null; }
+}
 
 const up = (v) => (v ?? "").toString().trim().toUpperCase();
 
@@ -594,7 +653,25 @@ app.get("/api/checkout/payment-methods", (req, res) => {
 });
 
 // Accept both GET (IPN) and POST (Webhooks) from Mercado Pago
-app.all("/api/payments/mercadopago/webhook", async (req, res) => {
+app.all("/api/payments/mercadopago/webhook", webhookRateLimit, async (req, res) => {
+  // Verificación de firma Mercado Pago
+  const mpSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+  if (mpSecret) {
+    const xSig = req.headers["x-signature"] || "";
+    const xReqId = req.headers["x-request-id"] || "";
+    const dataId = req.query["data.id"] || (req.body && req.body.data && req.body.data.id) || "";
+    const tsVal = xSig.split(",").find(p => p.trim().startsWith("ts="))?.split("=")[1] || "";
+    const manifest = `id:${dataId};request-id:${xReqId};ts:${tsVal};`;
+    const crypto = require("crypto");
+    const hmac = crypto.createHmac("sha256", mpSecret);
+    hmac.update(manifest);
+    const digest = hmac.digest("hex");
+    const receivedHash = xSig.split(",").find(p => p.trim().startsWith("v1="))?.split("=")[1] || "";
+    if (receivedHash && !crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(receivedHash))) {
+      return res.status(401).json({ error: "Firma de webhook inválida" });
+    }
+  }
+
   if (req.method !== "GET" && req.method !== "POST") return res.status(405).end();
   try {
     const topic =
@@ -752,7 +829,7 @@ app.post("/api/payments/paypal/webhook", async (req, res) => {
   }
 });
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", authRateLimit, async (req, res) => {
   try {
     const name = String(req.body?.name || "").trim();
     const phone = String(req.body?.phone || "").trim();
@@ -772,21 +849,38 @@ app.post("/api/auth/register", async (req, res) => {
            password_hash = EXCLUDED.password_hash`,
       [asNull(name), asNull(phone), email, passHash]
     );
-    res.json({ ok: true });
+    // Fetch the created/updated user to return session
+    const r2 = await pool.query(
+      `SELECT id, name, phone, email, is_admin FROM customers WHERE email = $1 LIMIT 1`,
+      [email]
+    );
+    const newUser = r2.rows[0];
+    const sessionToken = signToken({ id: newUser.id, email: newUser.email, is_admin: newUser.is_admin || false });
+    res.json({
+      ok: true,
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        phone: newUser.phone,
+        email: newUser.email,
+        is_admin: newUser.is_admin || false,
+        session_token: sessionToken,
+      }
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: "register_error" });
   }
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", authRateLimit, async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
     if (!email || !password) return res.status(400).json({ ok: false, error: "invalid_credentials" });
 
     const r = await pool.query(
-      `SELECT id, name, phone, email, password_hash FROM customers WHERE email = $1 LIMIT 1`,
+      `SELECT id, name, phone, email, password_hash, is_admin FROM customers WHERE email = $1 LIMIT 1`,
       [email]
     );
     const user = r.rows[0];
@@ -794,6 +888,7 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(401).json({ ok: false, error: "auth_failed" });
     }
 
+    const sessionToken = signToken({ id: user.id, email: user.email, is_admin: user.is_admin || false });
     res.json({
       ok: true,
       user: {
@@ -801,12 +896,27 @@ app.post("/api/auth/login", async (req, res) => {
         name: user.name,
         phone: user.phone,
         email: user.email,
+        is_admin: user.is_admin || false,
+        session_token: sessionToken,
       },
     });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: "login_error" });
   }
+});
+
+
+app.get("/api/auth/me", (req, res) => {
+  const auth = req.headers["authorization"] || "";
+  if (!auth.startsWith("Bearer ")) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const payload = verifyToken(auth.slice(7));
+  if (!payload) return res.status(401).json({ ok: false, error: "session_expired" });
+  res.json({ ok: true, user: payload });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  res.json({ ok: true });
 });
 
 // ===================== ASSISTANT (V2: OpenAI con contexto de catálogo) =====================
@@ -909,8 +1019,9 @@ async function sendOrderReceivedEmail(orderId, email, name, total) {
   }
   try {
     await resend.emails.send({
-      from: "MK5 Llantera <ventas@mk5.mx>",
+      from: "MK5 Llantera <ventas@send.mk5.com.mx>",
       to: [email],
+      bcc: ["llanteramk5.online@gmail.com"],
       subject: `Tu pedido fue recibido - Orden #${orderId}`,
       html: `
         <div style="font-family:sans-serif;color:#333;max-width:520px;margin:auto">
@@ -921,7 +1032,7 @@ async function sendOrderReceivedEmail(orderId, email, name, total) {
             <h2 style="color:#e85c00">¡Recibimos tu pedido, ${name || "cliente"}!</h2>
             <p>Tu orden <strong>#${orderId}</strong> ha sido registrada por un total de <strong>$${Number(total).toFixed(2)} MXN</strong>.</p>
             <p>En cuanto confirmemos tu pago te avisamos para iniciar el envío.</p>
-            <p>Si tienes dudas escríbenos por WhatsApp o a <a href="mailto:ventas@mk5.mx">ventas@mk5.mx</a>.</p>
+            <p>Si tienes dudas escríbenos por WhatsApp o a <a href="mailto:ventas@send.mk5.com.mx">ventas@send.mk5.com.mx</a>.</p>
             <br/>
             <p style="color:#888;font-size:13px">Gracias por confiar en MK5 Llantera.</p>
           </div>
@@ -941,7 +1052,7 @@ async function sendNewsletterWelcomeEmail(email) {
   }
   try {
     await resend.emails.send({
-      from: "MK5 Llantera <ventas@mk5.mx>",
+      from: "MK5 Llantera <ventas@send.mk5.com.mx>",
       to: [email],
       subject: "¡Bienvenido a las ofertas de MK5!",
       html: `
@@ -973,9 +1084,10 @@ async function sendPaymentSuccessEmail(orderId, email, name, total) {
   
   try {
     const { data, error } = await resend.emails.send({
-      from: "MK5 Auto parts <ventas@mk5.mx>",
+      from: "MK5 Auto parts <ventas@send.mk5.com.mx>",
       to: [email],
-      subject: `Confirmación de pago - Orden #${orderId}`,
+      bcc: ["llanteramk5.online@gmail.com"],
+          subject: `Confirmación de pago - Orden #${orderId}`,
       html: `
         <div style="font-family: sans-serif; color: #333;">
           <h2>¡Pago confirmado, ${name}! 🎉</h2>
@@ -1017,7 +1129,7 @@ app.get("/api/admin/metrics", [requireAdmin], async (req, res) => {
   }
 });
 
-app.post("/api/assistant", async (req, res) => {
+app.post("/api/assistant", assistantRateLimit, async (req, res) => {
   try {
     const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
     const singleMessage = (req.body?.message || "").toString().trim();
@@ -1364,16 +1476,63 @@ async function buildPaymentPayload(method, order, lines = [], customer = {}, shi
   }
 
   if (method === "oxxo_pay") {
-    const voucher = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-    return {
-      method,
-      status: "pending",
-      reference: voucher,
-      type: "voucher",
-      provider_url: null,
-      instructions: "Genera tu referencia y paga en cualquier tienda OXXO.",
-      error: null,
-    };
+    const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+    try {
+      const mpRes = await fetch("https://api.mercadopago.com/v1/payments", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": `mk5-oxxo-${order.id}-${Date.now()}`,
+        },
+        body: JSON.stringify({
+          transaction_amount: Number(order.total),
+          description: `MK5 Llantas - Orden MK5-${order.id}`,
+          payment_method_id: "oxxo",
+          payer: {
+            email: customer.email || "cliente@mk5.com.mx",
+            first_name: String(customer.name || "Cliente").split(" ")[0],
+            last_name: String(customer.name || "MK5").split(" ").slice(1).join(" ") || "MK5",
+          },
+        }),
+      });
+      const mpData = await mpRes.json();
+      if (mpData.id && mpData.transaction_details?.external_resource_url) {
+        const expiry = mpData.date_of_expiration
+          ? new Date(mpData.date_of_expiration).toLocaleDateString("es-MX", { day: "numeric", month: "long" })
+          : "72 horas";
+        return {
+          method,
+          status: "pending",
+          reference: String(mpData.id),
+          type: "voucher",
+          provider_url: mpData.transaction_details.external_resource_url,
+          instructions: `Paga en cualquier OXXO antes del ${expiry}. Muestra el código de barras al cajero.`,
+          error: null,
+        };
+      }
+      console.error("OXXO MP error:", JSON.stringify(mpData).slice(0, 300));
+      return {
+        method,
+        status: "pending",
+        reference: `MK5-${order.id}`,
+        type: "voucher",
+        provider_url: null,
+        instructions: "No se pudo generar el voucher OXXO. Contacta soporte con tu número de orden.",
+        error: mpData.message || "oxxo_payment_failed",
+      };
+    } catch (e) {
+      console.error("OXXO fetch error:", e.message);
+      return {
+        method,
+        status: "pending",
+        reference: `MK5-${order.id}`,
+        type: "voucher",
+        provider_url: null,
+        instructions: "Error al generar voucher OXXO. Contacta soporte.",
+        error: "oxxo_fetch_error",
+      };
+    }
   }
 
   return {
@@ -1500,8 +1659,8 @@ app.post("/api/checkout/create", async (req, res) => {
       await client.query("BEGIN");
 
       const o = await client.query(
-        `INSERT INTO orders (customer_name, customer_phone, customer_email, subtotal, discount, total)
-         VALUES ($1,$2,$3,$4,$5,$6)
+        `INSERT INTO orders (order_code, customer_name, customer_phone, customer_email, subtotal, discount, total)
+         VALUES ('MK5-' || to_char(now(), 'YYMMDD') || '-' || lpad(floor(random()*10000)::text, 4, '0'), $1,$2,$3,$4,$5,$6)
          RETURNING id, status, created_at`,
         [
           asNull(customer.name),
@@ -1557,7 +1716,7 @@ app.post("/api/checkout/create", async (req, res) => {
 
       for (const l of lines) {
         await client.query(
-          `INSERT INTO order_items (order_id, sku, marca, modelo, medida, qty, unit_price, line_total)
+          `INSERT INTO order_items (order_id, sku, marca, modelo, medida, qty, charged_qty, unit_price, line_total)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [
             orderId,
@@ -1569,6 +1728,12 @@ app.post("/api/checkout/create", async (req, res) => {
             l.unit_price,
             l.line_total,
           ]
+        );
+
+        // Descontar stock
+        await client.query(
+          `UPDATE catalogo SET stock = GREATEST(stock - $1, 0) WHERE sku = $2`,
+          [l.qty, l.sku]
         );
       }
       await client.query("COMMIT");
@@ -1669,6 +1834,118 @@ app.use((err, req, res, next) => {
 
 // ===================== LISTEN =====================
 const PORT = Number(process.env.PORT || 4000);
+
+// =================== ADMIN ENDPOINTS ===================
+
+app.get("/api/admin/orders", [requireAdmin], async (req, res) => {
+  try {
+    const { status, search } = req.query;
+    let q = `SELECT o.id, o.order_code, o.customer_name, o.customer_email, o.customer_phone,
+             o.total, o.status, o.created_at, op.method as payment_method
+             FROM orders o LEFT JOIN order_payments op ON op.order_id = o.id WHERE 1=1`;
+    const params = [];
+    if (status && status !== 'all') { params.push(status); q += ` AND o.status = $${params.length}`; }
+    if (search) {
+      params.push('%' + search + '%');
+      q += ` AND (o.order_code ILIKE $${params.length} OR o.customer_name ILIKE $${params.length} OR o.customer_email ILIKE $${params.length})`;
+    }
+    q += ' ORDER BY o.created_at DESC LIMIT 200';
+    const result = await pool.query(q, params);
+    res.json({ ok: true, orders: result.rows });
+  } catch (err) { console.error(err); res.status(500).json({ ok: false }); }
+});
+
+app.patch("/api/admin/orders/:id/cancel", [requireAdmin], async (req, res) => {
+  try {
+    await pool.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ ok: false }); }
+});
+
+
+app.patch("/api/admin/orders/:id/status", [requireAdmin], async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status, tracking_number } = req.body || {};
+    const validStatuses = ["pending_payment","paid","processing","shipped","delivered","cancelled"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ ok: false, error: "invalid_status" });
+    }
+
+    // Obtener datos del pedido para el email
+    const orderRes = await pool.query(
+      `SELECT o.id, o.order_code, o.customer_name, o.customer_email, o.total,
+              op.method AS payment_method
+       FROM orders o
+       LEFT JOIN order_payments op ON op.order_id = o.id
+       WHERE o.id = $1 LIMIT 1`,
+      [id]
+    );
+    const order = orderRes.rows[0];
+    if (!order) return res.status(404).json({ ok: false, error: "not_found" });
+
+    // Actualizar estado (y tracking si aplica)
+    await pool.query(
+      `UPDATE orders SET status = $1, tracking_number = COALESCE($2, tracking_number), updated_at = NOW()
+       WHERE id = $3`,
+      [status, tracking_number || null, id]
+    );
+
+    let email_sent = false;
+    if (status === "shipped" && order.customer_email) {
+      try {
+        const trackingLine = tracking_number
+          ? `<p style="margin:12px 0"><b>Número de guía:</b> <code style="background:#f3f4f6;padding:2px 8px;border-radius:4px">${tracking_number}</code></p>`
+          : "";
+        await resend.emails.send({
+          from: "MK5 Llantas <ventas@send.mk5.com.mx>",
+          to: [order.customer_email],
+          bcc: ["llanteramk5.online@gmail.com"],
+          subject: `Tu pedido ${order.order_code || "#"+order.id} está en camino 🚚`,
+          html: `
+            <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+              <h2 style="color:#e85c00">¡Tu pedido está en camino!</h2>
+              <p>Hola <b>${order.customer_name || "cliente"}</b>,</p>
+              <p>Tu pedido <b>${order.order_code || "#"+order.id}</b> ha sido enviado.</p>
+              ${trackingLine}
+              <p>Puedes rastrear tu pedido en: <a href="https://mk5.com.mx/rastrear-pedido">mk5.com.mx/rastrear-pedido</a></p>
+              <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+              <p style="color:#999;font-size:12px">MK5 Llantas · mk5.com.mx</p>
+            </div>`,
+        });
+        email_sent = true;
+      } catch (e) {
+        console.error("Error enviando email de envío:", e.message);
+      }
+    }
+
+    res.json({ ok: true, email_sent });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+
+
+app.get("/api/admin/customers", [requireAdmin], async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.id, c.name, c.email, c.phone, c.created_at,
+             COUNT(o.id) as orders_count
+      FROM customers c LEFT JOIN orders o ON o.customer_email = c.email
+      GROUP BY c.id ORDER BY c.created_at DESC LIMIT 500`);
+    res.json({ ok: true, customers: result.rows });
+  } catch (err) { res.status(500).json({ ok: false }); }
+});
+
+app.get("/api/admin/newsletter", [requireAdmin], async (req, res) => {
+  try {
+    const result = await pool.query('SELECT email, created_at FROM newsletter_subscriptions ORDER BY created_at DESC');
+    res.json({ ok: true, subscribers: result.rows });
+  } catch (err) { res.status(500).json({ ok: false }); }
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   ensureAnalyticsTable()
