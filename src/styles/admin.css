@@ -364,6 +364,28 @@
 .adm-status--cancelled       { background: #fee2e2; color: #991b1b; }
 .adm-status--shipped         { background: #dbeafe; color: #1e40af; }
 .adm-status--processing      { background: #ede9fe; color: #5b21b6; }
+.adm-status--delivered       { background: #ecfdf5; color: #064e3b; }
+.adm-status--authorized      { background: #e0f2fe; color: #075985; }
+
+/* ── Alertas dashboard ────────────────────────────────── */
+.adm-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #7c2d12;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.adm-alert--info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
 
 /* ── Modal ────────────────────────────────────────────── */
 .adm-modal-backdrop {

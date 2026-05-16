@@ -85,7 +85,6 @@ const assistantRateLimit = rateLimit({
   max: 10,
   message: { ok: false, error: "ia_limit", message: "Has usado tus 10 consultas del día. Vuelve mañana." },
   standardHeaders: true, legacyHeaders: false,
-  keyGenerator: (req) => req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip,
 });
 const webhookRateLimit = rateLimit({
   windowMs: 60 * 1000,
@@ -709,9 +708,66 @@ app.all("/api/payments/mercadopago/webhook", webhookRateLimit, async (req, res) 
     if (!m) return res.status(200).json({ ok: true, ignored: "external_reference_invalid" });
 
     const orderId = Number(m[1]);
-    const normalizedStatus = normalizeMercadoPagoStatus(paymentData?.status);
     const providerStatus = String(paymentData?.status || "").toLowerCase();
+    const providerStatusDetail = String(paymentData?.status_detail || "").toLowerCase();
     const providerPaymentId = String(paymentData?.id || "").trim();
+    const normalizedStatus = normalizeMercadoPagoStatus(providerStatus);
+
+    // Cargar datos actuales de la orden para validar el pago contra el monto y método esperados
+    const existingRes = await pool.query(
+      `SELECT o.status AS order_status, o.total, op.method, op.status AS payment_status
+         FROM orders o
+         LEFT JOIN order_payments op ON op.order_id = o.id
+         WHERE o.id = $1
+         ORDER BY op.id DESC
+         LIMIT 1`,
+      [orderId]
+    );
+    const existing = existingRes.rows[0];
+    if (!existing) return res.status(200).json({ ok: true, ignored: "order_not_found" });
+
+    // Solo aceptamos webhooks de MP para órdenes cuyo método de pago sea mercado_pago
+    if (existing.method && existing.method !== "mercado_pago") {
+      return res.status(200).json({ ok: true, ignored: "method_mismatch" });
+    }
+
+    const expectedTotal = Number(existing.total || 0);
+    const txAmount = Number(
+      paymentData?.transaction_amount ??
+      paymentData?.transaction_details?.total_paid_amount ??
+      0
+    );
+    const currency = String(paymentData?.currency_id || "").toUpperCase();
+
+    // Validación dura para marcar como pagada:
+    //   1) MP debe reportar literalmente "approved" (no confiar solo en el normalize)
+    //   2) status_detail debe ser "accredited" (acreditado realmente)
+    //   3) El monto pagado debe cubrir el total de la orden (tolerancia 1 centavo)
+    //   4) La moneda debe ser MXN
+    const amountOk = expectedTotal > 0 && txAmount + 0.01 >= expectedTotal;
+    const isApproved =
+      providerStatus === "approved" &&
+      providerStatusDetail === "accredited" &&
+      amountOk &&
+      currency === "MXN";
+
+    // Si MP no dice "approved + accredited + monto correcto", NO marcamos paid
+    // aunque normalizeMercadoPagoStatus lo hubiera permitido.
+    let finalStatus = normalizedStatus;
+    if (normalizedStatus === "paid" && !isApproved) {
+      finalStatus = "pending";
+      console.warn(
+        `[MP webhook] Orden ${orderId}: status approved pero falló validación`,
+        { providerStatus, providerStatusDetail, txAmount, expectedTotal, currency }
+      );
+    }
+
+    // Nunca degradar una orden ya pagada (race condition / webhooks duplicados)
+    const currentOrderStatus = String(existing.order_status || "").toLowerCase();
+    const isTerminalPaid = currentOrderStatus === "paid"
+      || currentOrderStatus === "processing"
+      || currentOrderStatus === "shipped"
+      || currentOrderStatus === "delivered";
 
     const client = await pool.connect();
     try {
@@ -725,15 +781,20 @@ app.all("/api/payments/mercadopago/webhook", webhookRateLimit, async (req, res) 
              updated_at = now(),
              meta = COALESCE(meta, '{}'::jsonb) || $4::jsonb
          WHERE order_id = $5 AND method = 'mercado_pago'`,
-        [normalizedStatus, providerStatus, asNull(providerPaymentId), JSON.stringify({ mp: paymentData }), orderId]
+        [finalStatus, providerStatus, asNull(providerPaymentId), JSON.stringify({ mp: paymentData }), orderId]
       );
 
-      await client.query(
-        `UPDATE orders
-         SET status = $1
-         WHERE id = $2`,
-        [normalizedStatus, orderId]
-      );
+      // Solo actualizamos orders.status si:
+      //   - la orden NO está ya en un estado terminal de pagado, O
+      //   - el nuevo status es "paid" (única transición permitida hacia adelante)
+      if (!isTerminalPaid) {
+        await client.query(
+          `UPDATE orders
+           SET status = $1
+           WHERE id = $2`,
+          [finalStatus, orderId]
+        );
+      }
       await client.query("COMMIT");
     } catch (e) {
       await client.query("ROLLBACK");
@@ -742,7 +803,7 @@ app.all("/api/payments/mercadopago/webhook", webhookRateLimit, async (req, res) 
       client.release();
     }
 
-    if (normalizedStatus === "paid") {
+    if (finalStatus === "paid" && !isTerminalPaid) {
       const oRow = await pool.query(
         `SELECT customer_email, customer_name, total FROM orders WHERE id = $1`, [orderId]
       );
@@ -839,17 +900,20 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
       return res.status(400).json({ ok: false, error: "invalid_credentials" });
     }
 
+    // Verificar si el email ya existe antes de registrar
+    const existing = await pool.query(
+      `SELECT id FROM customers WHERE email = $1 LIMIT 1`, [email]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ ok: false, error: "email_already_registered" });
+    }
+
     const passHash = hashPassword(password);
     await pool.query(
       `INSERT INTO customers (name, phone, email, password_hash)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (email) DO UPDATE
-       SET name = EXCLUDED.name,
-           phone = EXCLUDED.phone,
-           password_hash = EXCLUDED.password_hash`,
+       VALUES ($1,$2,$3,$4)`,
       [asNull(name), asNull(phone), email, passHash]
     );
-    // Fetch the created/updated user to return session
     const r2 = await pool.query(
       `SELECT id, name, phone, email, is_admin FROM customers WHERE email = $1 LIMIT 1`,
       [email]
@@ -1106,14 +1170,36 @@ async function sendPaymentSuccessEmail(orderId, email, name, total) {
 
 app.get("/api/admin/metrics", [requireAdmin], async (req, res) => {
   try {
-    const clientsResult = await pool.query("SELECT COUNT(*) FROM customers");
-    const totalClients = parseInt(clientsResult.rows[0].count, 10);
+    const [clientsResult, ordersResult, byStatusResult, revenueByMethodResult] = await Promise.all([
+      pool.query("SELECT COUNT(*) FROM customers"),
+      pool.query("SELECT COUNT(*) as count, SUM(total) as revenue FROM orders WHERE status = 'paid'"),
+      pool.query(`
+        SELECT status, COUNT(*) as count
+        FROM orders
+        GROUP BY status
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT op.method, COUNT(*) as count, SUM(o.total) as revenue
+        FROM orders o
+        LEFT JOIN order_payments op ON op.order_id = o.id
+        WHERE o.status = 'paid'
+        GROUP BY op.method
+        ORDER BY revenue DESC
+      `),
+    ]);
 
-    const ordersResult = await pool.query(
-      "SELECT COUNT(*) as count, SUM(total) as revenue FROM orders WHERE status = 'paid'"
-    );
+    const totalClients = parseInt(clientsResult.rows[0].count, 10);
     const totalOrders = parseInt(ordersResult.rows[0].count, 10);
     const totalRevenue = parseFloat(ordersResult.rows[0].revenue) || 0;
+
+    // Pedidos pendientes de pago (alerta)
+    const byStatus = {};
+    for (const row of byStatusResult.rows) {
+      byStatus[row.status] = parseInt(row.count, 10);
+    }
+    const pendingOrders = byStatus["pending_payment"] || 0;
+    const processingOrders = byStatus["processing"] || 0;
 
     res.json({
       ok: true,
@@ -1121,6 +1207,14 @@ app.get("/api/admin/metrics", [requireAdmin], async (req, res) => {
         totalClients,
         totalOrders,
         totalRevenue,
+        pendingOrders,
+        processingOrders,
+        byStatus,
+        revenueByMethod: revenueByMethodResult.rows.map(r => ({
+          method: r.method || "sin método",
+          count: parseInt(r.count, 10),
+          revenue: parseFloat(r.revenue) || 0,
+        })),
       },
     });
   } catch (error) {
@@ -1292,6 +1386,133 @@ function normalizeMercadoPagoStatus(mpStatus) {
   if (s === "authorized") return "authorized";
   if (s === "rejected" || s === "cancelled" || s === "refunded" || s === "charged_back") return "failed";
   return "pending";
+}
+
+/**
+ * Consulta a Mercado Pago en vivo el estado real de los pagos asociados a una orden
+ * y reconcilia el status local. Se usa cuando el cliente vuelve de MP al sitio y no
+ * podemos esperar al webhook (por si MP tarda o no llega).
+ *
+ * - Busca pagos en MP por external_reference = MK5-{orderId}
+ * - Aplica las MISMAS reglas duras que el webhook (approved + accredited + monto + MXN)
+ * - Nunca degrada una orden ya pagada
+ * - Devuelve el status final actualizado
+ */
+async function reconcileMercadoPagoOrder(orderId) {
+  const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+  if (!accessToken) return { ok: false, error: "no_token" };
+
+  try {
+    const orderRes = await pool.query(
+      `SELECT o.status AS order_status, o.total, op.method, op.status AS payment_status
+         FROM orders o
+         LEFT JOIN order_payments op ON op.order_id = o.id
+         WHERE o.id = $1
+         ORDER BY op.id DESC
+         LIMIT 1`,
+      [orderId]
+    );
+    const existing = orderRes.rows[0];
+    if (!existing) return { ok: false, error: "order_not_found" };
+    if (existing.method && existing.method !== "mercado_pago") {
+      return { ok: false, error: "method_mismatch" };
+    }
+
+    const currentOrderStatus = String(existing.order_status || "").toLowerCase();
+    const isTerminalPaid = currentOrderStatus === "paid"
+      || currentOrderStatus === "processing"
+      || currentOrderStatus === "shipped"
+      || currentOrderStatus === "delivered";
+    // Si ya está pagada, no hace falta consultar MP
+    if (isTerminalPaid) return { ok: true, status: currentOrderStatus, skipped: true };
+
+    // Buscar el/los pagos asociados a esta orden por external_reference
+    const searchUrl = `https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent("MK5-" + orderId)}`;
+    const searchRes = await fetch(searchUrl, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!searchRes.ok) {
+      return { ok: false, error: `mp_search_${searchRes.status}` };
+    }
+    const searchData = await searchRes.json();
+    const results = Array.isArray(searchData?.results) ? searchData.results : [];
+    if (!results.length) {
+      // No hay ningún pago en MP todavía → la orden sigue pendiente
+      return { ok: true, status: currentOrderStatus, mp_payments: 0 };
+    }
+
+    // Tomamos el pago "más fuerte": el approved si existe, si no el más reciente
+    const approved = results.find(
+      (p) => String(p?.status || "").toLowerCase() === "approved" &&
+             String(p?.status_detail || "").toLowerCase() === "accredited"
+    );
+    const paymentData = approved || results.sort(
+      (a, b) => new Date(b?.date_created || 0) - new Date(a?.date_created || 0)
+    )[0];
+
+    const providerStatus = String(paymentData?.status || "").toLowerCase();
+    const providerStatusDetail = String(paymentData?.status_detail || "").toLowerCase();
+    const providerPaymentId = String(paymentData?.id || "").trim();
+    const expectedTotal = Number(existing.total || 0);
+    const txAmount = Number(
+      paymentData?.transaction_amount ??
+      paymentData?.transaction_details?.total_paid_amount ??
+      0
+    );
+    const currency = String(paymentData?.currency_id || "").toUpperCase();
+
+    const amountOk = expectedTotal > 0 && txAmount + 0.01 >= expectedTotal;
+    const isApproved =
+      providerStatus === "approved" &&
+      providerStatusDetail === "accredited" &&
+      amountOk &&
+      currency === "MXN";
+
+    let finalStatus = normalizeMercadoPagoStatus(providerStatus);
+    if (finalStatus === "paid" && !isApproved) finalStatus = "pending";
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `UPDATE order_payments
+         SET status = $1,
+             provider_status = $2,
+             provider_payment_id = COALESCE($3, provider_payment_id),
+             reference = COALESCE(reference, $3),
+             updated_at = now(),
+             meta = COALESCE(meta, '{}'::jsonb) || $4::jsonb
+         WHERE order_id = $5 AND method = 'mercado_pago'`,
+        [finalStatus, providerStatus, asNull(providerPaymentId), JSON.stringify({ mp_reconcile: paymentData }), orderId]
+      );
+      await client.query(
+        `UPDATE orders SET status = $1 WHERE id = $2`,
+        [finalStatus, orderId]
+      );
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    if (finalStatus === "paid") {
+      const oRow = await pool.query(
+        `SELECT customer_email, customer_name, total FROM orders WHERE id = $1`, [orderId]
+      );
+      const o = oRow.rows[0];
+      if (o?.customer_email) {
+        sendPaymentSuccessEmail(orderId, o.customer_email, o.customer_name || "Cliente", o.total).catch(() => {});
+      }
+    }
+
+    return { ok: true, status: finalStatus, mp_payments: results.length };
+  } catch (e) {
+    console.error("[MP reconcile] error:", e.message);
+    return { ok: false, error: "reconcile_exception" };
+  }
 }
 
 function paypalBaseUrl() {
@@ -1658,9 +1879,12 @@ app.post("/api/checkout/create", async (req, res) => {
     try {
       await client.query("BEGIN");
 
+      // IMPORTANTE: status SIEMPRE arranca en 'pending_payment'.
+      // Nunca confiar en el DEFAULT de la columna en la BD — si por accidente
+      // estuviera mal configurado a 'paid', generaríamos órdenes pagadas sin cobrar.
       const o = await client.query(
-        `INSERT INTO orders (order_code, customer_name, customer_phone, customer_email, subtotal, discount, total)
-         VALUES ('MK5-' || to_char(now(), 'YYMMDD') || '-' || lpad(floor(random()*10000)::text, 4, '0'), $1,$2,$3,$4,$5,$6)
+        `INSERT INTO orders (order_code, customer_name, customer_phone, customer_email, subtotal, discount, total, status)
+         VALUES ('MK5-' || to_char(now(), 'YYMMDD') || '-' || lpad(floor(random()*10000)::text, 4, '0'), $1,$2,$3,$4,$5,$6,'pending_payment')
          RETURNING id, status, created_at`,
         [
           asNull(customer.name),
@@ -1717,7 +1941,7 @@ app.post("/api/checkout/create", async (req, res) => {
       for (const l of lines) {
         await client.query(
           `INSERT INTO order_items (order_id, sku, marca, modelo, medida, qty, charged_qty, unit_price, line_total)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [
             orderId,
             l.sku,
@@ -1725,6 +1949,7 @@ app.post("/api/checkout/create", async (req, res) => {
             l.modelo,
             l.medida,
             l.qty,
+            l.charged_qty ?? l.qty,
             l.unit_price,
             l.line_total,
           ]
@@ -1776,7 +2001,8 @@ app.get("/api/checkout/order/:id/payment", async (req, res) => {
       return res.status(400).json({ ok: false, error: "invalid_order_id" });
     }
 
-    const r = await pool.query(
+    // Lectura inicial para saber qué método de pago tiene la orden
+    const r1 = await pool.query(
       `SELECT o.id, o.status AS order_status, o.total, o.created_at,
               p.method, p.status AS payment_status, p.reference, p.provider_url, p.provider_payment_id, p.provider_status, p.updated_at
        FROM orders o
@@ -1786,19 +2012,37 @@ app.get("/api/checkout/order/:id/payment", async (req, res) => {
        LIMIT 1`,
       [orderId]
     );
-    const row = r.rows[0];
+    let row = r1.rows[0];
     if (!row) return res.status(404).json({ ok: false, error: "order_not_found" });
+
+    // Si la orden es de Mercado Pago y todavía está pendiente, consultamos a MP
+    // en vivo para reconciliar (no esperamos al webhook). Esto cierra la ventana
+    // donde el cliente vuelve a /gracias antes de que el webhook llegue.
+    const orderStatusLc = String(row.order_status || "").toLowerCase();
+    const isPendingMP =
+      row.method === "mercado_pago" &&
+      (orderStatusLc === "pending_payment" || orderStatusLc === "pending" || orderStatusLc === "");
+    if (isPendingMP) {
+      await reconcileMercadoPagoOrder(orderId);
+      // Releemos el estado actualizado
+      const r2 = await pool.query(
+        `SELECT o.id, o.status AS order_status, o.total, o.created_at,
+                p.method, p.status AS payment_status, p.reference, p.provider_url, p.provider_payment_id, p.provider_status, p.updated_at
+         FROM orders o
+         LEFT JOIN order_payments p ON p.order_id = o.id
+         WHERE o.id = $1
+         ORDER BY p.id DESC
+         LIMIT 1`,
+        [orderId]
+      );
+      if (r2.rows[0]) row = r2.rows[0];
+    }
 
     res.json({ ok: true, order: row });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: "payment_status_error" });
   }
-});
-
-// ===================== 404 API =====================
-app.use("/api", (req, res) => {
-  res.status(404).json({ ok: false, error: "not_found" });
 });
 
 // ===================== NEWSLETTER =====================
@@ -1823,15 +2067,6 @@ app.post("/api/newsletter/subscribe", async (req, res) => {
   }
 });
 
-// ===================== ERROR HANDLER =====================
-app.use((err, req, res, next) => {
-  if (err && err.message === "CORS_BLOCKED") {
-    return res.status(403).json({ ok: false, error: "cors_blocked" });
-  }
-  console.error(err);
-  res.status(500).json({ ok: false, error: "unhandled_error" });
-});
-
 // ===================== LISTEN =====================
 const PORT = Number(process.env.PORT || 4000);
 
@@ -1852,7 +2087,7 @@ app.get("/api/admin/orders", [requireAdmin], async (req, res) => {
     q += ' ORDER BY o.created_at DESC LIMIT 200';
     const result = await pool.query(q, params);
     res.json({ ok: true, orders: result.rows });
-  } catch (err) { console.error(err); res.status(500).json({ ok: false }); }
+  } catch (err) { console.error("[ADMIN ORDERS ERROR]", err); res.status(500).json({ ok: false }); }
 });
 
 app.patch("/api/admin/orders/:id/cancel", [requireAdmin], async (req, res) => {
@@ -1860,6 +2095,39 @@ app.patch("/api/admin/orders/:id/cancel", [requireAdmin], async (req, res) => {
     await pool.query("UPDATE orders SET status = 'cancelled' WHERE id = $1", [req.params.id]);
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ ok: false }); }
+});
+
+app.get("/api/admin/orders/:id", [requireAdmin], async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ ok: false, error: "bad_id" });
+
+    const orderRes = await pool.query(
+      `SELECT o.id, o.order_code, o.customer_name, o.customer_email, o.customer_phone,
+              o.subtotal, o.discount, o.total, o.status, o.tracking_number, o.created_at,
+              op.method AS payment_method, op.status AS payment_status,
+              op.reference AS payment_reference, op.meta AS payment_meta
+         FROM orders o
+         LEFT JOIN order_payments op ON op.order_id = o.id
+         WHERE o.id = $1
+         LIMIT 1`,
+      [id]
+    );
+    if (!orderRes.rows.length) return res.status(404).json({ ok: false, error: "not_found" });
+
+    const itemsRes = await pool.query(
+      `SELECT id, sku, marca, modelo, medida, qty, charged_qty, unit_price, line_total
+         FROM order_items
+         WHERE order_id = $1
+         ORDER BY id ASC`,
+      [id]
+    );
+
+    res.json({ ok: true, order: orderRes.rows[0], items: itemsRes.rows });
+  } catch (err) {
+    console.error("[ADMIN ORDER DETAIL ERROR]", err);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
 });
 
 
@@ -1931,19 +2199,149 @@ app.patch("/api/admin/orders/:id/status", [requireAdmin], async (req, res) => {
 app.get("/api/admin/customers", [requireAdmin], async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT c.id, c.name, c.email, c.phone, c.created_at,
-             COUNT(o.id) as orders_count
-      FROM customers c LEFT JOIN orders o ON o.customer_email = c.email
-      GROUP BY c.id ORDER BY c.created_at DESC LIMIT 500`);
+      SELECT
+        COALESCE(c.id, 0) as id,
+        COALESCE(c.name, o_agg.customer_name) as name,
+        COALESCE(c.email, o_agg.customer_email) as email,
+        COALESCE(c.phone, o_agg.customer_phone) as phone,
+        COALESCE(c.created_at, o_agg.first_order) as created_at,
+        COALESCE(o_agg.orders_count, 0) as orders_count
+      FROM (
+        SELECT customer_email,
+               MIN(customer_name) as customer_name,
+               MIN(customer_phone) as customer_phone,
+               MIN(created_at) as first_order,
+               COUNT(*) as orders_count
+        FROM orders
+        WHERE customer_email IS NOT NULL AND customer_email != ''
+        GROUP BY customer_email
+      ) o_agg
+      FULL OUTER JOIN customers c ON LOWER(c.email) = LOWER(o_agg.customer_email)
+      ORDER BY COALESCE(c.created_at, o_agg.first_order) DESC
+      LIMIT 500`);
     res.json({ ok: true, customers: result.rows });
-  } catch (err) { res.status(500).json({ ok: false }); }
+  } catch (err) { console.error("[ADMIN CUSTOMERS ERROR]", err); res.status(500).json({ ok: false }); }
 });
 
 app.get("/api/admin/newsletter", [requireAdmin], async (req, res) => {
   try {
-    const result = await pool.query('SELECT email, created_at FROM newsletter_subscriptions ORDER BY created_at DESC');
+    const result = await pool.query('SELECT email, created_at FROM newsletter_subscribers ORDER BY created_at DESC');
     res.json({ ok: true, subscribers: result.rows });
   } catch (err) { res.status(500).json({ ok: false }); }
+});
+
+// ===================== PASSWORD RESET =====================
+
+async function ensurePasswordResetTokensTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id BIGSERIAL PRIMARY KEY,
+      customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token);
+  `);
+}
+
+app.post("/api/auth/forgot-password", authRateLimit, async (req, res) => {
+  // Siempre responder ok para no revelar si el email existe
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!email) return res.json({ ok: true });
+
+  try {
+    const r = await pool.query(
+      `SELECT id, name FROM customers WHERE email = $1 LIMIT 1`, [email]
+    );
+    if (!r.rows.length) return res.json({ ok: true });
+
+    const customer = r.rows[0];
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    // Invalida tokens anteriores del mismo usuario
+    await pool.query(
+      `UPDATE password_reset_tokens SET used_at = now() WHERE customer_id = $1 AND used_at IS NULL`,
+      [customer.id]
+    );
+    await pool.query(
+      `INSERT INTO password_reset_tokens (customer_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [customer.id, token, expiresAt]
+    );
+
+    const frontendBase = (process.env.FRONTEND_BASE_URL || "https://mk5.com.mx").replace(/\/+$/, "");
+    const resetUrl = `${frontendBase}/mi-cuenta?reset=${token}`;
+
+    await resend.emails.send({
+      from: "MK5 Llantas <ventas@send.mk5.com.mx>",
+      to: [email],
+      subject: "Recupera tu contraseña — MK5 Llantas",
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+          <h2 style="color:#e85c00">Restablecer contraseña</h2>
+          <p>Hola <b>${customer.name || "cliente"}</b>,</p>
+          <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
+          <p style="margin:24px 0">
+            <a href="${resetUrl}"
+               style="background:#e85c00;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">
+              Restablecer contraseña
+            </a>
+          </p>
+          <p style="color:#666;font-size:13px">Este enlace es válido por <b>1 hora</b>. Si no solicitaste esto, ignora este correo.</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+          <p style="color:#999;font-size:12px">MK5 Llantas · mk5.com.mx</p>
+        </div>`,
+    });
+  } catch (e) {
+    console.error("forgot-password error:", e.message);
+  }
+
+  res.json({ ok: true });
+});
+
+app.post("/api/auth/reset-password", authRateLimit, async (req, res) => {
+  const token = String(req.body?.token || "").trim();
+  const newPassword = String(req.body?.password || "");
+
+  if (!token || newPassword.length < 8) {
+    return res.status(400).json({ ok: false, error: "invalid_request" });
+  }
+
+  try {
+    const r = await pool.query(
+      `SELECT id, customer_id, expires_at, used_at FROM password_reset_tokens WHERE token = $1 LIMIT 1`,
+      [token]
+    );
+    const row = r.rows[0];
+    if (!row) return res.status(400).json({ ok: false, error: "token_invalid" });
+    if (row.used_at) return res.status(400).json({ ok: false, error: "token_already_used" });
+    if (new Date(row.expires_at) < new Date()) return res.status(400).json({ ok: false, error: "token_expired" });
+
+    const passHash = hashPassword(newPassword);
+    await pool.query(`UPDATE customers SET password_hash = $1 WHERE id = $2`, [passHash, row.customer_id]);
+    await pool.query(`UPDATE password_reset_tokens SET used_at = now() WHERE id = $1`, [row.id]);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("reset-password error:", e.message);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+// ===================== 404 API (must be after ALL /api routes) =====================
+app.use("/api", (req, res) => {
+  res.status(404).json({ ok: false, error: "not_found" });
+});
+
+// ===================== ERROR HANDLER =====================
+app.use((err, req, res, next) => {
+  if (err && err.message === "CORS_BLOCKED") {
+    return res.status(403).json({ ok: false, error: "cors_blocked" });
+  }
+  console.error(err);
+  res.status(500).json({ ok: false, error: "unhandled_error" });
 });
 
 app.listen(PORT, "0.0.0.0", () => {
@@ -1963,4 +2361,7 @@ app.listen(PORT, "0.0.0.0", () => {
   ensureNewsletterTable()
     .then(() => console.log("Tabla newsletter_subscribers lista"))
     .catch((e) => console.error("No pude inicializar newsletter_subscribers:", e.message));
+  ensurePasswordResetTokensTable()
+    .then(() => console.log("Tabla password_reset_tokens lista"))
+    .catch((e) => console.error("No pude inicializar password_reset_tokens:", e.message));
 });

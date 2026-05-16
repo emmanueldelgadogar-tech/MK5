@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import "../styles/pages.css";
 import "../styles/cuenta.css";
 import { API_BASE } from "../config";
@@ -25,7 +25,10 @@ function friendlyError(code, fallback) {
 
 export default function MiCuenta() {
   useNavigate();
-  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [searchParams] = useSearchParams();
+  // "login" | "register" | "forgot" | "reset"
+  const [mode, setMode] = useState(() => searchParams.get("reset") ? "reset" : "login");
+  const [resetToken] = useState(() => searchParams.get("reset") || "");
   const [user, setUser] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
 
@@ -35,6 +38,8 @@ export default function MiCuenta() {
   const [success, setSuccess] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [showPass, setShowPass] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
 
   // Verifica sesión usando token almacenado en localStorage
   useEffect(() => {
@@ -108,6 +113,53 @@ export default function MiCuenta() {
       errs.password = "Mínimo 8 caracteres.";
     }
     return errs;
+  }
+
+  async function handleForgot(e) {
+    e.preventDefault();
+    if (!isValidEmail(forgotEmail)) { setError("Ingresa un correo válido."); return; }
+    setError(""); setLoading(true);
+    try {
+      await fetch(`${API_BASE}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setSuccess("Si ese correo existe, recibirás un enlace en tu bandeja de entrada (revisa spam).");
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReset(e) {
+    e.preventDefault();
+    if (newPassword.length < 8) { setError("La contraseña debe tener al menos 8 caracteres."); return; }
+    setError(""); setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: resetToken, password: newPassword }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        const msgs = {
+          token_invalid: "Enlace inválido. Solicita uno nuevo.",
+          token_expired: "El enlace expiró (válido 1 hora). Solicita uno nuevo.",
+          token_already_used: "Este enlace ya fue usado. Solicita uno nuevo.",
+        };
+        setError(msgs[data.error] || "No se pudo cambiar la contraseña.");
+      } else {
+        setSuccess("¡Contraseña cambiada! Ya puedes iniciar sesión.");
+        setTimeout(() => setMode("login"), 2000);
+      }
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSubmit(e) {
@@ -242,6 +294,88 @@ export default function MiCuenta() {
     );
   }
 
+  // ── Pantalla: Olvidé mi contraseña ────────────────────
+  if (mode === "forgot") {
+    return (
+      <main className="static-page">
+        <div className="static-hero cuenta-hero">
+          <div className="static-hero__badge">🔒 Recuperar cuenta</div>
+          <h1>Olvidé mi contraseña</h1>
+          <p>Te enviaremos un enlace para restablecer tu contraseña.</p>
+        </div>
+        <div className="cuenta-form-wrap">
+          <form className="cuenta-form" onSubmit={handleForgot}>
+            {error   && <div className="cuenta-alert cuenta-alert--error">{error}</div>}
+            {success && <div className="cuenta-alert cuenta-alert--success">{success}</div>}
+            {!success && (
+              <>
+                <label>
+                  Correo electrónico *
+                  <input type="email" value={forgotEmail} autoComplete="email" placeholder="correo@ejemplo.com"
+                    onChange={e => setForgotEmail(e.target.value)} />
+                </label>
+                <button type="submit" className="cuenta-submit" disabled={loading}>
+                  {loading ? "Enviando…" : "Enviar enlace de recuperación"}
+                </button>
+              </>
+            )}
+          </form>
+          <p style={{ textAlign: "center", fontSize: 13, color: "#666", marginTop: 12 }}>
+            <button type="button" className="cuenta-link" onClick={() => { setError(""); setSuccess(""); setMode("login"); }}>
+              Volver al inicio de sesión
+            </button>
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // ── Pantalla: Restablecer contraseña (desde enlace email) ──
+  if (mode === "reset") {
+    return (
+      <main className="static-page">
+        <div className="static-hero cuenta-hero">
+          <div className="static-hero__badge">🔑 Nueva contraseña</div>
+          <h1>Restablecer contraseña</h1>
+          <p>Elige una nueva contraseña para tu cuenta.</p>
+        </div>
+        <div className="cuenta-form-wrap">
+          <form className="cuenta-form" onSubmit={handleReset}>
+            {error   && <div className="cuenta-alert cuenta-alert--error">{error}</div>}
+            {success && <div className="cuenta-alert cuenta-alert--success">{success}</div>}
+            {!success && (
+              <>
+                <label>
+                  Nueva contraseña *
+                  <div className="pass-wrap">
+                    <input
+                      type={showPass ? "text" : "password"}
+                      value={newPassword}
+                      autoComplete="new-password"
+                      placeholder="Mínimo 8 caracteres"
+                      onChange={e => setNewPassword(e.target.value)}
+                    />
+                    <button type="button" className="pass-toggle" onClick={() => setShowPass(v => !v)}>
+                      {showPass ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </label>
+                <button type="submit" className="cuenta-submit" disabled={loading}>
+                  {loading ? "Guardando…" : "Guardar nueva contraseña"}
+                </button>
+              </>
+            )}
+          </form>
+          <p style={{ textAlign: "center", fontSize: 13, color: "#666", marginTop: 12 }}>
+            <button type="button" className="cuenta-link" onClick={() => { setError(""); setSuccess(""); setMode("login"); }}>
+              Volver al inicio de sesión
+            </button>
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="static-page">
       <div className="static-hero cuenta-hero">
@@ -327,6 +461,14 @@ export default function MiCuenta() {
               : mode === "login" ? "Entrar" : "Crear cuenta"}
           </button>
         </form>
+
+        {mode === "login" && (
+          <p style={{ textAlign: "center", fontSize: 13, marginTop: 4 }}>
+            <button type="button" className="cuenta-link" onClick={() => { setError(""); setSuccess(""); setMode("forgot"); }}>
+              ¿Olvidaste tu contraseña?
+            </button>
+          </p>
+        )}
 
         <p style={{ textAlign: "center", fontSize: 13, color: "#666", marginTop: 12 }}>
           {mode === "login"

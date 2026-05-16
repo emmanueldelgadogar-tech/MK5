@@ -95,6 +95,8 @@ export default function AdminPanel() {
   const [editTracking, setEditTracking] = useState("");
   const [saving, setSaving]           = useState(false);
   const [saveMsg, setSaveMsg]         = useState("");
+  const [orderDetail, setOrderDetail] = useState(null); // { order, items }
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const loadOrders = useCallback(() => {
     setOrdLoading(true);
@@ -126,6 +128,19 @@ export default function AdminPanel() {
     setEditOrder(o);
     setEditStatus(o.status || "");
     setEditTracking(o.tracking_number || "");
+    setSaveMsg("");
+    setOrderDetail(null);
+    setDetailLoading(true);
+    fetch(`${API_BASE}/api/admin/orders/${o.id}`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setOrderDetail({ order: d.order, items: d.items || [] }); })
+      .catch(() => {})
+      .finally(() => setDetailLoading(false));
+  }
+
+  function closeEdit() {
+    setEditOrder(null);
+    setOrderDetail(null);
     setSaveMsg("");
   }
 
@@ -183,21 +198,100 @@ export default function AdminPanel() {
   }, [tab]);
 
   // ── Shortcuts ──────────────────────────────────────────
-  const adm = metrics?.adm;
+  // /api/admin/metrics devuelve { ok, metrics: { ... } }
+  const adm = metrics?.adm?.metrics ?? null;
   const ana = metrics?.ana;
 
   // ── Modal cambiar estado ────────────────────────────────
+  const detailMeta = orderDetail?.order?.payment_meta || {};
   const OrderModal = editOrder ? (
-    <div className="adm-modal-backdrop" onClick={() => setEditOrder(null)}>
+    <div className="adm-modal-backdrop" onClick={closeEdit}>
       <div className="adm-modal" onClick={e => e.stopPropagation()}>
         <div className="adm-modal__head">
           <b>Gestionar pedido</b>
           <code className="adm-code">{editOrder.order_code || `#${editOrder.id}`}</code>
-          <button className="adm-modal__close" onClick={() => setEditOrder(null)}>✕</button>
+          <button className="adm-modal__close" onClick={closeEdit}>✕</button>
         </div>
         <p className="adm-muted" style={{ marginBottom: 14 }}>
           Cliente: <b>{editOrder.customer_name}</b> · {editOrder.customer_email}
+          {editOrder.customer_phone ? <> · {editOrder.customer_phone}</> : null}
         </p>
+
+        {/* Productos del pedido */}
+        <div style={{ marginBottom: 14, border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, background: "#fafafa" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>
+            🛒 Productos del pedido
+          </div>
+          {detailLoading ? (
+            <p className="adm-muted" style={{ fontSize: 13, margin: 0 }}>Cargando detalle…</p>
+          ) : !orderDetail ? (
+            <p className="adm-muted" style={{ fontSize: 13, margin: 0 }}>No se pudo cargar el detalle.</p>
+          ) : orderDetail.items.length === 0 ? (
+            <p className="adm-muted" style={{ fontSize: 13, margin: 0 }}>Este pedido no tiene productos registrados.</p>
+          ) : (
+            <table className="adm-table" style={{ fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Producto</th>
+                  <th style={{ textAlign: "center" }}>Cant.</th>
+                  <th style={{ textAlign: "right" }}>P. unit.</th>
+                  <th style={{ textAlign: "right" }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orderDetail.items.map(it => (
+                  <tr key={it.id}>
+                    <td><code style={{ fontSize: 11 }}>{it.sku}</code></td>
+                    <td>
+                      <div><b>{it.marca} {it.modelo}</b></div>
+                      {it.medida && <div className="adm-muted" style={{ fontSize: 11 }}>{it.medida}</div>}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {it.charged_qty && it.charged_qty !== it.qty
+                        ? <>{it.qty} <span className="adm-muted">({it.charged_qty} cobr.)</span></>
+                        : it.qty}
+                    </td>
+                    <td style={{ textAlign: "right" }}>{money(it.unit_price)}</td>
+                    <td style={{ textAlign: "right" }}><b>{money(it.line_total)}</b></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                {orderDetail.order?.subtotal != null && (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "right" }} className="adm-muted">Subtotal</td>
+                    <td style={{ textAlign: "right" }}>{money(orderDetail.order.subtotal)}</td>
+                  </tr>
+                )}
+                {Number(orderDetail.order?.discount) > 0 && (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "right" }} className="adm-muted">Descuento</td>
+                    <td style={{ textAlign: "right" }}>-{money(orderDetail.order.discount)}</td>
+                  </tr>
+                )}
+                <tr>
+                  <td colSpan={4} style={{ textAlign: "right", fontWeight: 700 }}>Total</td>
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>{money(orderDetail.order?.total ?? editOrder.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+
+          {/* Dirección de envío */}
+          {orderDetail && (detailMeta.address || detailMeta.city || detailMeta.state || detailMeta.zip) && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed #e5e7eb", fontSize: 12 }}>
+              <b>📍 Envío:</b>{" "}
+              {[detailMeta.address, detailMeta.city, detailMeta.state, detailMeta.zip].filter(Boolean).join(", ")}
+            </div>
+          )}
+          {orderDetail?.order?.payment_reference && (
+            <div style={{ marginTop: 6, fontSize: 12 }}>
+              <b>Ref. pago:</b> <code>{orderDetail.order.payment_reference}</code>
+            </div>
+          )}
+        </div>
+
         <label style={{ display: "block", marginBottom: 10 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: "#555", display: "block", marginBottom: 4 }}>
             Estado del pedido
@@ -237,7 +331,7 @@ export default function AdminPanel() {
           </p>
         )}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button className="adm-btn" style={{ background: "#e5e7eb", color: "#333" }} onClick={() => setEditOrder(null)}>
+          <button className="adm-btn" style={{ background: "#e5e7eb", color: "#333" }} onClick={closeEdit}>
             Cancelar
           </button>
           <button className="adm-btn" onClick={saveOrderStatus} disabled={saving}>
@@ -282,6 +376,22 @@ export default function AdminPanel() {
 
             {metLoading ? <p className="adm-loading">Cargando métricas…</p> : (
               <>
+                {/* Alertas */}
+                {adm?.pendingOrders > 0 && (
+                  <div className="adm-alert">
+                    ⚠️ <b>{adm.pendingOrders}</b> pedido{adm.pendingOrders !== 1 ? "s" : ""} pendiente{adm.pendingOrders !== 1 ? "s" : ""} de pago
+                    <button className="adm-btn" style={{ marginLeft: 12, padding: "4px 12px", fontSize: 12 }}
+                      onClick={() => { setTab("pedidos"); setOrdStatus("pending_payment"); }}>
+                      Ver pedidos
+                    </button>
+                  </div>
+                )}
+                {adm?.processingOrders > 0 && (
+                  <div className="adm-alert adm-alert--info">
+                    📦 <b>{adm.processingOrders}</b> pedido{adm.processingOrders !== 1 ? "s" : ""} en preparación
+                  </div>
+                )}
+
                 {/* KPIs */}
                 <div className="adm-kpis">
                   <div className="adm-kpi adm-kpi--accent">
@@ -313,6 +423,40 @@ export default function AdminPanel() {
                     </b>
                   </div>
                 </div>
+
+                {/* Pedidos por estado */}
+                {adm?.byStatus && Object.keys(adm.byStatus).length > 0 && (
+                  <div className="adm-card" style={{ marginBottom: 14 }}>
+                    <h3>Pedidos por estado</h3>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                      {Object.entries(adm.byStatus).map(([status, count]) => (
+                        <div key={status} className="adm-kpi" style={{ flex: "1 1 120px", minWidth: 100 }}>
+                          <span className={`adm-status adm-status--${status}`} style={{ fontSize: 11 }}>{status}</span>
+                          <b style={{ fontSize: 22 }}>{count}</b>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Ingresos por método de pago */}
+                {adm?.revenueByMethod?.length > 0 && (
+                  <div className="adm-card" style={{ marginBottom: 14 }}>
+                    <h3>Ingresos por método de pago</h3>
+                    <table className="adm-table">
+                      <thead><tr><th>Método</th><th>Pedidos</th><th>Total</th></tr></thead>
+                      <tbody>
+                        {adm.revenueByMethod.map(r => (
+                          <tr key={r.method}>
+                            <td><span className="adm-badge">{r.method}</span></td>
+                            <td>{r.count}</td>
+                            <td><b>{money(r.revenue)}</b></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 {/* Charts row */}
                 <div className="adm-charts">
