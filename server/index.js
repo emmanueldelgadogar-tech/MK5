@@ -214,9 +214,24 @@ const requireAdmin = (req, res, next) => {
 };
 
 
+// SEGURIDAD: ADMIN_KEY es obligatoria. Si falta o es débil, el servidor se niega a arrancar.
+// Esto previene el caso peligroso de que la env var no se cargue y se firme con un valor
+// conocido público ('mk5-secret-fallback' anterior), permitiendo a cualquiera firmar tokens admin.
+(function validateAdminKey() {
+  const key = process.env.ADMIN_KEY;
+  if (!key || key.length < 32) {
+    console.error("\n========================================================");
+    console.error("FATAL: ADMIN_KEY faltante o demasiado corta (<32 chars).");
+    console.error("Genera una con: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"");
+    console.error("Agrégala a /var/www/MK5-main/server/.env y reinicia.");
+    console.error("========================================================\n");
+    process.exit(1);
+  }
+})();
+
 function signToken(payload) {
   const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const sig = crypto.createHmac('sha256', process.env.ADMIN_KEY || 'mk5-secret-fallback')
+  const sig = crypto.createHmac('sha256', process.env.ADMIN_KEY)
     .update(data).digest('base64url');
   return data + '.' + sig;
 }
@@ -226,12 +241,38 @@ function verifyToken(token) {
     if (dot < 1) return null;
     const data = token.slice(0, dot);
     const sig  = token.slice(dot + 1);
-    const expected = crypto.createHmac('sha256', process.env.ADMIN_KEY || 'mk5-secret-fallback')
+    const expected = crypto.createHmac('sha256', process.env.ADMIN_KEY)
       .update(data).digest('base64url');
     if (sig !== expected) return null;
     return JSON.parse(Buffer.from(data, 'base64url').toString());
   } catch { return null; }
 }
+
+// Geo-block opcional para endpoints admin. Se activa con ADMIN_GEO_LOCK=true en .env
+// Usa el header 'cf-ipcountry' que Cloudflare agrega a cada request.
+// Si no hay Cloudflare delante (dev local), no aplica.
+const ALLOWED_ADMIN_COUNTRIES = String(process.env.ALLOWED_ADMIN_COUNTRIES || "MX")
+  .split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+
+function requireAllowedCountry(req, res, next) {
+  if (process.env.ADMIN_GEO_LOCK !== "true") return next();
+  const country = String(req.headers["cf-ipcountry"] || "").toUpperCase();
+  // Si no hay header (no detrás de Cloudflare), permitir solo localhost
+  if (!country) {
+    const ip = String(req.ip || "").replace("::ffff:", "");
+    if (ip === "127.0.0.1" || ip === "::1") return next();
+    console.warn(`[GEO-BLOCK] Sin header cf-ipcountry y no es localhost (ip=${ip})`);
+    return res.status(403).json({ ok: false, error: "geo_blocked" });
+  }
+  if (!ALLOWED_ADMIN_COUNTRIES.includes(country)) {
+    console.warn(`[GEO-BLOCK] Acceso bloqueado a ${req.path} desde país=${country}`);
+    return res.status(403).json({ ok: false, error: "geo_blocked" });
+  }
+  next();
+}
+
+// Aplicar geo-block ANTES de cualquier endpoint admin
+app.use("/api/admin", requireAllowedCountry);
 
 const up = (v) => (v ?? "").toString().trim().toUpperCase();
 
