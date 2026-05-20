@@ -15,7 +15,14 @@ const TABS = [
   { id: "pedidos",   label: "Pedidos",   icon: "📦" },
   { id: "clientes",  label: "Clientes",  icon: "👥" },
   { id: "newsletter",label: "Newsletter",icon: "📧" },
+  { id: "promos",    label: "Promos",    icon: "🎯" },
 ];
+
+const BANNER_TYPE_LABELS = {
+  header: "Carrusel principal",
+  monthly: "Promo mensual",
+  hotsale: "Hot Sale",
+};
 
 function money(n) {
   return Number(n || 0).toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
@@ -196,6 +203,117 @@ export default function AdminPanel() {
       .catch(() => {})
       .finally(() => setSubLoading(false));
   }, [tab]);
+
+  // ── Promos / Banners ───────────────────────────────────
+  const [banners, setBanners]           = useState([]);
+  const [bnrLoading, setBnrLoading]     = useState(false);
+  const [bnrEditing, setBnrEditing]     = useState(null); // null | "new" | id
+  const [bnrForm, setBnrForm]           = useState({
+    type: "header",
+    title: "",
+    image_url: "",
+    link_url: "",
+    sort_order: 0,
+    active: true,
+  });
+  const [bnrSaving, setBnrSaving]       = useState(false);
+  const [bnrMsg, setBnrMsg]             = useState("");
+
+  const loadBanners = useCallback(() => {
+    setBnrLoading(true);
+    fetch(`${API_BASE}/api/admin/banners`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => d.ok && setBanners(d.banners || []))
+      .catch(() => {})
+      .finally(() => setBnrLoading(false));
+  }, []);
+
+  useEffect(() => { if (tab === "promos") loadBanners(); }, [tab, loadBanners]);
+
+  function openNewBanner() {
+    setBnrForm({
+      type: "header",
+      title: "",
+      image_url: "",
+      link_url: "",
+      sort_order: 0,
+      active: true,
+    });
+    setBnrEditing("new");
+    setBnrMsg("");
+  }
+
+  function openEditBanner(b) {
+    setBnrForm({
+      type: b.type || "header",
+      title: b.title || "",
+      image_url: b.image_url || "",
+      link_url: b.link_url || "",
+      sort_order: b.sort_order || 0,
+      active: !!b.active,
+    });
+    setBnrEditing(b.id);
+    setBnrMsg("");
+  }
+
+  function closeBanner() {
+    setBnrEditing(null);
+    setBnrMsg("");
+  }
+
+  async function saveBanner() {
+    if (!bnrForm.image_url.trim()) {
+      setBnrMsg("La URL de imagen es obligatoria.");
+      return;
+    }
+    setBnrSaving(true);
+    setBnrMsg("");
+    try {
+      const isNew = bnrEditing === "new";
+      const url = isNew
+        ? `${API_BASE}/api/admin/banners`
+        : `${API_BASE}/api/admin/banners/${bnrEditing}`;
+      const r = await fetch(url, {
+        method: isNew ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(bnrForm),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setBnrMsg("✓ Guardado");
+        loadBanners();
+        setTimeout(() => { setBnrEditing(null); setBnrMsg(""); }, 900);
+      } else {
+        setBnrMsg("Error: " + (d.error || "no se pudo guardar."));
+      }
+    } catch {
+      setBnrMsg("Error de conexión.");
+    } finally {
+      setBnrSaving(false);
+    }
+  }
+
+  async function toggleBannerActive(b) {
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/banners/${b.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ active: !b.active }),
+      });
+      if ((await r.json()).ok) loadBanners();
+    } catch { /* noop */ }
+  }
+
+  async function deleteBanner(b) {
+    if (!confirm(`¿Eliminar la promo "${b.title || b.image_url}"?`)) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/banners/${b.id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if ((await r.json()).ok) loadBanners();
+    } catch { /* noop */ }
+  }
 
   // ── Shortcuts ──────────────────────────────────────────
   // /api/admin/metrics devuelve { ok, metrics: { ... } }
@@ -642,6 +760,218 @@ export default function AdminPanel() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── PROMOS / BANNERS ── */}
+        {tab === "promos" && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+              <h2 className="adm-title" style={{ margin: 0 }}>
+                Promos del home <span className="adm-pill">{banners.length}</span>
+              </h2>
+              <button className="adm-btn adm-btn--primary" onClick={openNewBanner}>
+                + Nueva promo
+              </button>
+            </div>
+
+            <div className="adm-alert adm-alert--info" style={{ marginBottom: 14 }}>
+              💡 <b>Flujo:</b> sube la imagen al bucket <code>mk5-imagenes</code> en Cloudflare R2 → copia la URL pública (<code>https://cdn.mk5.com.mx/archivo.jpg</code>) → pégala aquí.
+              <br/><b>Tipos:</b> <i>Carrusel principal</i> (slider arriba) · <i>Promo mensual</i> (cards del home) · <i>Hot Sale</i> (banner especial).
+            </div>
+
+            {bnrLoading ? (
+              <p className="adm-loading">Cargando promos…</p>
+            ) : banners.length === 0 ? (
+              <p className="adm-empty">No hay promos configuradas. Crea la primera con el botón de arriba. Mientras tanto, se usan las promos por defecto del código.</p>
+            ) : (
+              <div className="adm-card adm-card--table">
+                <div className="adm-table-wrap">
+                  <table className="adm-table">
+                    <thead>
+                      <tr>
+                        <th>Preview</th>
+                        <th>Tipo</th>
+                        <th>Título</th>
+                        <th>Enlace</th>
+                        <th style={{ textAlign: "center" }}>Orden</th>
+                        <th style={{ textAlign: "center" }}>Activa</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {banners.map(b => (
+                        <tr key={b.id} style={!b.active ? { opacity: 0.5 } : {}}>
+                          <td>
+                            <img
+                              src={b.image_url}
+                              alt={b.title || ""}
+                              style={{ width: 80, height: 48, objectFit: "cover", borderRadius: 4, background: "#f3f4f6" }}
+                              loading="lazy"
+                            />
+                          </td>
+                          <td>
+                            <span className="adm-badge">
+                              {BANNER_TYPE_LABELS[b.type] || b.type}
+                            </span>
+                          </td>
+                          <td>{b.title || <span className="adm-muted">—</span>}</td>
+                          <td>
+                            {b.link_url ? (
+                              <code style={{ fontSize: 11 }}>{b.link_url}</code>
+                            ) : <span className="adm-muted">—</span>}
+                          </td>
+                          <td style={{ textAlign: "center" }}>{b.sort_order}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <button
+                              className="adm-btn adm-btn--sm"
+                              onClick={() => toggleBannerActive(b)}
+                              style={{
+                                background: b.active ? "#10b981" : "#e5e7eb",
+                                color: b.active ? "#fff" : "#6b7280",
+                              }}
+                            >
+                              {b.active ? "ON" : "OFF"}
+                            </button>
+                          </td>
+                          <td style={{ whiteSpace: "nowrap" }}>
+                            <button className="adm-btn adm-btn--sm" onClick={() => openEditBanner(b)}>
+                              Editar
+                            </button>
+                            {" "}
+                            <button
+                              className="adm-btn adm-btn--sm"
+                              onClick={() => deleteBanner(b)}
+                              style={{ background: "#fee2e2", color: "#b91c1c" }}
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Modal nuevo/editar banner */}
+            {bnrEditing && (
+              <div className="adm-modal-backdrop" onClick={closeBanner}>
+                <div className="adm-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                  <div className="adm-modal__head">
+                    <b>{bnrEditing === "new" ? "Nueva promo" : "Editar promo"}</b>
+                    <button className="adm-modal__close" onClick={closeBanner}>✕</button>
+                  </div>
+
+                  <label style={{ display: "block", marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#555", display: "block", marginBottom: 4 }}>
+                      Tipo
+                    </span>
+                    <select
+                      className="adm-select"
+                      style={{ width: "100%" }}
+                      value={bnrForm.type}
+                      onChange={e => setBnrForm({ ...bnrForm, type: e.target.value })}
+                    >
+                      <option value="header">Carrusel principal (slider arriba)</option>
+                      <option value="monthly">Promo mensual (cards del home)</option>
+                      <option value="hotsale">Hot Sale (banner especial)</option>
+                    </select>
+                  </label>
+
+                  <label style={{ display: "block", marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#555", display: "block", marginBottom: 4 }}>
+                      URL de la imagen *
+                    </span>
+                    <input
+                      type="url"
+                      className="adm-input"
+                      style={{ width: "100%" }}
+                      placeholder="https://cdn.mk5.com.mx/promo-hotsale-may.jpg"
+                      value={bnrForm.image_url}
+                      onChange={e => setBnrForm({ ...bnrForm, image_url: e.target.value })}
+                    />
+                    {bnrForm.image_url && (
+                      <img
+                        src={bnrForm.image_url}
+                        alt="preview"
+                        style={{ marginTop: 8, maxWidth: "100%", maxHeight: 140, borderRadius: 6, border: "1px solid #e5e7eb" }}
+                        loading="lazy"
+                      />
+                    )}
+                  </label>
+
+                  <label style={{ display: "block", marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#555", display: "block", marginBottom: 4 }}>
+                      Título (opcional, alt text)
+                    </span>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      style={{ width: "100%" }}
+                      placeholder="Hot Sale Mayo 2026"
+                      value={bnrForm.title}
+                      onChange={e => setBnrForm({ ...bnrForm, title: e.target.value })}
+                    />
+                  </label>
+
+                  <label style={{ display: "block", marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#555", display: "block", marginBottom: 4 }}>
+                      Enlace al que apunta (opcional)
+                    </span>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      style={{ width: "100%" }}
+                      placeholder="/catalogo/bridgestone o https://..."
+                      value={bnrForm.link_url}
+                      onChange={e => setBnrForm({ ...bnrForm, link_url: e.target.value })}
+                    />
+                  </label>
+
+                  <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                    <label style={{ flex: 1 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#555", display: "block", marginBottom: 4 }}>
+                        Orden (menor = primero)
+                      </span>
+                      <input
+                        type="number"
+                        className="adm-input"
+                        style={{ width: "100%" }}
+                        value={bnrForm.sort_order}
+                        onChange={e => setBnrForm({ ...bnrForm, sort_order: parseInt(e.target.value, 10) || 0 })}
+                      />
+                    </label>
+                    <label style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={bnrForm.active}
+                        onChange={e => setBnrForm({ ...bnrForm, active: e.target.checked })}
+                      />
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>Activa</span>
+                    </label>
+                  </div>
+
+                  {bnrMsg && (
+                    <p style={{ fontSize: 13, color: bnrMsg.startsWith("✓") ? "#10b981" : "#dc2626", margin: "8px 0" }}>
+                      {bnrMsg}
+                    </p>
+                  )}
+
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+                    <button className="adm-btn" onClick={closeBanner}>Cancelar</button>
+                    <button
+                      className="adm-btn adm-btn--primary"
+                      onClick={saveBanner}
+                      disabled={bnrSaving}
+                    >
+                      {bnrSaving ? "Guardando…" : "Guardar"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

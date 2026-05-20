@@ -405,17 +405,36 @@ export default function Home() {
   const [podiumIndex, setPodiumIndex] = useState(0);
   const [podiumVisibleCount, setPodiumVisibleCount] = useState(5);
 
-  const promos = useMemo(
-    () => [
+  // Banners administrables desde el panel admin (fallback a hardcoded si no hay)
+  const [apiBanners, setApiBanners] = useState(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/banners?type=header`)
+      .then((r) => r.json())
+      .then((d) => setApiBanners(d?.ok ? d.banners || [] : []))
+      .catch(() => setApiBanners([]));
+  }, []);
+
+  const promos = useMemo(() => {
+    // Si el admin configuró banners en el panel, usarlos
+    if (apiBanners && apiBanners.length > 0) {
+      return apiBanners.map((b) => ({
+        id: `api-${b.id}`,
+        src: b.image_url,
+        alt: b.title || "Promo MK5",
+        to: b.link_url || "/catalogo",
+      }));
+    }
+    // Fallback: promos por defecto del código (mismas que antes)
+    return [
       { id: "4x3",     src: promo4x3,           alt: "Promo 4x3 + Envío Gratis", to: "/catalogo" },
       { id: "antares", src: promoHeaderVinmax,  alt: "Promo Antares",  to: "/catalogo/antares" },
       { id: "jk",      src: promoHeaderLaufenn,  alt: "Promo JK Tyre",  to: "/catalogo/tornel" },
       { id: "vinmax",  src: promoHeaderKumho,   alt: "Promo Vinmax",   to: "/catalogo/vinmax" },
       { id: "kumho",   src: promoHeaderJK,      alt: "Promo Kumho",    to: "/catalogo/kumho" },
       { id: "laufenn", src: promoHeaderAntares, alt: "Promo Laufenn",  to: "/catalogo/laufenn" },
-    ],
-    []
-  );
+    ];
+  }, [apiBanners]);
 
   const podiumVisible = useMemo(() => {
     if (!PODIOS_DESTACADOS.length) return [];

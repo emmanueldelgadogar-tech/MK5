@@ -2330,6 +2330,169 @@ app.post("/api/auth/reset-password", authRateLimit, async (req, res) => {
   }
 });
 
+// ===================== HOME BANNERS / PROMOS (admin) =====================
+
+async function ensureHomeBannersTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS home_banners (
+      id BIGSERIAL PRIMARY KEY,
+      type TEXT NOT NULL DEFAULT 'header',
+      title TEXT,
+      image_url TEXT NOT NULL,
+      link_url TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_home_banners_type_active
+      ON home_banners (type, active, sort_order);
+  `);
+}
+
+const BANNER_TYPES = new Set(["header", "monthly", "hotsale"]);
+
+// Público: lista solo banners activos (cualquiera puede consultarlos)
+app.get("/api/banners", async (req, res) => {
+  try {
+    const type = String(req.query.type || "").trim().toLowerCase();
+    const params = [];
+    let sql = `SELECT id, type, title, image_url, link_url, sort_order
+               FROM home_banners
+               WHERE active = true`;
+    if (BANNER_TYPES.has(type)) {
+      params.push(type);
+      sql += ` AND type = $1`;
+    }
+    sql += ` ORDER BY sort_order ASC, id ASC`;
+    const r = await pool.query(sql, params);
+    res.json({ ok: true, banners: r.rows });
+  } catch (e) {
+    console.error("GET /api/banners:", e.message);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+// Admin: lista todo (incluyendo inactivos)
+app.get("/api/admin/banners", [requireAdmin], async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, type, title, image_url, link_url, sort_order, active,
+              created_at, updated_at
+       FROM home_banners
+       ORDER BY type, sort_order ASC, id ASC`
+    );
+    res.json({ ok: true, banners: r.rows });
+  } catch (e) {
+    console.error("GET /api/admin/banners:", e.message);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+// Admin: crear banner
+app.post("/api/admin/banners", [requireAdmin], async (req, res) => {
+  try {
+    const type = String(req.body?.type || "header").trim().toLowerCase();
+    const image_url = String(req.body?.image_url || "").trim();
+    const title = asNull(req.body?.title);
+    const link_url = asNull(req.body?.link_url);
+    const sort_order = parseInt(req.body?.sort_order, 10) || 0;
+    const active = req.body?.active !== false;
+
+    if (!BANNER_TYPES.has(type)) {
+      return res.status(400).json({ ok: false, error: "invalid_type" });
+    }
+    if (!image_url) {
+      return res.status(400).json({ ok: false, error: "image_url_required" });
+    }
+
+    const r = await pool.query(
+      `INSERT INTO home_banners (type, title, image_url, link_url, sort_order, active)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING id, type, title, image_url, link_url, sort_order, active, created_at`,
+      [type, title, image_url, link_url, sort_order, active]
+    );
+    res.json({ ok: true, banner: r.rows[0] });
+  } catch (e) {
+    console.error("POST /api/admin/banners:", e.message);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+// Admin: actualizar (parcial)
+app.patch("/api/admin/banners/:id", [requireAdmin], async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ ok: false, error: "invalid_id" });
+    }
+
+    const fields = [];
+    const values = [];
+    let i = 1;
+
+    if (req.body?.type !== undefined) {
+      const t = String(req.body.type).trim().toLowerCase();
+      if (!BANNER_TYPES.has(t)) {
+        return res.status(400).json({ ok: false, error: "invalid_type" });
+      }
+      fields.push(`type = $${i++}`); values.push(t);
+    }
+    if (req.body?.title !== undefined) {
+      fields.push(`title = $${i++}`); values.push(asNull(req.body.title));
+    }
+    if (req.body?.image_url !== undefined) {
+      const u = String(req.body.image_url || "").trim();
+      if (!u) return res.status(400).json({ ok: false, error: "image_url_required" });
+      fields.push(`image_url = $${i++}`); values.push(u);
+    }
+    if (req.body?.link_url !== undefined) {
+      fields.push(`link_url = $${i++}`); values.push(asNull(req.body.link_url));
+    }
+    if (req.body?.sort_order !== undefined) {
+      fields.push(`sort_order = $${i++}`); values.push(parseInt(req.body.sort_order, 10) || 0);
+    }
+    if (req.body?.active !== undefined) {
+      fields.push(`active = $${i++}`); values.push(Boolean(req.body.active));
+    }
+
+    if (!fields.length) {
+      return res.status(400).json({ ok: false, error: "no_fields" });
+    }
+
+    fields.push(`updated_at = now()`);
+    values.push(id);
+
+    const r = await pool.query(
+      `UPDATE home_banners SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      values
+    );
+
+    if (!r.rows.length) {
+      return res.status(404).json({ ok: false, error: "not_found" });
+    }
+    res.json({ ok: true, banner: r.rows[0] });
+  } catch (e) {
+    console.error("PATCH /api/admin/banners/:id:", e.message);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+// Admin: eliminar
+app.delete("/api/admin/banners/:id", [requireAdmin], async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ ok: false, error: "invalid_id" });
+    }
+    const r = await pool.query(`DELETE FROM home_banners WHERE id = $1`, [id]);
+    res.json({ ok: true, deleted: r.rowCount > 0 });
+  } catch (e) {
+    console.error("DELETE /api/admin/banners/:id:", e.message);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
 // ===================== 404 API (must be after ALL /api routes) =====================
 app.use("/api", (req, res) => {
   res.status(404).json({ ok: false, error: "not_found" });
@@ -2364,4 +2527,7 @@ app.listen(PORT, "0.0.0.0", () => {
   ensurePasswordResetTokensTable()
     .then(() => console.log("Tabla password_reset_tokens lista"))
     .catch((e) => console.error("No pude inicializar password_reset_tokens:", e.message));
+  ensureHomeBannersTable()
+    .then(() => console.log("Tabla home_banners lista"))
+    .catch((e) => console.error("No pude inicializar home_banners:", e.message));
 });
