@@ -1083,7 +1083,7 @@ async function sendOrderReceivedEmail(orderId, email, name, total) {
   }
   try {
     await resend.emails.send({
-      from: "MK5 Llantera <ventas@send.mk5.com.mx>",
+      from: "MK5 Llantera <ventas@mk5.com.mx>",
       to: [email],
       bcc: ["llanteramk5.online@gmail.com"],
       subject: `Tu pedido fue recibido - Orden #${orderId}`,
@@ -1096,7 +1096,7 @@ async function sendOrderReceivedEmail(orderId, email, name, total) {
             <h2 style="color:#e85c00">¡Recibimos tu pedido, ${name || "cliente"}!</h2>
             <p>Tu orden <strong>#${orderId}</strong> ha sido registrada por un total de <strong>$${Number(total).toFixed(2)} MXN</strong>.</p>
             <p>En cuanto confirmemos tu pago te avisamos para iniciar el envío.</p>
-            <p>Si tienes dudas escríbenos por WhatsApp o a <a href="mailto:ventas@send.mk5.com.mx">ventas@send.mk5.com.mx</a>.</p>
+            <p>Si tienes dudas escríbenos por WhatsApp o a <a href="mailto:ventas@mk5.com.mx">ventas@mk5.com.mx</a>.</p>
             <br/>
             <p style="color:#888;font-size:13px">Gracias por confiar en MK5 Llantera.</p>
           </div>
@@ -1116,7 +1116,7 @@ async function sendNewsletterWelcomeEmail(email) {
   }
   try {
     await resend.emails.send({
-      from: "MK5 Llantera <ventas@send.mk5.com.mx>",
+      from: "MK5 Llantera <ventas@mk5.com.mx>",
       to: [email],
       subject: "¡Bienvenido a las ofertas de MK5!",
       html: `
@@ -1148,7 +1148,7 @@ async function sendPaymentSuccessEmail(orderId, email, name, total) {
   
   try {
     const { data, error } = await resend.emails.send({
-      from: "MK5 Auto parts <ventas@send.mk5.com.mx>",
+      from: "MK5 Auto parts <ventas@mk5.com.mx>",
       to: [email],
       bcc: ["llanteramk5.online@gmail.com"],
           subject: `Confirmación de pago - Orden #${orderId}`,
@@ -2166,7 +2166,7 @@ app.patch("/api/admin/orders/:id/status", [requireAdmin], async (req, res) => {
           ? `<p style="margin:12px 0"><b>Número de guía:</b> <code style="background:#f3f4f6;padding:2px 8px;border-radius:4px">${tracking_number}</code></p>`
           : "";
         await resend.emails.send({
-          from: "MK5 Llantas <ventas@send.mk5.com.mx>",
+          from: "MK5 Llantas <ventas@mk5.com.mx>",
           to: [order.customer_email],
           bcc: ["llanteramk5.online@gmail.com"],
           subject: `Tu pedido ${order.order_code || "#"+order.id} está en camino 🚚`,
@@ -2275,7 +2275,7 @@ app.post("/api/auth/forgot-password", authRateLimit, async (req, res) => {
     const resetUrl = `${frontendBase}/mi-cuenta?reset=${token}`;
 
     await resend.emails.send({
-      from: "MK5 Llantas <ventas@send.mk5.com.mx>",
+      from: "MK5 Llantas <ventas@mk5.com.mx>",
       to: [email],
       subject: "Recupera tu contraseña — MK5 Llantas",
       html: `
