@@ -1,0 +1,114 @@
+/* Cookie consent banner - LFPDPPP (MX) + GDPR */
+.cookie-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: #111;
+  color: #fff;
+  border-top: 3px solid #eb6b30;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
+  animation: cookie-banner-slide-up 0.35s ease-out;
+}
+
+@keyframes cookie-banner-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.cookie-banner__content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.cookie-banner__text {
+  flex: 1 1 320px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f4f5f7;
+}
+
+.cookie-banner__link {
+  color: #f4c84a;
+  text-decoration: underline;
+}
+
+.cookie-banner__link:hover {
+  color: #eb6b30;
+}
+
+.cookie-banner__actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.cookie-banner__btn {
+  padding: 10px 18px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, opacity 0.15s;
+  font-family: inherit;
+}
+
+.cookie-banner__btn:hover {
+  transform: translateY(-1px);
+}
+
+.cookie-banner__btn:active {
+  transform: translateY(0);
+}
+
+.cookie-banner__btn--primary {
+  background: #eb6b30;
+  color: #fff;
+}
+
+.cookie-banner__btn--primary:hover {
+  background: #d65d27;
+}
+
+.cookie-banner__btn--secondary {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.cookie-banner__btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Móvil: stack vertical */
+@media (max-width: 640px) {
+  .cookie-banner__content {
+    padding: 14px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .cookie-banner__text {
+    font-size: 13px;
+  }
+
+  .cookie-banner__actions {
+    width: 100%;
+  }
+
+  .cookie-banner__btn {
+    flex: 1;
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+}
