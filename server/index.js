@@ -2099,6 +2099,28 @@ app.post("/api/checkout/create", async (req, res) => {
         sendOrderReceivedEmail(orderId, customer.email, customer.name, total).catch(() => {});
       }
 
+      // Calcular risk score (no bloqueante; si falla, deja score=0)
+      try {
+        const risk = await calculateRiskScore({
+          customer_email: customer.email,
+          customer_phone: customer.phone,
+          total,
+          items: lines,
+          shipping,
+        });
+        await client.query(
+          `UPDATE orders SET risk_score = $1, risk_flags = $2::jsonb WHERE id = $3`,
+          [risk.score, JSON.stringify(risk.flags), orderId]
+        );
+        if (risk.score >= 60) {
+          console.warn(`[ANTIFRAUDE] Orden #${orderId} HIGH risk (score=${risk.score}): ${risk.flags.map(f => f.code).join(", ")}`);
+        } else if (risk.score >= 30) {
+          console.log(`[ANTIFRAUDE] Orden #${orderId} medium risk (score=${risk.score})`);
+        }
+      } catch (e) {
+        console.error("[ANTIFRAUDE] Error calculando score:", e.message);
+      }
+
       return res.json({
         ok: true,
         order: {
@@ -2458,6 +2480,337 @@ app.post("/api/auth/reset-password", authRateLimit, async (req, res) => {
   }
 });
 
+// ===================== ANTIFRAUDE (risk score, blacklist, zones) =====================
+
+async function ensureFraudTablesAndColumns() {
+  // Lista negra: emails, teléfonos, IPs, códigos postales
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS fraud_blacklist (
+      id BIGSERIAL PRIMARY KEY,
+      type TEXT NOT NULL,                    -- 'email' | 'phone' | 'ip' | 'cp'
+      value TEXT NOT NULL,
+      reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (type, value)
+    );
+    CREATE INDEX IF NOT EXISTS idx_fraud_blacklist_type_value ON fraud_blacklist (type, value);
+  `);
+
+  // Zonas de riesgo: CPs / ciudades / estados
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS fraud_risk_zones (
+      id BIGSERIAL PRIMARY KEY,
+      type TEXT NOT NULL,                    -- 'cp' | 'city' | 'state' | 'colonia'
+      value TEXT NOT NULL,
+      severity INTEGER NOT NULL DEFAULT 30,  -- 0-100 (puntos que suma al score)
+      reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_fraud_risk_zones_type_value
+      ON fraud_risk_zones (type, value);
+  `);
+
+  // Columnas en orders para guardar score y banderas
+  await pool.query(`
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS risk_score INTEGER DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS risk_flags JSONB DEFAULT '[]'::jsonb;
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_orders_risk_score ON orders (risk_score DESC) WHERE risk_score > 0;`
+  );
+}
+
+// Dominios de email desechables conocidos
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  "tempmail.com", "10minutemail.com", "guerrillamail.com", "mailinator.com",
+  "throwaway.email", "yopmail.com", "trash-mail.com", "fakeinbox.com",
+  "tempinbox.com", "getnada.com", "maildrop.cc", "sharklasers.com",
+  "temp-mail.org", "dispostable.com", "mintemail.com", "spambox.us",
+]);
+
+/**
+ * Calcula el risk score (0-100+) de una orden a partir de:
+ *  - orderData: { customer_email, customer_phone, total, items, shipping }
+ *  - customerHistory: { totalOrders, ordersLastHour, ordersLastDay, hasChargeback }
+ *
+ * Retorna { score, flags: [{ code, points, message }] }
+ */
+async function calculateRiskScore(orderData) {
+  const flags = [];
+  let score = 0;
+
+  const email = String(orderData.customer_email || "").trim().toLowerCase();
+  const phone = String(orderData.customer_phone || "").trim();
+  const total = Number(orderData.total || 0);
+  const items = Array.isArray(orderData.items) ? orderData.items : [];
+  const shipping = orderData.shipping || {};
+  const cp = String(shipping.zip || "").trim();
+  const city = String(shipping.city || "").trim().toLowerCase();
+  const state = String(shipping.state || "").trim().toLowerCase();
+
+  // 1. Blacklist (puntos altos: si está en lista, casi automático rechazar)
+  try {
+    const bl = await pool.query(
+      `SELECT type, value, reason FROM fraud_blacklist
+       WHERE (type = 'email' AND value = $1)
+          OR (type = 'phone' AND value = $2)
+          OR (type = 'cp'    AND value = $3)`,
+      [email, phone, cp]
+    );
+    for (const row of bl.rows) {
+      score += 100;
+      flags.push({
+        code: `blacklist_${row.type}`,
+        points: 100,
+        message: `${row.type.toUpperCase()} en lista negra${row.reason ? `: ${row.reason}` : ""}`,
+      });
+    }
+  } catch { /* tabla puede no existir aún en primer arranque */ }
+
+  // 2. Zonas de riesgo (CP/ciudad/estado)
+  try {
+    const zones = await pool.query(
+      `SELECT type, value, severity, reason FROM fraud_risk_zones
+       WHERE (type = 'cp'      AND value = $1)
+          OR (type = 'city'    AND lower(value) = $2)
+          OR (type = 'state'   AND lower(value) = $3)`,
+      [cp, city, state]
+    );
+    for (const z of zones.rows) {
+      score += z.severity;
+      flags.push({
+        code: `risk_zone_${z.type}`,
+        points: z.severity,
+        message: `Zona de riesgo (${z.type}): ${z.value}${z.reason ? ` — ${z.reason}` : ""}`,
+      });
+    }
+  } catch { /* idem */ }
+
+  // 3. Email desechable
+  if (email.includes("@")) {
+    const domain = email.split("@")[1];
+    if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
+      score += 30;
+      flags.push({
+        code: "disposable_email",
+        points: 30,
+        message: `Email desechable detectado (${domain})`,
+      });
+    }
+  }
+
+  // 4. Frecuencia: ¿múltiples órdenes del mismo email últimamente?
+  if (email) {
+    try {
+      const freq = await pool.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE created_at >= now() - interval '1 hour') AS last_hour,
+           COUNT(*) FILTER (WHERE created_at >= now() - interval '24 hours') AS last_day,
+           COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled_count,
+           COUNT(*) AS total_orders
+         FROM orders WHERE lower(customer_email) = $1`,
+        [email]
+      );
+      const f = freq.rows[0] || {};
+      const lastHour = Number(f.last_hour || 0);
+      const lastDay = Number(f.last_day || 0);
+      const cancelled = Number(f.cancelled_count || 0);
+      const totalOrders = Number(f.total_orders || 0);
+
+      if (lastHour >= 2) {
+        score += 25;
+        flags.push({
+          code: "velocity_hour",
+          points: 25,
+          message: `${lastHour} órdenes del mismo email en la última hora`,
+        });
+      }
+      if (lastDay >= 3) {
+        score += 15;
+        flags.push({
+          code: "velocity_day",
+          points: 15,
+          message: `${lastDay} órdenes del mismo email en 24h`,
+        });
+      }
+      if (totalOrders === 0) {
+        // Cliente totalmente nuevo (en lo que va de la BD)
+        score += 5;
+        flags.push({ code: "new_customer", points: 5, message: "Cliente nuevo (primera orden)" });
+      }
+      if (cancelled >= 2) {
+        score += 20;
+        flags.push({
+          code: "many_cancelled",
+          points: 20,
+          message: `${cancelled} órdenes canceladas previamente con este email`,
+        });
+      }
+    } catch { /* sin error si la tabla orders no existe aún */ }
+  }
+
+  // 5. Total alto
+  if (total > 30000) {
+    score += 25;
+    flags.push({ code: "very_high_total", points: 25, message: `Total muy alto: ${money(total)}` });
+  } else if (total > 15000) {
+    score += 12;
+    flags.push({ code: "high_total", points: 12, message: `Total alto: ${money(total)}` });
+  }
+
+  // 6. Cantidad sospechosa de llantas del mismo SKU
+  const qtyBySku = new Map();
+  for (const it of items) {
+    const sku = String(it.sku || "");
+    const qty = Number(it.qty || it.charged_qty || 0);
+    if (sku) qtyBySku.set(sku, (qtyBySku.get(sku) || 0) + qty);
+  }
+  let maxQty = 0;
+  let maxSku = "";
+  for (const [sku, qty] of qtyBySku) {
+    if (qty > maxQty) { maxQty = qty; maxSku = sku; }
+  }
+  if (maxQty >= 8) {
+    score += 25;
+    flags.push({
+      code: "bulk_purchase",
+      points: 25,
+      message: `${maxQty} llantas del mismo SKU (${maxSku}) — posible revendedor`,
+    });
+  } else if (maxQty >= 5) {
+    score += 10;
+    flags.push({
+      code: "high_qty",
+      points: 10,
+      message: `${maxQty} llantas mismo SKU (${maxSku})`,
+    });
+  }
+
+  // 7. Teléfono inválido
+  const phoneDigits = phone.replace(/\D/g, "");
+  if (!phone) {
+    score += 8;
+    flags.push({ code: "no_phone", points: 8, message: "Sin teléfono de contacto" });
+  } else if (phoneDigits.length < 10 || phoneDigits.length > 13) {
+    score += 10;
+    flags.push({ code: "invalid_phone", points: 10, message: `Teléfono con formato anómalo (${phone})` });
+  }
+
+  // 8. CP no provisto
+  if (!cp) {
+    score += 8;
+    flags.push({ code: "no_zip", points: 8, message: "Sin código postal de envío" });
+  } else if (!/^\d{5}$/.test(cp)) {
+    score += 10;
+    flags.push({ code: "invalid_zip", points: 10, message: `CP con formato anómalo (${cp})` });
+  }
+
+  return { score, flags };
+}
+
+function riskLabel(score) {
+  if (score >= 60) return "high";
+  if (score >= 30) return "medium";
+  return "low";
+}
+
+// Endpoints admin
+app.get("/api/admin/fraud/orders", [requireAdmin], async (req, res) => {
+  try {
+    const minScore = parseInt(req.query.min_score, 10) || 30;
+    const r = await pool.query(
+      `SELECT id, order_code, customer_name, customer_email, customer_phone,
+              total, status, risk_score, risk_flags, created_at
+       FROM orders
+       WHERE risk_score >= $1
+       ORDER BY risk_score DESC, created_at DESC
+       LIMIT 200`,
+      [minScore]
+    );
+    const orders = r.rows.map(o => ({ ...o, risk_label: riskLabel(o.risk_score || 0) }));
+    res.json({ ok: true, orders });
+  } catch (e) {
+    console.error("GET /api/admin/fraud/orders:", e.message);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+app.get("/api/admin/fraud/blacklist", [requireAdmin], async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, type, value, reason, created_at FROM fraud_blacklist ORDER BY created_at DESC`
+    );
+    res.json({ ok: true, items: r.rows });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
+});
+
+app.post("/api/admin/fraud/blacklist", [requireAdmin], async (req, res) => {
+  try {
+    const type = String(req.body?.type || "").trim().toLowerCase();
+    const value = String(req.body?.value || "").trim().toLowerCase();
+    const reason = asNull(req.body?.reason);
+    if (!["email", "phone", "ip", "cp"].includes(type)) {
+      return res.status(400).json({ ok: false, error: "invalid_type" });
+    }
+    if (!value) return res.status(400).json({ ok: false, error: "value_required" });
+
+    const r = await pool.query(
+      `INSERT INTO fraud_blacklist (type, value, reason) VALUES ($1,$2,$3)
+       ON CONFLICT (type, value) DO UPDATE SET reason = EXCLUDED.reason
+       RETURNING id, type, value, reason, created_at`,
+      [type, value, reason]
+    );
+    res.json({ ok: true, item: r.rows[0] });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
+});
+
+app.delete("/api/admin/fraud/blacklist/:id", [requireAdmin], async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ ok: false, error: "invalid_id" });
+    await pool.query(`DELETE FROM fraud_blacklist WHERE id = $1`, [id]);
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
+});
+
+app.get("/api/admin/fraud/zones", [requireAdmin], async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, type, value, severity, reason, created_at FROM fraud_risk_zones ORDER BY severity DESC, created_at DESC`
+    );
+    res.json({ ok: true, items: r.rows });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
+});
+
+app.post("/api/admin/fraud/zones", [requireAdmin], async (req, res) => {
+  try {
+    const type = String(req.body?.type || "").trim().toLowerCase();
+    const value = String(req.body?.value || "").trim();
+    const severity = Math.min(100, Math.max(0, parseInt(req.body?.severity, 10) || 30));
+    const reason = asNull(req.body?.reason);
+    if (!["cp", "city", "state", "colonia"].includes(type)) {
+      return res.status(400).json({ ok: false, error: "invalid_type" });
+    }
+    if (!value) return res.status(400).json({ ok: false, error: "value_required" });
+
+    const r = await pool.query(
+      `INSERT INTO fraud_risk_zones (type, value, severity, reason) VALUES ($1,$2,$3,$4)
+       RETURNING id, type, value, severity, reason, created_at`,
+      [type, value, severity, reason]
+    );
+    res.json({ ok: true, item: r.rows[0] });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
+});
+
+app.delete("/api/admin/fraud/zones/:id", [requireAdmin], async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ ok: false, error: "invalid_id" });
+    await pool.query(`DELETE FROM fraud_risk_zones WHERE id = $1`, [id]);
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
+});
+
 // ===================== HOME BANNERS / PROMOS (admin) =====================
 
 async function ensureHomeBannersTable() {
@@ -2658,4 +3011,7 @@ app.listen(PORT, "0.0.0.0", () => {
   ensureHomeBannersTable()
     .then(() => console.log("Tabla home_banners lista"))
     .catch((e) => console.error("No pude inicializar home_banners:", e.message));
+  ensureFraudTablesAndColumns()
+    .then(() => console.log("Tablas antifraude listas"))
+    .catch((e) => console.error("No pude inicializar antifraude:", e.message));
 });
