@@ -1337,6 +1337,7 @@ async function sendWelcomeAccountEmail(email, name) {
     to: email,
     subject: "¡Bienvenido a MK5 Llantera!",
     html,
+    includeBcc: false, // No es correo de compra → sin BCC
   });
 }
 
