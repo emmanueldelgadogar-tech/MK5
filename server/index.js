@@ -920,6 +920,10 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
     );
     const newUser = r2.rows[0];
     const sessionToken = signToken({ id: newUser.id, email: newUser.email, is_admin: newUser.is_admin || false });
+
+    // Email de bienvenida (no bloqueante)
+    sendWelcomeAccountEmail(newUser.email, newUser.name).catch(() => {});
+
     res.json({
       ok: true,
       user: {
@@ -1076,96 +1080,223 @@ async function ensureNewsletterTable() {
   `);
 }
 
-async function sendOrderReceivedEmail(orderId, email, name, total) {
+// ===================== EMAIL TEMPLATE (reutilizable) =====================
+// Template HTML profesional inline-styled (max compat con clientes de correo)
+function emailTemplate({
+  preheader = "",
+  title,
+  heading,
+  intro,
+  highlightBoxes = [], // [{ label, value }]
+  body = "",
+  ctaText = "",
+  ctaUrl = "",
+  footerNote = "",
+}) {
+  const boxesHtml = highlightBoxes.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0">
+        ${highlightBoxes.map(b => `
+          <tr><td style="padding:10px 14px;background:#fff7ed;border-left:3px solid #e85c00;border-radius:4px;margin-bottom:6px;">
+            <div style="font-size:11px;color:#9a6328;letter-spacing:0.3px;text-transform:uppercase;font-weight:700">${b.label}</div>
+            <div style="font-size:15px;color:#111;margin-top:3px;font-weight:600">${b.value}</div>
+          </td></tr>
+          <tr><td style="height:6px;line-height:6px">&nbsp;</td></tr>
+        `).join("")}
+       </table>`
+    : "";
+
+  const ctaHtml = ctaText && ctaUrl
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto">
+         <tr><td style="border-radius:8px;background:#e85c00">
+           <a href="${ctaUrl}" target="_blank"
+              style="display:inline-block;padding:14px 32px;color:#fff;text-decoration:none;font-weight:700;font-size:15px;font-family:Arial,sans-serif">
+              ${ctaText}
+           </a>
+         </td></tr>
+       </table>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+  <span style="display:none;font-size:1px;color:#f4f5f7;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden">${preheader}</span>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4f5f7">
+    <tr><td align="center" style="padding:32px 12px">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+
+        <!-- Header con barra de marca -->
+        <tr><td style="background:#111;padding:0;height:6px;border-top:6px solid #e85c00">&nbsp;</td></tr>
+        <tr><td style="background:#111;padding:22px 32px" align="left">
+          <div style="font-family:Arial Black,sans-serif;font-size:24px;font-weight:900;letter-spacing:1px">
+            <span style="color:#fff">MK</span><span style="color:#e85c00">5</span>
+            <span style="color:#fff;font-size:11px;font-weight:600;letter-spacing:2px;margin-left:4px">LLANTERA</span>
+          </div>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:36px 32px 12px">
+          <h1 style="margin:0 0 12px;font-size:22px;color:#111;line-height:1.3;font-weight:700">${heading}</h1>
+          ${intro ? `<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.5">${intro}</p>` : ""}
+          ${boxesHtml}
+          ${body ? `<div style="font-size:14px;color:#444;line-height:1.6">${body}</div>` : ""}
+          ${ctaHtml}
+        </td></tr>
+
+        <!-- Soporte -->
+        <tr><td style="padding:0 32px 24px">
+          <div style="background:#f9fafb;border-radius:8px;padding:14px 18px;font-size:13px;color:#555;line-height:1.5">
+            ¿Necesitas ayuda? Escríbenos por <a href="https://wa.me/527291136254" style="color:#e85c00;text-decoration:none;font-weight:600">WhatsApp</a>
+            o a <a href="mailto:ventas@mk5.com.mx" style="color:#e85c00;text-decoration:none;font-weight:600">ventas@mk5.com.mx</a>.
+          </div>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#fafafa;padding:22px 32px;border-top:1px solid #eee" align="center">
+          <div style="font-size:12px;color:#888;line-height:1.6">
+            <a href="https://mk5.com.mx" style="color:#888;text-decoration:none">mk5.com.mx</a> ·
+            <a href="https://mk5.com.mx/catalogo" style="color:#888;text-decoration:none">Catálogo</a> ·
+            <a href="https://mk5.com.mx/sucursales" style="color:#888;text-decoration:none">Sucursales</a> ·
+            <a href="https://mk5.com.mx/rastrear-pedido" style="color:#888;text-decoration:none">Rastrear pedido</a>
+          </div>
+          ${footerNote ? `<div style="margin-top:10px;font-size:11px;color:#aaa">${footerNote}</div>` : ""}
+          <div style="margin-top:10px;font-size:11px;color:#aaa">
+            © ${new Date().getFullYear()} MK5 Llantera · Llantas para todas las marcas con envío a toda la República Mexicana
+          </div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+const EMAIL_FROM = "MK5 Llantera <ventas@mk5.com.mx>";
+const EMAIL_BCC = ["llanteramk5.online@gmail.com"];
+
+// Wrapper que loguea correctamente errores de Resend (sin afectar el flujo)
+async function sendEmail({ to, subject, html, includeBcc = true }) {
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[CORREO SIMULADO] Orden recibida #${orderId} → ${email}`);
-    return;
+    console.log(`[CORREO SIMULADO] → ${to} | ${subject}`);
+    return { ok: false, simulated: true };
   }
   try {
-    await resend.emails.send({
-      from: "MK5 Llantera <ventas@mk5.com.mx>",
-      to: [email],
-      bcc: ["llanteramk5.online@gmail.com"],
-      subject: `Tu pedido fue recibido - Orden #${orderId}`,
-      html: `
-        <div style="font-family:sans-serif;color:#333;max-width:520px;margin:auto">
-          <div style="background:#e85c00;padding:20px 24px;border-radius:8px 8px 0 0">
-            <h1 style="color:#fff;margin:0;font-size:22px">MK5 Llantera</h1>
-          </div>
-          <div style="background:#fff;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px">
-            <h2 style="color:#e85c00">¡Recibimos tu pedido, ${name || "cliente"}!</h2>
-            <p>Tu orden <strong>#${orderId}</strong> ha sido registrada por un total de <strong>$${Number(total).toFixed(2)} MXN</strong>.</p>
-            <p>En cuanto confirmemos tu pago te avisamos para iniciar el envío.</p>
-            <p>Si tienes dudas escríbenos por WhatsApp o a <a href="mailto:ventas@mk5.com.mx">ventas@mk5.com.mx</a>.</p>
-            <br/>
-            <p style="color:#888;font-size:13px">Gracias por confiar en MK5 Llantera.</p>
-          </div>
-        </div>
-      `,
-    });
-    console.log(`[RESEND] Correo orden recibida #${orderId} → ${email}`);
+    const payload = { from: EMAIL_FROM, to: [to], subject, html };
+    if (includeBcc) payload.bcc = EMAIL_BCC;
+    const { data, error } = await resend.emails.send(payload);
+    if (error) {
+      console.error(`[RESEND ERROR] ${subject} → ${to}:`, error?.message || error);
+      return { ok: false, error };
+    }
+    console.log(`[RESEND OK] ${subject} → ${to} (id=${data?.id})`);
+    return { ok: true, id: data?.id };
   } catch (err) {
-    console.error(`[RESEND ERROR orden recibida]:`, err);
+    console.error(`[RESEND EXCEPTION] ${subject} → ${to}:`, err.message);
+    return { ok: false, error: err };
   }
+}
+
+function money(n) {
+  return `$${Number(n || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
+}
+
+async function sendOrderReceivedEmail(orderId, email, name, total) {
+  const html = emailTemplate({
+    preheader: `Recibimos tu orden #${orderId}. Total: ${money(total)}`,
+    title: `Pedido recibido - Orden #${orderId}`,
+    heading: `¡Recibimos tu pedido, ${name || "cliente"}!`,
+    intro: `Tu orden ha sido registrada en nuestro sistema. En cuanto confirmemos tu pago iniciamos la preparación del envío.`,
+    highlightBoxes: [
+      { label: "Número de orden", value: `#${orderId}` },
+      { label: "Total", value: money(total) },
+      { label: "Estado", value: "Pendiente de pago" },
+    ],
+    body: `<p>Si elegiste pago en OXXO o transferencia, recuerda completar el pago dentro del plazo indicado para que tu pedido no se cancele.</p>`,
+    ctaText: "Rastrear mi pedido",
+    ctaUrl: `https://mk5.com.mx/rastrear-pedido?order=${orderId}`,
+    footerNote: "Recibirás otro correo cuando confirmemos tu pago.",
+  });
+  return sendEmail({
+    to: email,
+    subject: `Tu pedido fue recibido - Orden #${orderId}`,
+    html,
+  });
 }
 
 async function sendNewsletterWelcomeEmail(email) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log(`[CORREO SIMULADO] Bienvenida newsletter → ${email}`);
-    return;
-  }
-  try {
-    await resend.emails.send({
-      from: "MK5 Llantera <ventas@mk5.com.mx>",
-      to: [email],
-      subject: "¡Bienvenido a las ofertas de MK5!",
-      html: `
-        <div style="font-family:sans-serif;color:#333;max-width:520px;margin:auto">
-          <div style="background:#e85c00;padding:20px 24px;border-radius:8px 8px 0 0">
-            <h1 style="color:#fff;margin:0;font-size:22px">MK5 Llantera</h1>
-          </div>
-          <div style="background:#fff;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px">
-            <h2 style="color:#e85c00">¡Ya estás suscrito!</h2>
-            <p>A partir de ahora recibirás las mejores promociones, descuentos y lanzamientos de MK5 Llantera directo en tu correo.</p>
-            <p>Visita nuestro catálogo en <a href="https://mk5.com.mx/catalogo">mk5.com.mx</a>.</p>
-            <br/>
-            <p style="color:#888;font-size:12px">Si no solicitaste esta suscripción ignora este mensaje.</p>
-          </div>
-        </div>
-      `,
-    });
-    console.log(`[RESEND] Bienvenida newsletter → ${email}`);
-  } catch (err) {
-    console.error(`[RESEND ERROR newsletter]:`, err);
-  }
+  const html = emailTemplate({
+    preheader: "Ya formas parte del club MK5.",
+    title: "¡Bienvenido a las ofertas MK5!",
+    heading: "¡Ya estás suscrito! 🎉",
+    intro: `A partir de ahora recibirás <strong>promociones exclusivas</strong>, descuentos especiales y lanzamientos de las mejores marcas directo en tu correo.`,
+    body: `<p>Bridgestone, Michelin, Pirelli, Goodyear, Continental, Hankook y muchas más — siempre al mejor precio.</p>`,
+    ctaText: "Ver catálogo",
+    ctaUrl: "https://mk5.com.mx/catalogo",
+    footerNote: "Si no solicitaste esta suscripción, ignora este mensaje.",
+  });
+  return sendEmail({
+    to: email,
+    subject: "¡Bienvenido a las ofertas de MK5!",
+    html,
+    includeBcc: false,
+  });
 }
 
 async function sendPaymentSuccessEmail(orderId, email, name, total) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log(`[CORREO SIMULADO] Se enviaría correo de confirmación a ${email} por la orden ${orderId}`);
-    return;
-  }
-  
-  try {
-    const { data, error } = await resend.emails.send({
-      from: "MK5 Auto parts <ventas@mk5.com.mx>",
-      to: [email],
-      bcc: ["llanteramk5.online@gmail.com"],
-          subject: `Confirmación de pago - Orden #${orderId}`,
-      html: `
-        <div style="font-family: sans-serif; color: #333;">
-          <h2>¡Pago confirmado, ${name}! 🎉</h2>
-          <p>Hemos recibido correctamente tu pago por <strong>$${total}</strong> correspondiente a la orden <strong>#${orderId}</strong>.</p>
-          <p>Ya estamos preparando tus llantas para el envío. Te notificaremos en cuanto el paquete esté en camino.</p>
-          <br/>
-          <p>Gracias por confiar en <strong>MK5</strong>.</p>
-        </div>
-      `,
-    });
-    console.log(`[RESEND] Correo enviado: `, data);
-  } catch (error) {
-    console.error(`[RESEND ERROR]: `, error);
-  }
+  const html = emailTemplate({
+    preheader: `Tu pago de ${money(total)} fue confirmado. Preparamos tu envío.`,
+    title: `Pago confirmado - Orden #${orderId}`,
+    heading: `¡Pago confirmado, ${name || "cliente"}! 🎉`,
+    intro: `Hemos recibido correctamente tu pago. Ya estamos preparando tus llantas para el envío y te notificaremos en cuanto el paquete esté en camino con su número de guía.`,
+    highlightBoxes: [
+      { label: "Orden", value: `#${orderId}` },
+      { label: "Total pagado", value: money(total) },
+      { label: "Estado", value: "En preparación" },
+    ],
+    body: `<p>Tiempo estimado de envío: <strong>24–72 horas hábiles</strong> según tu ubicación.</p>`,
+    ctaText: "Rastrear mi pedido",
+    ctaUrl: `https://mk5.com.mx/rastrear-pedido?order=${orderId}`,
+    footerNote: "Gracias por confiar en MK5 Llantera.",
+  });
+  return sendEmail({
+    to: email,
+    subject: `Pago confirmado - Orden #${orderId}`,
+    html,
+  });
+}
+
+// NUEVO: bienvenida al registrar cuenta
+async function sendWelcomeAccountEmail(email, name) {
+  const html = emailTemplate({
+    preheader: "Tu cuenta MK5 está activa.",
+    title: "¡Bienvenido a MK5!",
+    heading: `¡Bienvenido, ${name || "cliente"}! 🚗`,
+    intro: `Tu cuenta MK5 está lista. Ahora puedes <strong>rastrear pedidos, guardar favoritos, ver historial de compras</strong> y recibir promociones exclusivas.`,
+    highlightBoxes: [
+      { label: "Correo registrado", value: email },
+      { label: "Acceso", value: "mk5.com.mx/mi-cuenta" },
+    ],
+    body: `
+      <p><strong>Lo que puedes hacer con tu cuenta:</strong></p>
+      <ul style="padding-left:20px;color:#444;line-height:1.7">
+        <li>Compras más rápidas (datos guardados)</li>
+        <li>Rastreo en tiempo real de tus pedidos</li>
+        <li>Lista de favoritos para no perder llantas</li>
+        <li>Promociones exclusivas para miembros</li>
+      </ul>`,
+    ctaText: "Explorar catálogo",
+    ctaUrl: "https://mk5.com.mx/catalogo",
+    footerNote: "Si no creaste esta cuenta, contáctanos de inmediato.",
+  });
+  return sendEmail({
+    to: email,
+    subject: "¡Bienvenido a MK5 Llantera!",
+    html,
+  });
 }
 
 app.get("/api/admin/metrics", [requireAdmin], async (req, res) => {
@@ -2161,30 +2292,31 @@ app.patch("/api/admin/orders/:id/status", [requireAdmin], async (req, res) => {
 
     let email_sent = false;
     if (status === "shipped" && order.customer_email) {
-      try {
-        const trackingLine = tracking_number
-          ? `<p style="margin:12px 0"><b>Número de guía:</b> <code style="background:#f3f4f6;padding:2px 8px;border-radius:4px">${tracking_number}</code></p>`
-          : "";
-        await resend.emails.send({
-          from: "MK5 Llantas <ventas@mk5.com.mx>",
-          to: [order.customer_email],
-          bcc: ["llanteramk5.online@gmail.com"],
-          subject: `Tu pedido ${order.order_code || "#"+order.id} está en camino 🚚`,
-          html: `
-            <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
-              <h2 style="color:#e85c00">¡Tu pedido está en camino!</h2>
-              <p>Hola <b>${order.customer_name || "cliente"}</b>,</p>
-              <p>Tu pedido <b>${order.order_code || "#"+order.id}</b> ha sido enviado.</p>
-              ${trackingLine}
-              <p>Puedes rastrear tu pedido en: <a href="https://mk5.com.mx/rastrear-pedido">mk5.com.mx/rastrear-pedido</a></p>
-              <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
-              <p style="color:#999;font-size:12px">MK5 Llantas · mk5.com.mx</p>
-            </div>`,
-        });
-        email_sent = true;
-      } catch (e) {
-        console.error("Error enviando email de envío:", e.message);
+      const orderRef = order.order_code || `#${order.id}`;
+      const boxes = [
+        { label: "Pedido", value: orderRef },
+        { label: "Estado", value: "Enviado" },
+      ];
+      if (tracking_number) {
+        boxes.push({ label: "Número de guía", value: tracking_number });
       }
+      const html = emailTemplate({
+        preheader: `Tu pedido ${orderRef} ya está en camino 🚚`,
+        title: `Pedido en camino - ${orderRef}`,
+        heading: `¡Tu pedido está en camino, ${order.customer_name || "cliente"}! 🚚`,
+        intro: `Tu pedido ya fue despachado y va rumbo a tu dirección de envío.`,
+        highlightBoxes: boxes,
+        body: `<p>El tiempo estimado de entrega es de <strong>24–72 horas hábiles</strong> según tu ubicación. Puedes consultar el estado en cualquier momento desde tu cuenta o el rastreador.</p>`,
+        ctaText: "Rastrear mi pedido",
+        ctaUrl: `https://mk5.com.mx/rastrear-pedido?order=${order.id}`,
+        footerNote: "Avísanos por WhatsApp si tienes cualquier problema con la entrega.",
+      });
+      const result = await sendEmail({
+        to: order.customer_email,
+        subject: `Tu pedido ${orderRef} está en camino 🚚`,
+        html,
+      });
+      email_sent = result.ok;
     }
 
     res.json({ ok: true, email_sent });
@@ -2274,25 +2406,21 @@ app.post("/api/auth/forgot-password", authRateLimit, async (req, res) => {
     const frontendBase = (process.env.FRONTEND_BASE_URL || "https://mk5.com.mx").replace(/\/+$/, "");
     const resetUrl = `${frontendBase}/mi-cuenta?reset=${token}`;
 
-    await resend.emails.send({
-      from: "MK5 Llantas <ventas@mk5.com.mx>",
-      to: [email],
+    const html = emailTemplate({
+      preheader: "Solicitud para restablecer tu contraseña MK5.",
+      title: "Restablecer contraseña",
+      heading: `Restablecer tu contraseña`,
+      intro: `Hola <strong>${customer.name || "cliente"}</strong>, recibimos una solicitud para restablecer la contraseña de tu cuenta MK5.`,
+      body: `<p style="color:#666;font-size:13px;margin-top:18px">⏱️ Este enlace es válido por <strong>1 hora</strong>. Si no solicitaste esto, ignora este correo — tu cuenta sigue segura.</p>`,
+      ctaText: "Restablecer contraseña",
+      ctaUrl: resetUrl,
+      footerNote: "Por seguridad, nunca compartas este enlace con nadie.",
+    });
+    await sendEmail({
+      to: email,
       subject: "Recupera tu contraseña — MK5 Llantas",
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-          <h2 style="color:#e85c00">Restablecer contraseña</h2>
-          <p>Hola <b>${customer.name || "cliente"}</b>,</p>
-          <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
-          <p style="margin:24px 0">
-            <a href="${resetUrl}"
-               style="background:#e85c00;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">
-              Restablecer contraseña
-            </a>
-          </p>
-          <p style="color:#666;font-size:13px">Este enlace es válido por <b>1 hora</b>. Si no solicitaste esto, ignora este correo.</p>
-          <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
-          <p style="color:#999;font-size:12px">MK5 Llantas · mk5.com.mx</p>
-        </div>`,
+      html,
+      includeBcc: false,
     });
   } catch (e) {
     console.error("forgot-password error:", e.message);
