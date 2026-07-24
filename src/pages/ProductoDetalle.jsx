@@ -1283,7 +1283,7 @@ export default function ProductoDetalle() {
         )}
 
         <article className="product-summary">
-          <div className="product-discount-ribbon">4x3 o 25% de descuento</div>
+          <div className="product-discount-ribbon">30% de descuento</div>
           <div className="product-brand-row">
             <span className="product-brand-pill">
               {brandLogo ? (
@@ -1319,7 +1319,7 @@ export default function ProductoDetalle() {
             <small>{formatMoney(oldPrice)}</small>
             <span>¡Ahorras {formatMoney(ahorro)}!</span>
           </div>
-          <p className="product-price-legend">Precio final con 25% de descuento aplicado. Promo equivalente a 4x3.</p>
+          <p className="product-price-legend">Precio final con 30% de descuento aplicado.</p>
 
           <div className="product-shipping-row">
             <p>Envio a domicilio: 2 - 5 dias</p>
@@ -1328,8 +1328,8 @@ export default function ProductoDetalle() {
 
           <div className="product-benefits">
             <p>
-              <span className="benefit-icon" aria-hidden="true">🛠️</span>
-              Instalacion y balanceo gratis en sucursal
+              <span className="benefit-icon" aria-hidden="true">🛡️</span>
+              Garantía y producto 100% original
             </p>
             <p>
               <span className="benefit-icon" aria-hidden="true">🚚</span>
@@ -1473,7 +1473,7 @@ export default function ProductoDetalle() {
             </div>
             <div className="side-card__meta">
               <span>Entrega 24-48 h</span>
-              <span>Instalacion en sucursal</span>
+              <span>Producto nuevo y sellado</span>
             </div>
           </div>
         </aside>

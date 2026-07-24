@@ -82,14 +82,8 @@ function getPromoTotals(unitPromoPrice, qty) {
   const listUnit = estimateListPrice(unitPromoPrice);
   const safeLineQty = safeQty(qty);
   const subtotal = listUnit * safeLineQty;
-  let promoTotal = subtotal;
-
-  if (safeLineQty >= 4) {
-    const payUnits = safeLineQty - Math.floor(safeLineQty / 4);
-    promoTotal = listUnit * payUnits;
-  } else {
-    promoTotal = subtotal * 0.75;
-  }
+  // 30% de descuento plano: el cliente paga el precio real (precio) por llanta.
+  const promoTotal = subtotal * 0.7;
 
   return {
     listUnit,

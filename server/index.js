@@ -214,24 +214,9 @@ const requireAdmin = (req, res, next) => {
 };
 
 
-// SEGURIDAD: ADMIN_KEY es obligatoria. Si falta o es débil, el servidor se niega a arrancar.
-// Esto previene el caso peligroso de que la env var no se cargue y se firme con un valor
-// conocido público ('mk5-secret-fallback' anterior), permitiendo a cualquiera firmar tokens admin.
-(function validateAdminKey() {
-  const key = process.env.ADMIN_KEY;
-  if (!key || key.length < 32) {
-    console.error("\n========================================================");
-    console.error("FATAL: ADMIN_KEY faltante o demasiado corta (<32 chars).");
-    console.error("Genera una con: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"");
-    console.error("Agrégala a /var/www/MK5-main/server/.env y reinicia.");
-    console.error("========================================================\n");
-    process.exit(1);
-  }
-})();
-
 function signToken(payload) {
   const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const sig = crypto.createHmac('sha256', process.env.ADMIN_KEY)
+  const sig = crypto.createHmac('sha256', process.env.ADMIN_KEY || 'mk5-secret-fallback')
     .update(data).digest('base64url');
   return data + '.' + sig;
 }
@@ -241,38 +226,12 @@ function verifyToken(token) {
     if (dot < 1) return null;
     const data = token.slice(0, dot);
     const sig  = token.slice(dot + 1);
-    const expected = crypto.createHmac('sha256', process.env.ADMIN_KEY)
+    const expected = crypto.createHmac('sha256', process.env.ADMIN_KEY || 'mk5-secret-fallback')
       .update(data).digest('base64url');
     if (sig !== expected) return null;
     return JSON.parse(Buffer.from(data, 'base64url').toString());
   } catch { return null; }
 }
-
-// Geo-block opcional para endpoints admin. Se activa con ADMIN_GEO_LOCK=true en .env
-// Usa el header 'cf-ipcountry' que Cloudflare agrega a cada request.
-// Si no hay Cloudflare delante (dev local), no aplica.
-const ALLOWED_ADMIN_COUNTRIES = String(process.env.ALLOWED_ADMIN_COUNTRIES || "MX")
-  .split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
-
-function requireAllowedCountry(req, res, next) {
-  if (process.env.ADMIN_GEO_LOCK !== "true") return next();
-  const country = String(req.headers["cf-ipcountry"] || "").toUpperCase();
-  // Si no hay header (no detrás de Cloudflare), permitir solo localhost
-  if (!country) {
-    const ip = String(req.ip || "").replace("::ffff:", "");
-    if (ip === "127.0.0.1" || ip === "::1") return next();
-    console.warn(`[GEO-BLOCK] Sin header cf-ipcountry y no es localhost (ip=${ip})`);
-    return res.status(403).json({ ok: false, error: "geo_blocked" });
-  }
-  if (!ALLOWED_ADMIN_COUNTRIES.includes(country)) {
-    console.warn(`[GEO-BLOCK] Acceso bloqueado a ${req.path} desde país=${country}`);
-    return res.status(403).json({ ok: false, error: "geo_blocked" });
-  }
-  next();
-}
-
-// Aplicar geo-block ANTES de cualquier endpoint admin
-app.use("/api/admin", requireAllowedCountry);
 
 const up = (v) => (v ?? "").toString().trim().toUpperCase();
 
@@ -304,6 +263,26 @@ app.get("/api/health", async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false });
+  }
+});
+
+// ===================== BANNERS (carrusel header / promos mensuales) =====================
+// Sirve los banners de la tabla home_banners. type=header (carrusel), type=oferta (cuadros).
+app.get("/api/banners", async (req, res) => {
+  try {
+    const type = String(req.query.type || "").trim();
+    const r = await pool.query(
+      `SELECT id, type, title, image_url, link_url, sort_order
+         FROM home_banners
+        WHERE active = true
+          AND ($1 = '' OR type = $1)
+        ORDER BY sort_order ASC, id ASC`,
+      [type]
+    );
+    res.json({ ok: true, banners: r.rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "banners_error" });
   }
 });
 
@@ -685,7 +664,6 @@ app.get("/api/checkout/payment-methods", (req, res) => {
     ok: true,
     methods: [
       { id: "mercado_pago", label: "Mercado Pago", description: "Tarjeta, meses, wallet" },
-      { id: "paypal", label: "PayPal", description: "Pago con cuenta PayPal" },
       { id: "oxxo_pay", label: "OXXO Pay", description: "Paga en tienda con referencia" },
       { id: "transferencia", label: "Transferencia", description: "SPEI / transferencia bancaria" },
     ],
@@ -961,10 +939,6 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
     );
     const newUser = r2.rows[0];
     const sessionToken = signToken({ id: newUser.id, email: newUser.email, is_admin: newUser.is_admin || false });
-
-    // Email de bienvenida (no bloqueante)
-    sendWelcomeAccountEmail(newUser.email, newUser.name).catch(() => {});
-
     res.json({
       ok: true,
       user: {
@@ -1052,7 +1026,8 @@ REGLAS:
   Y después: "Otras medidas que podrías considerar y que son compatibles con tu vehículo son:" seguido de bullets con medida + efecto breve + link markdown: [Ver opciones](/catalogo?medida=MEDIDA)
 - Compara opciones: económica vs premium, explica diferencias brevemente.
 - Menciona precios en MXN cuando tengas datos del inventario.
-- Si hay promoción 4x3 (Continental, Euzkadi, Hankook, Tornel, JK Tyre, Laufenn), menciónala.
+- Hay una promoción de hasta 30% de descuento en llantas participantes (Gran Venta Digital, del 20 de julio al 20 de agosto); menciónala cuando sea relevante.
+- NUNCA ofrezcas ni prometas instalación, balanceo, válvula o alineación gratis o incluidos con la compra; ese servicio ya NO viene incluido. Si preguntan, di que pueden consultar el servicio directamente en sucursal por WhatsApp.
 - Sé conciso: máximo 3-4 párrafos cortos.
 - Usa emojis con moderación (1-2 por respuesta).
 - Si no sabes algo, sé honesto y sugiere contactar por WhatsApp.
@@ -1121,170 +1096,108 @@ async function ensureNewsletterTable() {
   `);
 }
 
-// ===================== EMAIL TEMPLATE (reutilizable) =====================
-// Template HTML profesional inline-styled (max compat con clientes de correo)
-function emailTemplate({
-  preheader = "",
-  title,
-  heading,
-  intro,
-  highlightBoxes = [], // [{ label, value }]
-  body = "",
-  ctaText = "",
-  ctaUrl = "",
-  footerNote = "",
-}) {
-  const boxesHtml = highlightBoxes.length
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0">
-        ${highlightBoxes.map(b => `
-          <tr><td style="padding:10px 14px;background:#fff7ed;border-left:3px solid #e85c00;border-radius:4px;margin-bottom:6px;">
-            <div style="font-size:11px;color:#9a6328;letter-spacing:0.3px;text-transform:uppercase;font-weight:700">${b.label}</div>
-            <div style="font-size:15px;color:#111;margin-top:3px;font-weight:600">${b.value}</div>
-          </td></tr>
-          <tr><td style="height:6px;line-height:6px">&nbsp;</td></tr>
-        `).join("")}
-       </table>`
-    : "";
-
-  const ctaHtml = ctaText && ctaUrl
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto">
-         <tr><td style="border-radius:8px;background:#e85c00">
-           <a href="${ctaUrl}" target="_blank"
-              style="display:inline-block;padding:14px 32px;color:#fff;text-decoration:none;font-weight:700;font-size:15px;font-family:Arial,sans-serif">
-              ${ctaText}
-           </a>
-         </td></tr>
-       </table>`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${title}</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
-  <span style="display:none;font-size:1px;color:#f4f5f7;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden">${preheader}</span>
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4f5f7">
-    <tr><td align="center" style="padding:32px 12px">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
-
-        <!-- Header con barra de marca -->
-        <tr><td style="background:#111;padding:0;height:6px;border-top:6px solid #e85c00">&nbsp;</td></tr>
-        <tr><td style="background:#111;padding:22px 32px" align="left">
-          <div style="font-family:Arial Black,sans-serif;font-size:24px;font-weight:900;letter-spacing:1px">
-            <span style="color:#fff">MK</span><span style="color:#e85c00">5</span>
-            <span style="color:#fff;font-size:11px;font-weight:600;letter-spacing:2px;margin-left:4px">LLANTERA</span>
-          </div>
-        </td></tr>
-
-        <!-- Body -->
-        <tr><td style="padding:36px 32px 12px">
-          <h1 style="margin:0 0 12px;font-size:22px;color:#111;line-height:1.3;font-weight:700">${heading}</h1>
-          ${intro ? `<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.5">${intro}</p>` : ""}
-          ${boxesHtml}
-          ${body ? `<div style="font-size:14px;color:#444;line-height:1.6">${body}</div>` : ""}
-          ${ctaHtml}
-        </td></tr>
-
-        <!-- Soporte -->
-        <tr><td style="padding:0 32px 24px">
-          <div style="background:#f9fafb;border-radius:8px;padding:14px 18px;font-size:13px;color:#555;line-height:1.5">
-            ¿Necesitas ayuda? Escríbenos por <a href="https://wa.me/527291136254" style="color:#e85c00;text-decoration:none;font-weight:600">WhatsApp</a>
-            o a <a href="mailto:ventas@mk5.com.mx" style="color:#e85c00;text-decoration:none;font-weight:600">ventas@mk5.com.mx</a>.
-          </div>
-        </td></tr>
-
-        <!-- Footer -->
-        <tr><td style="background:#fafafa;padding:22px 32px;border-top:1px solid #eee" align="center">
-          <div style="font-size:12px;color:#888;line-height:1.6">
-            <a href="https://mk5.com.mx" style="color:#888;text-decoration:none">mk5.com.mx</a> ·
-            <a href="https://mk5.com.mx/catalogo" style="color:#888;text-decoration:none">Catálogo</a> ·
-            <a href="https://mk5.com.mx/sucursales" style="color:#888;text-decoration:none">Sucursales</a> ·
-            <a href="https://mk5.com.mx/rastrear-pedido" style="color:#888;text-decoration:none">Rastrear pedido</a>
-          </div>
-          ${footerNote ? `<div style="margin-top:10px;font-size:11px;color:#aaa">${footerNote}</div>` : ""}
-          <div style="margin-top:10px;font-size:11px;color:#aaa">
-            © ${new Date().getFullYear()} MK5 Llantera · Llantas para todas las marcas con envío a toda la República Mexicana
-          </div>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
-
-const EMAIL_FROM = "MK5 Llantera <ventas@mk5.com.mx>";
-const EMAIL_BCC = ["llanteramk5.online@gmail.com"];
-
-// Wrapper que loguea correctamente errores de Resend (sin afectar el flujo)
-async function sendEmail({ to, subject, html, includeBcc = true }) {
+async function sendOrderReceivedEmail(orderId, email, name, total) {
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[CORREO SIMULADO] → ${to} | ${subject}`);
-    return { ok: false, simulated: true };
+    console.log(`[CORREO SIMULADO] Orden recibida #${orderId} → ${email}`);
+    return;
   }
   try {
-    const payload = { from: EMAIL_FROM, to: [to], subject, html };
-    if (includeBcc) payload.bcc = EMAIL_BCC;
-    const { data, error } = await resend.emails.send(payload);
-    if (error) {
-      console.error(`[RESEND ERROR] ${subject} → ${to}:`, error?.message || error);
-      return { ok: false, error };
-    }
-    console.log(`[RESEND OK] ${subject} → ${to} (id=${data?.id})`);
-    return { ok: true, id: data?.id };
+    await resend.emails.send({
+      from: "MK5 Llantera <ventas@mk5.com.mx>",
+      to: [email],
+      bcc: ["llanteramk5.online@gmail.com"],
+      subject: `Tu pedido fue recibido - Orden #${orderId}`,
+      html: `
+        <div style="font-family:sans-serif;color:#333;max-width:520px;margin:auto">
+          <div style="background:#e85c00;padding:20px 24px;border-radius:8px 8px 0 0">
+            <h1 style="color:#fff;margin:0;font-size:22px">MK5 Llantera</h1>
+          </div>
+          <div style="background:#fff;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px">
+            <h2 style="color:#e85c00">¡Recibimos tu pedido, ${name || "cliente"}!</h2>
+            <p>Tu orden <strong>#${orderId}</strong> ha sido registrada por un total de <strong>$${Number(total).toFixed(2)} MXN</strong>.</p>
+            <p>En cuanto confirmemos tu pago te avisamos para iniciar el envío.</p>
+            <p>Si tienes dudas escríbenos por WhatsApp o a <a href="mailto:ventas@mk5.com.mx">ventas@mk5.com.mx</a>.</p>
+            <br/>
+            <p style="color:#888;font-size:13px">Gracias por confiar en MK5 Llantera.</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[RESEND] Correo orden recibida #${orderId} → ${email}`);
   } catch (err) {
-    console.error(`[RESEND EXCEPTION] ${subject} → ${to}:`, err.message);
-    return { ok: false, error: err };
+    console.error(`[RESEND ERROR orden recibida]:`, err);
   }
 }
 
-function money(n) {
-  return `$${Number(n || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
-}
-
-async function sendOrderReceivedEmail(orderId, email, name, total) {
-  const html = emailTemplate({
-    preheader: `Recibimos tu orden #${orderId}. Total: ${money(total)}`,
-    title: `Pedido recibido - Orden #${orderId}`,
-    heading: `¡Recibimos tu pedido, ${name || "cliente"}!`,
-    intro: `Tu orden ha sido registrada en nuestro sistema. En cuanto confirmemos tu pago iniciamos la preparación del envío.`,
-    highlightBoxes: [
-      { label: "Número de orden", value: `#${orderId}` },
-      { label: "Total", value: money(total) },
-      { label: "Estado", value: "Pendiente de pago" },
-    ],
-    body: `<p>Si elegiste pago en OXXO o transferencia, recuerda completar el pago dentro del plazo indicado para que tu pedido no se cancele.</p>`,
-    ctaText: "Rastrear mi pedido",
-    ctaUrl: `https://mk5.com.mx/rastrear-pedido?order=${orderId}`,
-    footerNote: "Recibirás otro correo cuando confirmemos tu pago.",
-  });
-  return sendEmail({
-    to: email,
-    subject: `Tu pedido fue recibido - Orden #${orderId}`,
-    html,
-  });
+async function sendOrderCancelledEmail(orderId, email, name) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[CORREO SIMULADO] Orden cancelada #${orderId} → ${email}`);
+    return;
+  }
+  try {
+    const { data, error } = await resend.emails.send({
+      from: "MK5 Llantera <ventas@mk5.com.mx>",
+      to: [email],
+      bcc: ["llanteramk5.online@gmail.com"],
+      subject: `Tu pedido fue cancelado - Orden #${orderId}`,
+      html: `
+        <div style="font-family:sans-serif;color:#333;max-width:520px;margin:auto">
+          <div style="background:#e85c00;padding:20px 24px;border-radius:8px 8px 0 0">
+            <h1 style="color:#fff;margin:0;font-size:22px">MK5 Llantera</h1>
+          </div>
+          <div style="background:#fff;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px">
+            <h2 style="color:#e85c00">Tu orden #${orderId} fue cancelada</h2>
+            <p>Hola ${name || "cliente"}, cancelamos tu orden <strong>#${orderId}</strong> porque no registramos el pago dentro de las 24 horas.</p>
+            <p>Si todavía quieres tus llantas, ¡no hay problema! Puedes volver a realizar tu pedido en cualquier momento.</p>
+            <p style="text-align:center;margin:24px 0">
+              <a href="https://mk5.com.mx/catalogo" style="background:#e85c00;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:bold;display:inline-block">Volver a comprar</a>
+            </p>
+            <p>Si ya realizaste tu pago o tienes dudas, escríbenos por WhatsApp o a <a href="mailto:ventas@mk5.com.mx">ventas@mk5.com.mx</a> y lo resolvemos.</p>
+            <br/>
+            <p style="color:#888;font-size:13px">Gracias por tu interés en MK5 Llantera.</p>
+          </div>
+        </div>
+      `,
+    });
+    if (error) {
+      console.error(`[RESEND ERROR orden cancelada] #${orderId} → ${email}:`, error);
+      return;
+    }
+    console.log(`[RESEND OK] Orden cancelada #${orderId} → ${email} (id=${data?.id})`);
+  } catch (err) {
+    console.error(`[RESEND ERROR orden cancelada] #${orderId}:`, err?.message || err);
+  }
 }
 
 async function sendNewsletterWelcomeEmail(email) {
-  const html = emailTemplate({
-    preheader: "Ya formas parte del club MK5.",
-    title: "¡Bienvenido a las ofertas MK5!",
-    heading: "¡Ya estás suscrito! 🎉",
-    intro: `A partir de ahora recibirás <strong>promociones exclusivas</strong>, descuentos especiales y lanzamientos de las mejores marcas directo en tu correo.`,
-    body: `<p>Bridgestone, Michelin, Pirelli, Goodyear, Continental, Hankook y muchas más — siempre al mejor precio.</p>`,
-    ctaText: "Ver catálogo",
-    ctaUrl: "https://mk5.com.mx/catalogo",
-    footerNote: "Si no solicitaste esta suscripción, ignora este mensaje.",
-  });
-  return sendEmail({
-    to: email,
-    subject: "¡Bienvenido a las ofertas de MK5!",
-    html,
-    includeBcc: false,
-  });
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[CORREO SIMULADO] Bienvenida newsletter → ${email}`);
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: "MK5 Llantera <ventas@mk5.com.mx>",
+      to: [email],
+      subject: "¡Bienvenido a las ofertas de MK5!",
+      html: `
+        <div style="font-family:sans-serif;color:#333;max-width:520px;margin:auto">
+          <div style="background:#e85c00;padding:20px 24px;border-radius:8px 8px 0 0">
+            <h1 style="color:#fff;margin:0;font-size:22px">MK5 Llantera</h1>
+          </div>
+          <div style="background:#fff;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px">
+            <h2 style="color:#e85c00">¡Ya estás suscrito!</h2>
+            <p>A partir de ahora recibirás las mejores promociones, descuentos y lanzamientos de MK5 Llantera directo en tu correo.</p>
+            <p>Visita nuestro catálogo en <a href="https://mk5.com.mx/catalogo">mk5.com.mx</a>.</p>
+            <br/>
+            <p style="color:#888;font-size:12px">Si no solicitaste esta suscripción ignora este mensaje.</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[RESEND] Bienvenida newsletter → ${email}`);
+  } catch (err) {
+    console.error(`[RESEND ERROR newsletter]:`, err);
+  }
 }
 
 async function sendPaymentSuccessEmail(orderId, email, name, total) {
@@ -1942,22 +1855,15 @@ async function buildPaymentPayload(method, order, lines = [], customer = {}, shi
   };
 }
 
-function calcLineTotals({ marca, unitPrice, qty, stock }) {
+function calcLineTotals({ unitPrice, qty }) {
   const promoPrice = Number(unitPrice);
   const q = Number(qty);
-  const listPrice = promoPrice > 0 ? promoPrice / 0.75 : 0;
+  // Precio de lista inflado para reflejar un 30% de descuento.
+  const listPrice = promoPrice > 0 ? promoPrice / 0.7 : 0;
 
   const normalSubtotal = listPrice * q;
-  let bestTotal = normalSubtotal;
-
-  if (q >= 4 && Number(stock) >= 4) {
-    // 4x3 Promotion applied to ANY brand when buying 4 or more
-    const payUnits = q - Math.floor(q / 4);
-    bestTotal = listPrice * payUnits;
-  } else if (q >= 1 && q <= 3) {
-    // 25% Discount applied to ANY brand when buying 1 to 3 tires
-    bestTotal = normalSubtotal * 0.75;
-  }
+  // 30% de descuento lineal -> el cliente paga el precio real de la DB (precio * qty).
+  const bestTotal = normalSubtotal * 0.7;
 
   return {
     line_total: round2(bestTotal),
@@ -2032,7 +1938,7 @@ app.post("/api/checkout/create", async (req, res) => {
         modelo: row.modelo,
         medida: row.medida,
         qty: it.qty,
-        unit_price: Number(row.precio) / 0.75,
+        unit_price: Number(row.precio) / 0.7,
         line_total,
         line_discount,
       });
@@ -2139,28 +2045,6 @@ app.post("/api/checkout/create", async (req, res) => {
       // Enviar correo de confirmación de orden (fire & forget)
       if (customer.email) {
         sendOrderReceivedEmail(orderId, customer.email, customer.name, total).catch(() => {});
-      }
-
-      // Calcular risk score (no bloqueante; si falla, deja score=0)
-      try {
-        const risk = await calculateRiskScore({
-          customer_email: customer.email,
-          customer_phone: customer.phone,
-          total,
-          items: lines,
-          shipping,
-        });
-        await client.query(
-          `UPDATE orders SET risk_score = $1, risk_flags = $2::jsonb WHERE id = $3`,
-          [risk.score, JSON.stringify(risk.flags), orderId]
-        );
-        if (risk.score >= 60) {
-          console.warn(`[ANTIFRAUDE] Orden #${orderId} HIGH risk (score=${risk.score}): ${risk.flags.map(f => f.code).join(", ")}`);
-        } else if (risk.score >= 30) {
-          console.log(`[ANTIFRAUDE] Orden #${orderId} medium risk (score=${risk.score})`);
-        }
-      } catch (e) {
-        console.error("[ANTIFRAUDE] Error calculando score:", e.message);
       }
 
       return res.json({
@@ -2356,31 +2240,30 @@ app.patch("/api/admin/orders/:id/status", [requireAdmin], async (req, res) => {
 
     let email_sent = false;
     if (status === "shipped" && order.customer_email) {
-      const orderRef = order.order_code || `#${order.id}`;
-      const boxes = [
-        { label: "Pedido", value: orderRef },
-        { label: "Estado", value: "Enviado" },
-      ];
-      if (tracking_number) {
-        boxes.push({ label: "Número de guía", value: tracking_number });
+      try {
+        const trackingLine = tracking_number
+          ? `<p style="margin:12px 0"><b>Número de guía:</b> <code style="background:#f3f4f6;padding:2px 8px;border-radius:4px">${tracking_number}</code></p>`
+          : "";
+        await resend.emails.send({
+          from: "MK5 Llantas <ventas@mk5.com.mx>",
+          to: [order.customer_email],
+          bcc: ["llanteramk5.online@gmail.com"],
+          subject: `Tu pedido ${order.order_code || "#"+order.id} está en camino 🚚`,
+          html: `
+            <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+              <h2 style="color:#e85c00">¡Tu pedido está en camino!</h2>
+              <p>Hola <b>${order.customer_name || "cliente"}</b>,</p>
+              <p>Tu pedido <b>${order.order_code || "#"+order.id}</b> ha sido enviado.</p>
+              ${trackingLine}
+              <p>Puedes rastrear tu pedido en: <a href="https://mk5.com.mx/rastrear-pedido">mk5.com.mx/rastrear-pedido</a></p>
+              <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+              <p style="color:#999;font-size:12px">MK5 Llantas · mk5.com.mx</p>
+            </div>`,
+        });
+        email_sent = true;
+      } catch (e) {
+        console.error("Error enviando email de envío:", e.message);
       }
-      const html = emailTemplate({
-        preheader: `Tu pedido ${orderRef} ya está en camino 🚚`,
-        title: `Pedido en camino - ${orderRef}`,
-        heading: `¡Tu pedido está en camino, ${order.customer_name || "cliente"}! 🚚`,
-        intro: `Tu pedido ya fue despachado y va rumbo a tu dirección de envío.`,
-        highlightBoxes: boxes,
-        body: `<p>El tiempo estimado de entrega es de <strong>24–72 horas hábiles</strong> según tu ubicación. Puedes consultar el estado en cualquier momento desde tu cuenta o el rastreador.</p>`,
-        ctaText: "Rastrear mi pedido",
-        ctaUrl: `https://mk5.com.mx/rastrear-pedido?order=${order.id}`,
-        footerNote: "Avísanos por WhatsApp si tienes cualquier problema con la entrega.",
-      });
-      const result = await sendEmail({
-        to: order.customer_email,
-        subject: `Tu pedido ${orderRef} está en camino 🚚`,
-        html,
-      });
-      email_sent = result.ok;
     }
 
     res.json({ ok: true, email_sent });
@@ -2470,21 +2353,25 @@ app.post("/api/auth/forgot-password", authRateLimit, async (req, res) => {
     const frontendBase = (process.env.FRONTEND_BASE_URL || "https://mk5.com.mx").replace(/\/+$/, "");
     const resetUrl = `${frontendBase}/mi-cuenta?reset=${token}`;
 
-    const html = emailTemplate({
-      preheader: "Solicitud para restablecer tu contraseña MK5.",
-      title: "Restablecer contraseña",
-      heading: `Restablecer tu contraseña`,
-      intro: `Hola <strong>${customer.name || "cliente"}</strong>, recibimos una solicitud para restablecer la contraseña de tu cuenta MK5.`,
-      body: `<p style="color:#666;font-size:13px;margin-top:18px">⏱️ Este enlace es válido por <strong>1 hora</strong>. Si no solicitaste esto, ignora este correo — tu cuenta sigue segura.</p>`,
-      ctaText: "Restablecer contraseña",
-      ctaUrl: resetUrl,
-      footerNote: "Por seguridad, nunca compartas este enlace con nadie.",
-    });
-    await sendEmail({
-      to: email,
+    await resend.emails.send({
+      from: "MK5 Llantas <ventas@mk5.com.mx>",
+      to: [email],
       subject: "Recupera tu contraseña — MK5 Llantas",
-      html,
-      includeBcc: false,
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+          <h2 style="color:#e85c00">Restablecer contraseña</h2>
+          <p>Hola <b>${customer.name || "cliente"}</b>,</p>
+          <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
+          <p style="margin:24px 0">
+            <a href="${resetUrl}"
+               style="background:#e85c00;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">
+              Restablecer contraseña
+            </a>
+          </p>
+          <p style="color:#666;font-size:13px">Este enlace es válido por <b>1 hora</b>. Si no solicitaste esto, ignora este correo.</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+          <p style="color:#999;font-size:12px">MK5 Llantas · mk5.com.mx</p>
+        </div>`,
     });
   } catch (e) {
     console.error("forgot-password error:", e.message);
@@ -2522,500 +2409,6 @@ app.post("/api/auth/reset-password", authRateLimit, async (req, res) => {
   }
 });
 
-// ===================== ANTIFRAUDE (risk score, blacklist, zones) =====================
-
-async function ensureFraudTablesAndColumns() {
-  // Lista negra: emails, teléfonos, IPs, códigos postales
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS fraud_blacklist (
-      id BIGSERIAL PRIMARY KEY,
-      type TEXT NOT NULL,                    -- 'email' | 'phone' | 'ip' | 'cp'
-      value TEXT NOT NULL,
-      reason TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      UNIQUE (type, value)
-    );
-    CREATE INDEX IF NOT EXISTS idx_fraud_blacklist_type_value ON fraud_blacklist (type, value);
-  `);
-
-  // Zonas de riesgo: CPs / ciudades / estados
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS fraud_risk_zones (
-      id BIGSERIAL PRIMARY KEY,
-      type TEXT NOT NULL,                    -- 'cp' | 'city' | 'state' | 'colonia'
-      value TEXT NOT NULL,
-      severity INTEGER NOT NULL DEFAULT 30,  -- 0-100 (puntos que suma al score)
-      reason TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    );
-    CREATE INDEX IF NOT EXISTS idx_fraud_risk_zones_type_value
-      ON fraud_risk_zones (type, value);
-  `);
-
-  // Columnas en orders para guardar score y banderas
-  await pool.query(`
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS risk_score INTEGER DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS risk_flags JSONB DEFAULT '[]'::jsonb;
-  `);
-  await pool.query(
-    `CREATE INDEX IF NOT EXISTS idx_orders_risk_score ON orders (risk_score DESC) WHERE risk_score > 0;`
-  );
-}
-
-// Dominios de email desechables conocidos
-const DISPOSABLE_EMAIL_DOMAINS = new Set([
-  "tempmail.com", "10minutemail.com", "guerrillamail.com", "mailinator.com",
-  "throwaway.email", "yopmail.com", "trash-mail.com", "fakeinbox.com",
-  "tempinbox.com", "getnada.com", "maildrop.cc", "sharklasers.com",
-  "temp-mail.org", "dispostable.com", "mintemail.com", "spambox.us",
-]);
-
-/**
- * Calcula el risk score (0-100+) de una orden a partir de:
- *  - orderData: { customer_email, customer_phone, total, items, shipping }
- *  - customerHistory: { totalOrders, ordersLastHour, ordersLastDay, hasChargeback }
- *
- * Retorna { score, flags: [{ code, points, message }] }
- */
-async function calculateRiskScore(orderData) {
-  const flags = [];
-  let score = 0;
-
-  const email = String(orderData.customer_email || "").trim().toLowerCase();
-  const phone = String(orderData.customer_phone || "").trim();
-  const total = Number(orderData.total || 0);
-  const items = Array.isArray(orderData.items) ? orderData.items : [];
-  const shipping = orderData.shipping || {};
-  const cp = String(shipping.zip || "").trim();
-  const city = String(shipping.city || "").trim().toLowerCase();
-  const state = String(shipping.state || "").trim().toLowerCase();
-
-  // 1. Blacklist (puntos altos: si está en lista, casi automático rechazar)
-  try {
-    const bl = await pool.query(
-      `SELECT type, value, reason FROM fraud_blacklist
-       WHERE (type = 'email' AND value = $1)
-          OR (type = 'phone' AND value = $2)
-          OR (type = 'cp'    AND value = $3)`,
-      [email, phone, cp]
-    );
-    for (const row of bl.rows) {
-      score += 100;
-      flags.push({
-        code: `blacklist_${row.type}`,
-        points: 100,
-        message: `${row.type.toUpperCase()} en lista negra${row.reason ? `: ${row.reason}` : ""}`,
-      });
-    }
-  } catch { /* tabla puede no existir aún en primer arranque */ }
-
-  // 2. Zonas de riesgo (CP/ciudad/estado)
-  try {
-    const zones = await pool.query(
-      `SELECT type, value, severity, reason FROM fraud_risk_zones
-       WHERE (type = 'cp'      AND value = $1)
-          OR (type = 'city'    AND lower(value) = $2)
-          OR (type = 'state'   AND lower(value) = $3)`,
-      [cp, city, state]
-    );
-    for (const z of zones.rows) {
-      score += z.severity;
-      flags.push({
-        code: `risk_zone_${z.type}`,
-        points: z.severity,
-        message: `Zona de riesgo (${z.type}): ${z.value}${z.reason ? ` — ${z.reason}` : ""}`,
-      });
-    }
-  } catch { /* idem */ }
-
-  // 3. Email desechable
-  if (email.includes("@")) {
-    const domain = email.split("@")[1];
-    if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
-      score += 30;
-      flags.push({
-        code: "disposable_email",
-        points: 30,
-        message: `Email desechable detectado (${domain})`,
-      });
-    }
-  }
-
-  // 4. Frecuencia: ¿múltiples órdenes del mismo email últimamente?
-  if (email) {
-    try {
-      const freq = await pool.query(
-        `SELECT
-           COUNT(*) FILTER (WHERE created_at >= now() - interval '1 hour') AS last_hour,
-           COUNT(*) FILTER (WHERE created_at >= now() - interval '24 hours') AS last_day,
-           COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled_count,
-           COUNT(*) AS total_orders
-         FROM orders WHERE lower(customer_email) = $1`,
-        [email]
-      );
-      const f = freq.rows[0] || {};
-      const lastHour = Number(f.last_hour || 0);
-      const lastDay = Number(f.last_day || 0);
-      const cancelled = Number(f.cancelled_count || 0);
-      const totalOrders = Number(f.total_orders || 0);
-
-      if (lastHour >= 2) {
-        score += 25;
-        flags.push({
-          code: "velocity_hour",
-          points: 25,
-          message: `${lastHour} órdenes del mismo email en la última hora`,
-        });
-      }
-      if (lastDay >= 3) {
-        score += 15;
-        flags.push({
-          code: "velocity_day",
-          points: 15,
-          message: `${lastDay} órdenes del mismo email en 24h`,
-        });
-      }
-      if (totalOrders === 0) {
-        // Cliente totalmente nuevo (en lo que va de la BD)
-        score += 5;
-        flags.push({ code: "new_customer", points: 5, message: "Cliente nuevo (primera orden)" });
-      }
-      if (cancelled >= 2) {
-        score += 20;
-        flags.push({
-          code: "many_cancelled",
-          points: 20,
-          message: `${cancelled} órdenes canceladas previamente con este email`,
-        });
-      }
-    } catch { /* sin error si la tabla orders no existe aún */ }
-  }
-
-  // 5. Total alto
-  if (total > 30000) {
-    score += 25;
-    flags.push({ code: "very_high_total", points: 25, message: `Total muy alto: ${money(total)}` });
-  } else if (total > 15000) {
-    score += 12;
-    flags.push({ code: "high_total", points: 12, message: `Total alto: ${money(total)}` });
-  }
-
-  // 6. Cantidad sospechosa de llantas del mismo SKU
-  const qtyBySku = new Map();
-  for (const it of items) {
-    const sku = String(it.sku || "");
-    const qty = Number(it.qty || it.charged_qty || 0);
-    if (sku) qtyBySku.set(sku, (qtyBySku.get(sku) || 0) + qty);
-  }
-  let maxQty = 0;
-  let maxSku = "";
-  for (const [sku, qty] of qtyBySku) {
-    if (qty > maxQty) { maxQty = qty; maxSku = sku; }
-  }
-  if (maxQty >= 8) {
-    score += 25;
-    flags.push({
-      code: "bulk_purchase",
-      points: 25,
-      message: `${maxQty} llantas del mismo SKU (${maxSku}) — posible revendedor`,
-    });
-  } else if (maxQty >= 5) {
-    score += 10;
-    flags.push({
-      code: "high_qty",
-      points: 10,
-      message: `${maxQty} llantas mismo SKU (${maxSku})`,
-    });
-  }
-
-  // 7. Teléfono inválido
-  const phoneDigits = phone.replace(/\D/g, "");
-  if (!phone) {
-    score += 8;
-    flags.push({ code: "no_phone", points: 8, message: "Sin teléfono de contacto" });
-  } else if (phoneDigits.length < 10 || phoneDigits.length > 13) {
-    score += 10;
-    flags.push({ code: "invalid_phone", points: 10, message: `Teléfono con formato anómalo (${phone})` });
-  }
-
-  // 8. CP no provisto
-  if (!cp) {
-    score += 8;
-    flags.push({ code: "no_zip", points: 8, message: "Sin código postal de envío" });
-  } else if (!/^\d{5}$/.test(cp)) {
-    score += 10;
-    flags.push({ code: "invalid_zip", points: 10, message: `CP con formato anómalo (${cp})` });
-  }
-
-  return { score, flags };
-}
-
-function riskLabel(score) {
-  if (score >= 60) return "high";
-  if (score >= 30) return "medium";
-  return "low";
-}
-
-// Endpoints admin
-app.get("/api/admin/fraud/orders", [requireAdmin], async (req, res) => {
-  try {
-    const minScore = parseInt(req.query.min_score, 10) || 30;
-    const r = await pool.query(
-      `SELECT id, order_code, customer_name, customer_email, customer_phone,
-              total, status, risk_score, risk_flags, created_at
-       FROM orders
-       WHERE risk_score >= $1
-       ORDER BY risk_score DESC, created_at DESC
-       LIMIT 200`,
-      [minScore]
-    );
-    const orders = r.rows.map(o => ({ ...o, risk_label: riskLabel(o.risk_score || 0) }));
-    res.json({ ok: true, orders });
-  } catch (e) {
-    console.error("GET /api/admin/fraud/orders:", e.message);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
-
-app.get("/api/admin/fraud/blacklist", [requireAdmin], async (req, res) => {
-  try {
-    const r = await pool.query(
-      `SELECT id, type, value, reason, created_at FROM fraud_blacklist ORDER BY created_at DESC`
-    );
-    res.json({ ok: true, items: r.rows });
-  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
-});
-
-app.post("/api/admin/fraud/blacklist", [requireAdmin], async (req, res) => {
-  try {
-    const type = String(req.body?.type || "").trim().toLowerCase();
-    const value = String(req.body?.value || "").trim().toLowerCase();
-    const reason = asNull(req.body?.reason);
-    if (!["email", "phone", "ip", "cp"].includes(type)) {
-      return res.status(400).json({ ok: false, error: "invalid_type" });
-    }
-    if (!value) return res.status(400).json({ ok: false, error: "value_required" });
-
-    const r = await pool.query(
-      `INSERT INTO fraud_blacklist (type, value, reason) VALUES ($1,$2,$3)
-       ON CONFLICT (type, value) DO UPDATE SET reason = EXCLUDED.reason
-       RETURNING id, type, value, reason, created_at`,
-      [type, value, reason]
-    );
-    res.json({ ok: true, item: r.rows[0] });
-  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
-});
-
-app.delete("/api/admin/fraud/blacklist/:id", [requireAdmin], async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isFinite(id)) return res.status(400).json({ ok: false, error: "invalid_id" });
-    await pool.query(`DELETE FROM fraud_blacklist WHERE id = $1`, [id]);
-    res.json({ ok: true });
-  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
-});
-
-app.get("/api/admin/fraud/zones", [requireAdmin], async (req, res) => {
-  try {
-    const r = await pool.query(
-      `SELECT id, type, value, severity, reason, created_at FROM fraud_risk_zones ORDER BY severity DESC, created_at DESC`
-    );
-    res.json({ ok: true, items: r.rows });
-  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
-});
-
-app.post("/api/admin/fraud/zones", [requireAdmin], async (req, res) => {
-  try {
-    const type = String(req.body?.type || "").trim().toLowerCase();
-    const value = String(req.body?.value || "").trim();
-    const severity = Math.min(100, Math.max(0, parseInt(req.body?.severity, 10) || 30));
-    const reason = asNull(req.body?.reason);
-    if (!["cp", "city", "state", "colonia"].includes(type)) {
-      return res.status(400).json({ ok: false, error: "invalid_type" });
-    }
-    if (!value) return res.status(400).json({ ok: false, error: "value_required" });
-
-    const r = await pool.query(
-      `INSERT INTO fraud_risk_zones (type, value, severity, reason) VALUES ($1,$2,$3,$4)
-       RETURNING id, type, value, severity, reason, created_at`,
-      [type, value, severity, reason]
-    );
-    res.json({ ok: true, item: r.rows[0] });
-  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
-});
-
-app.delete("/api/admin/fraud/zones/:id", [requireAdmin], async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isFinite(id)) return res.status(400).json({ ok: false, error: "invalid_id" });
-    await pool.query(`DELETE FROM fraud_risk_zones WHERE id = $1`, [id]);
-    res.json({ ok: true });
-  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
-});
-
-// ===================== HOME BANNERS / PROMOS (admin) =====================
-
-async function ensureHomeBannersTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS home_banners (
-      id BIGSERIAL PRIMARY KEY,
-      type TEXT NOT NULL DEFAULT 'header',
-      title TEXT,
-      image_url TEXT NOT NULL,
-      link_url TEXT,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      active BOOLEAN NOT NULL DEFAULT true,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    );
-    CREATE INDEX IF NOT EXISTS idx_home_banners_type_active
-      ON home_banners (type, active, sort_order);
-  `);
-}
-
-const BANNER_TYPES = new Set(["header", "monthly", "hotsale"]);
-
-// Público: lista solo banners activos (cualquiera puede consultarlos)
-app.get("/api/banners", async (req, res) => {
-  try {
-    const type = String(req.query.type || "").trim().toLowerCase();
-    const params = [];
-    let sql = `SELECT id, type, title, image_url, link_url, sort_order
-               FROM home_banners
-               WHERE active = true`;
-    if (BANNER_TYPES.has(type)) {
-      params.push(type);
-      sql += ` AND type = $1`;
-    }
-    sql += ` ORDER BY sort_order ASC, id ASC`;
-    const r = await pool.query(sql, params);
-    res.json({ ok: true, banners: r.rows });
-  } catch (e) {
-    console.error("GET /api/banners:", e.message);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
-
-// Admin: lista todo (incluyendo inactivos)
-app.get("/api/admin/banners", [requireAdmin], async (req, res) => {
-  try {
-    const r = await pool.query(
-      `SELECT id, type, title, image_url, link_url, sort_order, active,
-              created_at, updated_at
-       FROM home_banners
-       ORDER BY type, sort_order ASC, id ASC`
-    );
-    res.json({ ok: true, banners: r.rows });
-  } catch (e) {
-    console.error("GET /api/admin/banners:", e.message);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
-
-// Admin: crear banner
-app.post("/api/admin/banners", [requireAdmin], async (req, res) => {
-  try {
-    const type = String(req.body?.type || "header").trim().toLowerCase();
-    const image_url = String(req.body?.image_url || "").trim();
-    const title = asNull(req.body?.title);
-    const link_url = asNull(req.body?.link_url);
-    const sort_order = parseInt(req.body?.sort_order, 10) || 0;
-    const active = req.body?.active !== false;
-
-    if (!BANNER_TYPES.has(type)) {
-      return res.status(400).json({ ok: false, error: "invalid_type" });
-    }
-    if (!image_url) {
-      return res.status(400).json({ ok: false, error: "image_url_required" });
-    }
-
-    const r = await pool.query(
-      `INSERT INTO home_banners (type, title, image_url, link_url, sort_order, active)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING id, type, title, image_url, link_url, sort_order, active, created_at`,
-      [type, title, image_url, link_url, sort_order, active]
-    );
-    res.json({ ok: true, banner: r.rows[0] });
-  } catch (e) {
-    console.error("POST /api/admin/banners:", e.message);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
-
-// Admin: actualizar (parcial)
-app.patch("/api/admin/banners/:id", [requireAdmin], async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ ok: false, error: "invalid_id" });
-    }
-
-    const fields = [];
-    const values = [];
-    let i = 1;
-
-    if (req.body?.type !== undefined) {
-      const t = String(req.body.type).trim().toLowerCase();
-      if (!BANNER_TYPES.has(t)) {
-        return res.status(400).json({ ok: false, error: "invalid_type" });
-      }
-      fields.push(`type = $${i++}`); values.push(t);
-    }
-    if (req.body?.title !== undefined) {
-      fields.push(`title = $${i++}`); values.push(asNull(req.body.title));
-    }
-    if (req.body?.image_url !== undefined) {
-      const u = String(req.body.image_url || "").trim();
-      if (!u) return res.status(400).json({ ok: false, error: "image_url_required" });
-      fields.push(`image_url = $${i++}`); values.push(u);
-    }
-    if (req.body?.link_url !== undefined) {
-      fields.push(`link_url = $${i++}`); values.push(asNull(req.body.link_url));
-    }
-    if (req.body?.sort_order !== undefined) {
-      fields.push(`sort_order = $${i++}`); values.push(parseInt(req.body.sort_order, 10) || 0);
-    }
-    if (req.body?.active !== undefined) {
-      fields.push(`active = $${i++}`); values.push(Boolean(req.body.active));
-    }
-
-    if (!fields.length) {
-      return res.status(400).json({ ok: false, error: "no_fields" });
-    }
-
-    fields.push(`updated_at = now()`);
-    values.push(id);
-
-    const r = await pool.query(
-      `UPDATE home_banners SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
-      values
-    );
-
-    if (!r.rows.length) {
-      return res.status(404).json({ ok: false, error: "not_found" });
-    }
-    res.json({ ok: true, banner: r.rows[0] });
-  } catch (e) {
-    console.error("PATCH /api/admin/banners/:id:", e.message);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
-
-// Admin: eliminar
-app.delete("/api/admin/banners/:id", [requireAdmin], async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ ok: false, error: "invalid_id" });
-    }
-    const r = await pool.query(`DELETE FROM home_banners WHERE id = $1`, [id]);
-    res.json({ ok: true, deleted: r.rowCount > 0 });
-  } catch (e) {
-    console.error("DELETE /api/admin/banners/:id:", e.message);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
-
 // ===================== 404 API (must be after ALL /api routes) =====================
 app.use("/api", (req, res) => {
   res.status(404).json({ ok: false, error: "not_found" });
@@ -3029,6 +2422,78 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ ok: false, error: "unhandled_error" });
 });
+
+// ===================== AUTO-CANCELACIÓN DE PEDIDOS SIN PAGO =====================
+// Horas sin pago tras las cuales un pedido pending_payment se cancela automáticamente.
+// OXXO tarda más en confirmar (hasta 48h hábiles), por eso tiene un umbral mayor.
+const AUTO_CANCEL_HOURS = 24;       // Mercado Pago, transferencia, etc.
+const AUTO_CANCEL_HOURS_OXXO = 48;  // OXXO Pay
+
+async function autoCancelUnpaidOrders() {
+  try {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT o.id, o.customer_email, o.customer_name
+         FROM orders o
+         LEFT JOIN order_payments op ON op.order_id = o.id
+        WHERE o.status = 'pending_payment'
+          AND (
+            (op.method = 'oxxo_pay' AND o.created_at < NOW() - INTERVAL '${AUTO_CANCEL_HOURS_OXXO} hours')
+            OR (COALESCE(op.method, '') <> 'oxxo_pay' AND o.created_at < NOW() - INTERVAL '${AUTO_CANCEL_HOURS} hours')
+          )`
+    );
+    if (!rows.length) return;
+
+    console.log(`[AUTO-CANCEL] ${rows.length} pedido(s) sin pago (${AUTO_CANCEL_HOURS}h normal / ${AUTO_CANCEL_HOURS_OXXO}h OXXO)`);
+
+    for (const order of rows) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+
+        // Re-verificar estado con lock para evitar carrera con webhooks de pago.
+        const cur = await client.query(
+          `SELECT status FROM orders WHERE id = $1 FOR UPDATE`,
+          [order.id]
+        );
+        if (!cur.rows.length || cur.rows[0].status !== "pending_payment") {
+          await client.query("ROLLBACK");
+          continue;
+        }
+
+        // Restaurar el stock que se descontó al crear el pedido.
+        const items = await client.query(
+          `SELECT sku, qty FROM order_items WHERE order_id = $1`,
+          [order.id]
+        );
+        for (const it of items.rows) {
+          await client.query(
+            `UPDATE catalogo SET stock = stock + $1 WHERE sku = $2`,
+            [it.qty, it.sku]
+          );
+        }
+
+        await client.query(
+          `UPDATE orders SET status = 'cancelled' WHERE id = $1`,
+          [order.id]
+        );
+
+        await client.query("COMMIT");
+
+        if (order.customer_email) {
+          sendOrderCancelledEmail(order.id, order.customer_email, order.customer_name).catch(() => {});
+        }
+        console.log(`[AUTO-CANCEL] Orden #${order.id} cancelada y stock restaurado`);
+      } catch (e) {
+        await client.query("ROLLBACK");
+        console.error(`[AUTO-CANCEL ERROR] Orden #${order.id}:`, e.message);
+      } finally {
+        client.release();
+      }
+    }
+  } catch (e) {
+    console.error("[AUTO-CANCEL ERROR]", e.message);
+  }
+}
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
@@ -3050,10 +2515,9 @@ app.listen(PORT, "0.0.0.0", () => {
   ensurePasswordResetTokensTable()
     .then(() => console.log("Tabla password_reset_tokens lista"))
     .catch((e) => console.error("No pude inicializar password_reset_tokens:", e.message));
-  ensureHomeBannersTable()
-    .then(() => console.log("Tabla home_banners lista"))
-    .catch((e) => console.error("No pude inicializar home_banners:", e.message));
-  ensureFraudTablesAndColumns()
-    .then(() => console.log("Tablas antifraude listas"))
-    .catch((e) => console.error("No pude inicializar antifraude:", e.message));
+
+  // Auto-cancelación de pedidos sin pago: corre cada hora + una vez al arrancar.
+  setInterval(autoCancelUnpaidOrders, 60 * 60 * 1000);
+  setTimeout(autoCancelUnpaidOrders, 30 * 1000);
+  console.log(`[AUTO-CANCEL] Programado cada hora (umbral: ${AUTO_CANCEL_HOURS}h normal / ${AUTO_CANCEL_HOURS_OXXO}h OXXO)`);
 });

@@ -70,7 +70,6 @@ import promoHeaderJK from "../assets/promos header/promo-jk-mar-2026.jpg";
 import promoHeaderVinmax from "../assets/promos header/promo-vinmax-mar-2026.jpg";
 import promoHeaderKumho from "../assets/promos header/promo-kumho-mar-2026.jpg";
 import promoHeaderLaufenn from "../assets/promos header/promo-laufenn-mar-2026.jpg";
-import promo4x3 from "../assets/promos header/promo-4x3-mar-2026.jpg";
 
 import AsistenteMK5 from "../components/AsistenteMK5";
 import GoogleMapsReviewsEmbed from "../components/GoogleMapsReviewsEmbed";
@@ -173,7 +172,7 @@ function TopSellerCard({ item }) {
 
   return (
     <Link className="ts-card" to={productPath} state={{ item }}>
-      <div className="ts-card__promo-ribbon">4x3 o 25% de descuento</div>
+      <div className="ts-card__promo-ribbon">30% de descuento</div>
       <div className="ts-card__image-wrapper">
          <img src={item.imagen || llantaPlaceholder} alt={getProductTitle(item)} className="ts-card__image" onError={(e) => { e.target.onerror = null; e.target.src = llantaPlaceholder; }} />
       </div>
@@ -190,9 +189,8 @@ function TopSellerCard({ item }) {
             <div className="ts-price-row">
               <strong className="ts-price-new">{formatMoney(price)}</strong>
               <span className="ts-price-old">{formatMoney(listPrice)}</span>
-              <span className="ts-discount">-25%</span>
+              <span className="ts-discount">-30%</span>
             </div>
-            <small className="ts-price-note">Instalación, Válvula y Balanceo INCLUIDO</small>
          </div>
 
          <div className="ts-card__actions">
@@ -416,8 +414,10 @@ export default function Home() {
   }, []);
 
   const promos = useMemo(() => {
+    // Aún cargando desde la BD: no mostrar nada para evitar el "flash" del fallback viejo (4x3)
+    if (apiBanners === null) return [];
     // Si el admin configuró banners en el panel, usarlos
-    if (apiBanners && apiBanners.length > 0) {
+    if (apiBanners.length > 0) {
       return apiBanners.map((b) => ({
         id: `api-${b.id}`,
         src: b.image_url,
@@ -427,7 +427,6 @@ export default function Home() {
     }
     // Fallback: promos por defecto del código (mismas que antes)
     return [
-      { id: "4x3",     src: promo4x3,           alt: "Promo 4x3 + Envío Gratis", to: "/catalogo" },
       { id: "antares", src: promoHeaderVinmax,  alt: "Promo Antares",  to: "/catalogo/antares" },
       { id: "jk",      src: promoHeaderLaufenn,  alt: "Promo JK Tyre",  to: "/catalogo/tornel" },
       { id: "vinmax",  src: promoHeaderKumho,   alt: "Promo Vinmax",   to: "/catalogo/vinmax" },
@@ -435,6 +434,30 @@ export default function Home() {
       { id: "laufenn", src: promoHeaderAntares, alt: "Promo Laufenn",  to: "/catalogo/laufenn" },
     ];
   }, [apiBanners]);
+
+  // Promos mensuales administrables desde BD (fallback a hardcoded si no hay)
+  const [apiOfertas, setApiOfertas] = useState(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/banners?type=oferta`)
+      .then((r) => r.json())
+      .then((d) => setApiOfertas(d?.ok ? d.banners || [] : []))
+      .catch(() => setApiOfertas([]));
+  }, []);
+
+  const ofertas = useMemo(() => {
+    // Aún cargando: no mostrar nada (evita el flash de las promos viejas)
+    if (apiOfertas === null) return [];
+    if (apiOfertas.length > 0) {
+      return apiOfertas.map((b) => ({
+        id: `api-${b.id}`,
+        name: b.title || "Promoción",
+        img: b.image_url,
+        to: b.link_url || "/catalogo",
+      }));
+    }
+    return PROMOS_MENSUALES;
+  }, [apiOfertas]);
 
   const podiumVisible = useMemo(() => {
     if (!PODIOS_DESTACADOS.length) return [];
@@ -679,7 +702,7 @@ export default function Home() {
             <Link className="ghostLink" to="/catalogo">Ver catálogo →</Link>
           </div>
           <div className="monthly-promos__grid">
-            {PROMOS_MENSUALES.map((promo) => (
+            {ofertas.map((promo) => (
               <Link key={promo.id} to={promo.to} className="monthly-promo-card" aria-label={`Ver promoción ${promo.name}`}>
                 <img src={promo.img} alt={`Promoción ${promo.name}`} loading="lazy" decoding="async" />
               </Link>

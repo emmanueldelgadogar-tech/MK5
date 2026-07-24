@@ -6,7 +6,7 @@ const VALORES = [
   { icon: "🚀", title: "Envío rápido", desc: "Entrega en 48–72 horas en toda la República Mexicana." },
   { icon: "💬", title: "Soporte real", desc: "Atención personalizada por WhatsApp con expertos en llantas." },
   { icon: "💰", title: "Mejor precio", desc: "Precios competitivos y hasta 18 meses sin intereses." },
-  { icon: "🛠️", title: "Instalación incluida", desc: "Instalación y balanceo gratis en nuestra sucursal." },
+  { icon: "📄", title: "Facturación inmediata", desc: "Te facturamos al instante para tu empresa o deducción." },
   { icon: "🔒", title: "Compra segura", desc: "Plataforma segura con múltiples métodos de pago." },
 ];
 

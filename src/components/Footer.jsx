@@ -18,7 +18,7 @@ export default function Footer() {
           <h4>MK5 Llantas</h4>
           <p>
             Tu tienda online de llantas en México. Más de 500 modelos de las mejores marcas
-            con instalación, garantía y envío a domicilio.
+            con garantía y envío a domicilio.
           </p>
           <div className="footer__social">
             <a href={IG} target="_blank" rel="noreferrer" aria-label="Instagram" className="footer__social-link footer__social-link--ig">

@@ -826,7 +826,6 @@ export default function Catalogo() {
               <p>{brandMeta.desc}</p>
 
               <div className="brandHero__chips">
-                <span>Instalación</span>
                 <span>Garantía</span>
                 <span>Atención WhatsApp</span>
               </div>
@@ -883,7 +882,7 @@ export default function Catalogo() {
             const productName = String(it?.modelo || "").trim() || getProductTitle(it);
             return (
               <article className="catalog-card" key={skuKey}>
-              <div className="card-discount-ribbon">4x3 o 25% de descuento</div>
+              <div className="card-discount-ribbon">30% de descuento</div>
               <div className="card-perf-icons">
                   {getCardPerfIcons(it).map((a) => (
                     <img key={a.label} src={a.icon} alt={a.label} title={a.label} />
@@ -952,7 +951,7 @@ export default function Catalogo() {
                     <small>{formatMoney(listPrice)}</small>
                     <span>-{Math.max(Math.round((discountAmount / Math.max(listPrice, 1)) * 100), 0)}%</span>
                   </div>
-                  <p className="card-price-note">Precio final con 25% de descuento aplicado. Promo equivalente a 4x3.</p>
+                  <p className="card-price-note">Precio final con 30% de descuento aplicado.</p>
 
                   <div className="card-qty">
                     <span>Cantidad</span>

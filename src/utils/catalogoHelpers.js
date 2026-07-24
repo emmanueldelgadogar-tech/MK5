@@ -195,7 +195,7 @@ export function addToCart(item, qty = 1) {
 export function estimateListPrice(precio) {
   const value = Number(precio || 0);
   if (!value) return 0;
-  return value / 0.75;
+  return value / 0.70;
 }
 
 export function getProductTitle(item) {

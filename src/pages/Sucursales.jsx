@@ -208,21 +208,6 @@ export default function Sucursales() {
         </div>
       </div>
 
-      {/* Banner instalación gratis */}
-      <div className="static-section" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-        <h2 style={{ borderColor: "#16a34a" }}>🛠️ ¿Compraste en línea? La instalación es gratis</h2>
-        <p>
-          Lleva tus llantas a cualquiera de nuestras sucursales en Toluca para instalación y
-          balanceo <strong>sin costo adicional</strong>. Solo agenda tu cita por WhatsApp.
-        </p>
-        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-          <a href={WA_CITAS} target="_blank" rel="noreferrer"
-            style={{ background: "#16a34a", color: "#fff", borderRadius: 10, padding: "10px 18px", fontWeight: 900, fontSize: 13, textDecoration: "none" }}>
-            💬 Agendar instalación gratis
-          </a>
-        </div>
-      </div>
-
       {/* CTA final */}
       <div className="cta-band">
         <div>
